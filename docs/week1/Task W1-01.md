@@ -650,15 +650,15 @@ git checkout -b feature/W1-02-docker-compose-setup
 
 ### 10.1. Danh Mục Sản Phẩm Bàn Giao (Deliverables)
 
-- [ ] Khung cây thư mục Monorepo hoàn chỉnh (`backend/`, `frontend/`, `deployment/`, `docs/`, `.github/`).
-- [ ] Tệp `.editorconfig` chuẩn hóa UTF-8, LF, Spaces cho toàn bộ dự án.
-- [ ] Tệp `.gitignore` toàn diện bảo vệ tuyệt đối secrets, rác hệ thống và build outputs.
-- [ ] Tệp `package.json` cấp Root tích hợp Husky, lint-staged, Commitlint và Prettier.
-- [ ] Tệp `commitlint.config.js` cấu hình chuẩn Conventional Commits v1.0.0.
-- [ ] Tệp `.lintstagedrc.json` tự động định dạng mã nguồn đa ngôn ngữ.
-- [ ] Các tệp thực thi Hook `.husky/commit-msg` và `.husky/pre-commit` được phân quyền `chmod +x`.
-- [ ] Biên bản phân công WBS 15 Task Tuần 1 và quy chế phân nhánh Git được phổ biến 100% thành viên.
-- [ ] Tài liệu đặc tả kỹ thuật chi tiết `docs/week1/Task W1-01.md`.
+- [x] Khung cây thư mục Monorepo hoàn chỉnh (`backend/`, `frontend/`, `deployment/`, `docs/`, `.github/`).
+- [x] Tệp `.editorconfig` chuẩn hóa UTF-8, LF, Spaces cho toàn bộ dự án.
+- [x] Tệp `.gitignore` toàn diện bảo vệ tuyệt đối secrets, rác hệ thống và build outputs.
+- [x] Tệp `package.json` cấp Root tích hợp Husky, lint-staged, Commitlint và Prettier.
+- [x] Tệp `commitlint.config.js` cấu hình chuẩn Conventional Commits v1.0.0.
+- [x] Tệp `.lintstagedrc.json` tự động định dạng mã nguồn đa ngôn ngữ.
+- [x] Các tệp thực thi Hook `.husky/commit-msg` và `.husky/pre-commit` được phân quyền `chmod +x`.
+- [x] Biên bản phân công WBS 15 Task Tuần 1 và quy chế phân nhánh Git được phổ biến 100% thành viên.
+- [x] Tài liệu đặc tả kỹ thuật chi tiết `docs/week1/Task W1-01.md`.
 
 ### 10.2. Chữ Ký Nghiệm Thu Nhiệm Vụ (Sign-off)
 
