@@ -4,20 +4,25 @@
     "type": "split",
     "children": [
       {
-        "id": "f7c749368fde8f01",
+        "id": "e3d2d08d6ebdacac",
         "type": "tabs",
         "children": [
           {
-            "id": "a002a6ab29c27a1e",
+            "id": "8649295842139895",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "The plans of project/7. Deployment Infrastructure.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "7. Deployment Infrastructure"
             }
           }
-        ]
+        ],
+        "stacked": true
       }
     ],
     "direction": "vertical"
@@ -79,7 +84,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 279.80078125
   },
   "right": {
     "id": "12dc1a2663dffc15",
@@ -95,6 +100,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "The plans of project/0. Introduction.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -162,13 +168,33 @@
               "icon": "lucide-list",
               "title": "Outline"
             }
+          },
+          {
+            "id": "d925021deaf56be8",
+            "type": "leaf",
+            "state": {
+              "type": "antigravity-terminal-view",
+              "state": {},
+              "icon": "bot",
+              "title": "Antigravity CLI"
+            }
+          },
+          {
+            "id": "1aed2f7bc68f6958",
+            "type": "leaf",
+            "state": {
+              "type": "git-view",
+              "state": {},
+              "icon": "git-pull-request",
+              "title": "Source Control"
+            }
           }
-        ]
+        ],
+        "currentTab": 6
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 431.02734375
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -178,11 +204,50 @@
       "daily-notes:Open today's daily note": false,
       "templates:Insert template": false,
       "command-palette:Open command palette": false,
-      "bases:Create new base": false
+      "bases:Create new base": false,
+      "obsidian-git:Open Git source control": false,
+      "antigravity-cli-sidebar:Open Antigravity CLI": false,
+      "obsidian-excalidraw-plugin:New drawing": false
     }
   },
-  "active": "74fdaa6fbd67f8f8",
+  "active": "8649295842139895",
   "lastOpenFiles": [
-    "The plans of project"
+    "Excalidraw/Drawing 2026-10-05 11.53.52.excalidraw.md",
+    "The plans of project/7. Deployment Infrastructure.md",
+    "Excalidraw",
+    "The plans of project/6. Technical Stack.md",
+    "The plans of project/5. System Architecture.md",
+    "The plans of project/5. Architecture.md",
+    "The plans of project/2. API docs.md",
+    "The plans of project/4. SRS.md",
+    "The plans of project/3. BRD.md",
+    "The plans of project/0. Introduction.md",
+    "The plans of project/1. ERD.md",
+    "Untitled.md",
+    "Untitled 1.md",
+    "Untitled.canvas",
+    "copilot/skills/obsidian-cli/SKILL.md",
+    "copilot/skills/obsidian-cli/LICENSE",
+    "copilot/skills/obsidian-cli",
+    "copilot/skills/json-canvas/SKILL.md",
+    "copilot/skills/json-canvas/LICENSE",
+    "copilot/skills/json-canvas/references/EXAMPLES.md",
+    "copilot/skills/json-canvas/references",
+    "copilot/skills/json-canvas",
+    "copilot/skills/obsidian-bases/SKILL.md",
+    "copilot/skills/obsidian-bases/LICENSE",
+    "copilot/skills/obsidian-bases/references/EXAMPLES.md",
+    "copilot/skills/obsidian-bases/references/FUNCTIONS_REFERENCE.md",
+    "copilot/skills/obsidian-bases/references",
+    "copilot/skills/obsidian-bases",
+    "copilot/skills/obsidian-markdown/SKILL.md",
+    "copilot/skills/obsidian-markdown/LICENSE",
+    "copilot/skills/obsidian-markdown/references/PROPERTIES.md",
+    "copilot/skills/obsidian-markdown/references/EMBEDS.md",
+    "copilot/skills/obsidian-markdown/references/CALLOUTS.md",
+    "copilot/skills/openartifacts-publish/SKILL.md",
+    "copilot/skills/openartifacts-publish/themes/research-memo.md",
+    "copilot/skills/copilot-fetch-x/SKILL.md",
+    "copilot/skills/copilot-youtube-transcript/SKILL.md"
   ]
 }
