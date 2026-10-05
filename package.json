@@ -1,0 +1,21 @@
+{
+  "name": "webgis-vietnam-weather-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo Governance Tools for Vietnam Weather WebGIS",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint:root": "prettier --check \"**/*.{json,yml,yaml,md}\"",
+    "format:root": "prettier --write \"**/*.{json,yml,yaml,md}\"",
+    "backend:format": "cd backend && ./gradlew spotlessApply",
+    "frontend:lint": "cd frontend && npm run lint",
+    "frontend:format": "cd frontend && npx prettier --write \"src/**/*.{ts,tsx,css}\""
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.3.0",
+    "@commitlint/config-conventional": "^19.2.2",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7",
+    "prettier": "^3.3.2"
+  }
+}

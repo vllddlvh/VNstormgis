@@ -1,0 +1,44 @@
+# http://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# ==============================================================================
+# QUY CHUẨN SOẠN THẢO MÃ NGUỒN JAVA (BACKEND)
+# ==============================================================================
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# ==============================================================================
+# QUY CHUẨN SOẠN THẢO MÃ NGUỒN TYPESCRIPT / JAVASCRIPT / REACT (FRONTEND)
+# ==============================================================================
+[*.{js,jsx,ts,tsx}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# ==============================================================================
+# QUY CHUẨN FILE CẤU HÌNH & TÀI LIỆU (JSON, YAML, MARKDOWN)
+# ==============================================================================
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# ==============================================================================
+# QUY CHUẨN FILE SQL & MIGRATION FLYWAY
+# ==============================================================================
+[*.sql]
+indent_style = space
+indent_size = 2

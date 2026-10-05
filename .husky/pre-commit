@@ -1,0 +1,2 @@
+echo "⚡ Đang kích hoạt Pre-commit Hook: Kiểm tra và chuẩn hóa mã nguồn tự động..."
+npx lint-staged
