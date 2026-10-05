@@ -1,0 +1,112 @@
+# ==============================================================================
+# 1. HỆ ĐIỀU HÀNH & HỆ THỐNG TỆP CỤC BỘ (OS & FILESYSTEM JUNK)
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==============================================================================
+# 2. MÔI TRƯỜNG PHÁT TRIỂN TÍCH HỢP (IDE & EDITORS)
+# ==============================================================================
+# JetBrains IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Eclipse / NetBeans
+.project
+.classpath
+.settings/
+.nb-gradle/
+
+# Obsidian Local Caches
+/.obsidian/
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache/
+**/.obsidian/workspace.json
+**/.obsidian/workspace-mobile.json
+**/.obsidian/cache/
+
+# ==============================================================================
+# 3. BẢO MẬT & THÔNG TIN NHẠY CẢM (SECRETS, CREDENTIALS & ENV)
+# TUYỆT ĐỐI KHÔNG COMMIT CÁC TỆP DƯỚI ĐÂY
+# ==============================================================================
+*.env
+*.env.local
+*.env.*.local
+!*.env.example
+deployment/env/.env.local
+deployment/env/.env.prod
+
+# Private Keys & Certificates
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.jks
+
+# ==============================================================================
+# 4. BACKEND (JAVA, GRADLE, SPRING BOOT ARTIFACTS)
+# ==============================================================================
+backend/.gradle/
+backend/build/
+backend/out/
+backend/bin/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# Gradle Wrapper: Giữ lại wrapper jar và properties
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!backend/gradle/wrapper/gradle-wrapper.jar
+!backend/gradle/wrapper/gradle-wrapper.properties
+
+# Log Files
+*.log
+backend/logs/
+
+# ==============================================================================
+# 5. FRONTEND (NODE, TYPESCRIPT, VITE, BUILD OUTPUTS)
+# ==============================================================================
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/coverage/
+
+# NPM / Yarn / PNPM debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# ==============================================================================
+# 6. DOCKER & THỂ TÍCH DỮ LIỆU CSDL (VOLUMES & LOCAL DATA)
+# ==============================================================================
+deployment/postgis_data/
+deployment/redis_data/
+postgis_data/
+redis_data/
+*.rdb
+*.aof

@@ -1,0 +1,9 @@
+node_modules
+package-lock.json
+.obsidian
+docs/.obsidian
+.husky
+build
+dist
+.gradle
+.git

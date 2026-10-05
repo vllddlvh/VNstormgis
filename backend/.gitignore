@@ -1,0 +1,13 @@
+.gradle/
+build/
+out/
+bin/
+.classpath
+.project
+.settings/
+logs/
+*.log
+
+# Keep Gradle wrapper jar and properties
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
