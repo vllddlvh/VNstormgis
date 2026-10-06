@@ -280,7 +280,7 @@ Tuân thủ cú pháp Husky / Commitlint:
 
 - [x] **W1-01:** Khởi tạo Monorepo, cấu hình `.editorconfig`, `.gitignore`, Husky pre-commit, Commitlint, Prettier.
 - [x] **W1-02:** Thiết lập Docker Compose Local Dev Stack (`deployment/docker-compose.yml`, PostGIS 16 + Redis 7.2).
-- [ ] **W1-03:** Khởi động & Kiểm định Docker Local Stack trên máy phát triển.
+- [x] **W1-03:** Khởi động & Kiểm định Docker Local Stack trên máy phát triển.
 - [ ] **W1-04:** Flyway V1: Khởi tạo phần mở rộng PostGIS & UUID (`V1__init_spatial_extensions.sql`).
 - [ ] **W1-05:** Flyway V2: DDL bảng `locations` & Chỉ mục không gian GiST (`V2__create_location_tables.sql`).
 - [ ] **W1-06:** Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84 (`V3__seed_vietnam_locations.sql`).
