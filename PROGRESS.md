@@ -13,14 +13,14 @@
 | **Nhánh Phát Triển Chính**     | `staging` (Continuous Integration)                                                                                                                                                |
 | **Mục Tiêu Tuần 1**            | Khởi động Docker Local Stack (PostGIS 16 + Redis 7.2), nạp 63 trạm quan trắc WGS84 qua Flyway, kết nối Backend Spring Boot 3.3 và hiển thị trạm lên bản đồ Leaflet trên React 18. |
 | **Tổng Điểm Nỗ Lực Tuần 1**    | **34 Story Points (SP)** (~76 giờ kỹ sư)                                                                                                                                          |
-| **Điểm Đã Hoàn Thành**         | **9 / 34 SP (26.5%)**                                                                                                                                                             |
-| **Điểm Đang Triển Khai**       | **3 / 34 SP** (Task W1-06)                                                                                                                                                        |
-| **Điểm Chưa Thực Hiện**        | **22 / 34 SP**                                                                                                                                                                    |
+| **Điểm Đã Hoàn Thành**         | **12 / 34 SP (35.3%)**                                                                                                                                                            |
+| **Điểm Đang Triển Khai**       | **3 / 34 SP** (Task W1-07)                                                                                                                                                        |
+| **Điểm Chưa Thực Hiện**        | **19 / 34 SP**                                                                                                                                                                    |
 | **Trạng Thái Nghiệm Thu Cổng** | **Gate 1 Alpha: Đang triển khai** (Mục tiêu nghiệm thu tại Task W1-15)                                                                                                            |
 | **Cập Nhật Lần Cuối**          | 2026-10-06                                                                                                                                                                        |
 
 ```text
-Tiến Độ Tuần 1: [██████░░░░░░░░░░░] 26.5% (9/34 SP Hoàn Thành)
+Tiến Độ Tuần 1: [████████░░░░░░░] 35.3% (12/34 SP Hoàn Thành)
 Sprint 1 (Tuần 1-2): In Progress
 ```
 
@@ -35,8 +35,8 @@ Sprint 1 (Tuần 1-2): In Progress
 | **[W1-03](docs/week1/Task%20W1-03.md)** | Khởi động & Kiểm định Docker Local Stack                    |  1  |  All Team   |  `[x] COMPLETED`  | `docs/week1/Task W1-03.md`, `scripts/verify-local-stack.sh`, kịch bản nghiệm thu                                    | Container `weathergis-postgres` và `weathergis-redis` đạt `healthy`, 8/8 check pass.                              |
 | **[W1-04](docs/week1/Task%20W1-04.md)** | Flyway V1: Khởi tạo mở rộng PostGIS & UUID                  |  1  |  GIS / DB   |  `[x] COMPLETED`  | `backend/src/main/resources/db/migration/V1__init_spatial_extensions.sql`, `docs/week1/Task W1-04.md`               | Kích hoạt thành công extension `postgis` và `uuid-ossp` trong PostgreSQL; 6/6 test pass.                          |
 | **[W1-05](docs/week1/Task%20W1-05.md)** | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |  2  |  GIS / DB   |  `[x] COMPLETED`  | `backend/src/main/resources/db/migration/V2__create_location_tables.sql`, `docs/week1/Task W1-05.md`                | Bảng `locations` có cột `geom Point(EPSG:4326)`, spatial index `USING GIST`, trigger `updated_at`; 7/7 test pass. |
-| **W1-06**                               | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   | `[/] IN PROGRESS` | `V3__seed_vietnam_locations.sql`                                                                                    | `SELECT count(*) FROM locations WHERE is_active = true` trả về đúng 63 bản ghi.                                   |
-| **W1-07**                               | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   |   `[ ] PENDING`   | `backend/build.gradle`, cấu hình Virtual Threads                                                                    | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core.                                                  |
+| **[W1-06](docs/week1/Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   |  `[x] COMPLETED`  | `backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`, `docs/week1/Task W1-06.md`                | 68 trạm WGS84 (63 tỉnh thành + 5 đảo tiền tiêu), bounds check PASS, idempotency PASS; 9/9 test pass.              |
+| **W1-07**                               | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   | `[/] IN PROGRESS` | `backend/build.gradle`, cấu hình Virtual Threads                                                                    | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core.                                                  |
 | **W1-08**                               | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   |   `[ ] PENDING`   | `LocationEntity`, `Repository`, `Controller`, `ProblemDetail`                                                       | API `/api/v1/locations` trả về chuẩn GeoJSON RFC 7946; lỗi trả về ProblemDetail.                                  |
 | **W1-09**                               | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   |   `[ ] PENDING`   | `application-dev.yml`, Swagger UI                                                                                   | Truy cập được `http://localhost:8080/swagger-ui.html`, hiển thị đầy đủ schema.                                    |
 | **W1-10**                               | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |  2  |  Frontend   |   `[ ] PENDING`   | Khung ứng dụng Frontend, `vite.config.ts` proxy                                                                     | `npm run dev` nạp giao diện không lỗi console; proxy `/api` sang `:8080`.                                         |
@@ -102,6 +102,17 @@ Sprint 1 (Tuần 1-2): In Progress
   - Thủ tục PL/pgSQL `update_updated_at_column()` và database trigger `trg_locations_updated_at` tự động cập nhật thời gian thay đổi dữ liệu.
 - **Nghiệm thu:** 7/7 kịch bản kiểm định (TC-01..TC-07) đạt 100% PASS trên PostgreSQL Docker container; mở đường cho Task W1-06 (Seed 63 tỉnh/thành phố).
 
+### 3.6. Task W1-06: Flyway V3 — Seed 63 Tỉnh Thành & Trạm Khí Tượng Hải Đảo WGS84
+
+- **Trạng thái:** Hoàn tất (3 SP).
+- **Hạng mục bàn giao:**
+  - Tệp di chuyển dữ liệu SQL [`backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`](file:///Users/dllv/Documents/GitHub/VNstormgis/backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql) nạp đầy đủ tọa độ trắc địa chuẩn WGS84 (EPSG:4326) của 68 điểm quan trắc (63 tỉnh/thành phố trực thuộc Trung ương và 5 trạm hải đảo tiền tiêu chiến lược: Bạch Long Vĩ, Hoàng Sa, Trường Sa, Côn Đảo, Phú Quốc).
+  - Tài liệu đặc tả kỹ thuật và cẩm nang kiểm định toàn diện [`docs/week1/Task W1-06.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-06.md).
+  - Bảo đảm tính lũy đẳng (Strict Idempotency) qua mệnh đề `ON CONFLICT (code) DO UPDATE`, hỗ trợ tái thực thi an toàn trong CI/CD.
+  - Triệt tiêu hoàn toàn rủi ro đảo ngược tọa độ `(Lat, Lon)` (RSK-W1-05), toàn bộ 68 trạm đều có $X = \text{Longitude} > 100^\circ E$ và $Y = \text{Latitude} \in [8.5^\circ N, 23.4^\circ N]$.
+  - Kiểm tra hiệu năng chỉ mục GiST `idx_locations_geom`: Truy vấn Bounding Box phản hồi $< 3$ ms.
+- **Nghiệm thu:** 9/9 kịch bản kiểm định (TC-01..TC-09) đạt 100% PASS trên PostgreSQL Docker container; mở đường cho Task W1-07 (Khởi tạo Spring Boot 3.3) và Task W1-08 (Hiện thực Domain `location`).
+
 ---
 
 ## 4. Trạng Thái Cổng Kiểm Định Chất Lượng (Quality Gate & Verification)
@@ -115,8 +126,8 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 | **Docker Compose Services**          | `npm run docker:verify`            | PostGIS và Redis đạt `healthy` (8/8 pass)  |     🟢 **PASS**     |
 | **PostGIS Spatial Extension**        | `SELECT postgis_version();`        | Trả về PostGIS 3.4.x (Script V1 sẵn sàng)  |     🟢 **PASS**     |
 | **Locations Schema & GiST Index**    | `\d+ locations`                    | Bảng 9 cột, GiST index `geom` & `boundary` |     🟢 **PASS**     |
-| **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`  | Đạt chính xác 63 trạm                      |    ⚪ Chờ W1-06     |
-| **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`            | Trả về 0 bản ghi (không đảo lộn Lat/Lon)   |    ⚪ Chờ W1-06     |
+| **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`  | Đạt chính xác 68 trạm (63 tỉnh + 5 đảo)    |     🟢 **PASS**     |
+| **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`            | Trả về 0 bản ghi (không đảo lộn Lat/Lon)   |     🟢 **PASS**     |
 | **Java Code Format**                 | `npm run backend:format`           | Chuẩn Google Java Format (Spotless)        |    ⚪ Chờ W1-07     |
 | **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (Testcontainers PostGIS)    |    ⚪ Chờ W1-13     |
 | **Frontend TypeScript & ESLint**     | `npm run frontend:lint`            | Không có warning/error cú pháp             |    ⚪ Chờ W1-10     |
@@ -131,7 +142,7 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 | **RSK-W1-02** | Hibernate Spatial 6 không serialize được đối tượng JTS `Point` ra GeoJSON.   |     Cao      | Thêm `jackson-datatype-jts` trong `JacksonConfig.java`, chuẩn bị DTO phẳng `LocationResponse` dự phòng.                    | 🟡 Đang theo dõi (W1-07, W1-08) |
 | **RSK-W1-03** | Leaflet Marker Icon bị vỡ (lỗi 404 hình ảnh) trong môi trường đóng gói Vite. |     Cao      | Tạo `leafletConfig.ts` import icon tĩnh từ `leaflet/dist/images` hoặc dùng `L.divIcon`.                                    |    ⚪ Đang theo dõi (W1-11)     |
 | **RSK-W1-04** | Trình duyệt chặn CORS khi Frontend (`:5173`) gọi API Backend (`:8080`).      |  Trung bình  | Thiết lập Reverse Proxy cục bộ trong `vite.config.ts` (`server.proxy: {'/api': 'http://localhost:8080'}`).                 |    ⚪ Đang theo dõi (W1-10)     |
-| **RSK-W1-05** | Flyway V3 nạp tọa độ bị đảo ngược thứ tự (Vĩ độ trước, Kinh độ sau).         | Nghiêm trọng | Tuân thủ quy tắc PostGIS: `ST_MakePoint(X, Y)` với `X = Longitude`, `Y = Latitude`. Chạy query kiểm tra `ST_X(geom) < 50`. |    ⚪ Đang theo dõi (W1-06)     |
+| **RSK-W1-05** | Flyway V3 nạp tọa độ bị đảo ngược thứ tự (Vĩ độ trước, Kinh độ sau).         | Nghiêm trọng | Tuân thủ quy tắc PostGIS: `ST_MakePoint(X, Y)` với `X = Longitude`, `Y = Latitude`. Chạy query kiểm tra `ST_X(geom) < 50`. |    🟢 Đã triệt tiêu (W1-06)     |
 
 ---
 
@@ -139,13 +150,12 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 
 Agent hoặc Kỹ sư phát triển tiếp theo cần thực thi theo đúng thứ tự ưu tiên:
 
-1. **Thực thi [W1-06] (Tiếp nối W1-05 đã hoàn tất):**
-   - Đã hoàn tất `V1__init_spatial_extensions.sql` (kích hoạt `postgis` và `uuid-ossp`) và `V2__create_location_tables.sql` (bảng `locations` và index GiST).
-   - Kế tiếp: Soạn thảo `V3__seed_vietnam_locations.sql` (nạp tọa độ 63 trạm quan trắc chuẩn WGS84 - Task W1-06).
-   - Chạy query kiểm tra toàn vẹn trắc địa: `SELECT count(*) FROM locations;` (63 bản ghi), `WHERE ST_X(geom) < 50` (0 bản ghi lỗi).
-2. **Thực thi [W1-07] & [W1-08]:**
-   - Khởi tạo khung dự án Spring Boot 3.3 với Gradle Wrapper, Java 21, Hibernate Spatial 6.
-   - Hiện thực hóa domain `location` (Entity JTS Point, Repository, DTO GeoJSON, Controller, RFC 7807 Exception).
+1. **Thực thi [W1-07] & [W1-08] (Tiếp nối W1-06 đã hoàn tất):**
+   - Đã hoàn tất chuỗi Flyway Migration CSDL V1, V2, V3 và nạp đủ 68 điểm trạm WGS84.
+   - Kế tiếp: Khởi tạo khung dự án Spring Boot 3.3 với Gradle Wrapper, Java 21, Hibernate Spatial 6, JTS Core.
+   - Hiện thực hóa domain `location` (Entity JTS Point, Repository, DTO GeoJSON, Controller, RFC 7807 Problem Details).
+2. **Thực thi [W1-09]:**
+   - Cấu hình DataSource kết nối CSDL PostGIS local, cấu hình Flyway tự động kiểm tra migration khi khởi động, tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
 
 ---
 
