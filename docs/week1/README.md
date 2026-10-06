@@ -252,7 +252,7 @@ flowchart TD
 
 #### Chi tiết các tác vụ thực hiện:
 
-- **Task W1-04 (GIS / Database Specialist):**
+- **[Task W1-04: Khởi tạo phần mở rộng PostGIS & UUID](Task%20W1-04.md) (GIS / Database Specialist):**
   - Soạn thảo migration script `backend/src/main/resources/db/migration/V1__init_spatial_extensions.sql`:
     ```sql
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -441,7 +441,7 @@ flowchart TD
 | **[W1-01](Task%20W1-01.md)** | Tổ chức Monorepo, Git Workflow & Pre-commit Hooks           |      Tech Lead      | DevOps, BE, FE |   Tech Lead   |   **2**   |      4h      | Git repo, Quy chuẩn coding                                                                                                                     | Cấu trúc thư mục Monorepo, hooks, `.gitignore`          |
 | **[W1-02](Task%20W1-02.md)** | Xây dựng `deployment/docker-compose.yml` (PostGIS + Redis)  |       DevOps        |    GIS, BE     |   Tech Lead   |   **3**   |      6h      | [7. Deployment Sec 8](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/7.%20Deployment%20Infrastructure.md#L502) | `docker-compose.yml`, `.env.example`, healthchecks      |
 | **[W1-03](Task%20W1-03.md)** | Khởi động & Kiểm định Docker Local Stack                    |      All Team       |     DevOps     |   Tech Lead   |   **1**   |      2h      | W1-02 output                                                                                                                                   | Môi trường PostGIS & Redis healthy trên máy dev         |
-| **W1-04**                    | Flyway V1: Khởi tạo phần mở rộng PostGIS & UUID             |      GIS / DB       |       BE       |   Tech Lead   |   **1**   |      2h      | [1. ERD Sec 5](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md#L351)                                | `V1__init_spatial_extensions.sql`                       |
+| **[W1-04](Task%20W1-04.md)** | Flyway V1: Khởi tạo phần mở rộng PostGIS & UUID             |      GIS / DB       |       BE       |   Tech Lead   |   **1**   |      2h      | [1. ERD Sec 5](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md#L351)                                | `V1__init_spatial_extensions.sql`                       |
 | **W1-05**                    | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |      GIS / DB       |       BE       |   Tech Lead   |   **2**   |      4h      | [1. ERD Sec 2.1](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md#L142)                              | `V2__create_location_tables.sql` kèm index GiST         |
 | **W1-06**                    | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |      GIS / DB       |       BE       |   Tech Lead   |   **3**   |      8h      | Tọa độ địa lý Việt Nam                                                                                                                         | `V3__seed_vietnam_locations.sql` đầy đủ 63 điểm         |
 | **W1-07**                    | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |     Backend Eng     |   Tech Lead    |   Tech Lead   |   **3**   |      6h      | [6. Tech Stack Sec 3](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | `backend/build.gradle`, cấu hình Virtual Threads        |
