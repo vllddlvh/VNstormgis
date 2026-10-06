@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  # =======================================================
+  # 1. SPATIAL DATABASE: PostgreSQL 16 + PostGIS 3.4
+  # =======================================================
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: weathergis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-weather_gis_db}
+      POSTGRES_USER: ${DB_USERNAME:-gis_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gis_password_secret}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    networks:
+      - weathergis-internal-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME:-gis_user} -d ${DB_NAME:-weather_gis_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # =======================================================
+  # 2. DISTRIBUTED CACHE: Redis 7.2
+  # =======================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: weathergis-redis
+    restart: unless-stopped
+    command: >
+      redis-server 
+      --maxmemory 128mb 
+      --maxmemory-policy allkeys-lru 
+      --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - weathergis-internal-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  postgis_data:
+    name: weathergis_postgis_data
+    driver: local
+  redis_data:
+    name: weathergis_redis_data
+    driver: local
+
+networks:
+  weathergis-internal-net:
+    name: weathergis-internal-net
+    driver: bridge

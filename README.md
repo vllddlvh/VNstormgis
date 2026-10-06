@@ -35,6 +35,8 @@ VNstormgis/
 ├── .lintstagedrc.json         # Cấu hình tự động format mã nguồn
 ├── commitlint.config.js       # Quy chuẩn Conventional Commits v1.0.0
 ├── package.json               # Công cụ quản trị Monorepo cấp Root
+├── AGENT.md                   # Cẩm nang vận hành và kim chỉ nam kỹ thuật cho AI Agent
+├── PROGRESS.md                # Bảng theo dõi tiến độ thực thi & trạng thái kiểm định
 └── README.md                  # Hướng dẫn Onboarding nhà phát triển
 ```
 
@@ -116,13 +118,23 @@ Hệ thống sử dụng **Husky + Commitlint** để tự động kiểm tra đ
 
 ---
 
-## 6. Tài Liệu Dự Án (Documentation Reference)
+## 6. Quản Trị Dự Án & Cẩm Nang Thực Thi (Governance & Engineering Harness)
+
+Dự án áp dụng chặt chẽ mô hình **Harness Engineering** để phân tách rõ ràng giữa hướng dẫn phát triển, cẩm nang vận hành cho AI Agent và bảng theo dõi tiến độ:
+
+- 📋 **[PROGRESS.md](file:///Users/dllv/Documents/GitHub/VNstormgis/PROGRESS.md)**: Nguồn chân lý duy nhất (Single Source of Truth) theo dõi toàn bộ tiến độ thực thi, ma trận 15 nhiệm vụ Tuần 1, vận tốc Sprint, trạng thái các cổng kiểm định chất lượng (Quality Gates) và nhật ký bàn giao nhiệm vụ.
+- 🤖 **[AGENT.md](file:///Users/dllv/Documents/GitHub/VNstormgis/AGENT.md)**: Cẩm nang vận hành thực thi, mô hình tư duy kiến trúc (Modular Monolith), các rào chắn kỹ thuật bất biến (Spatial Coordinates WGS84, Grounded AI anti-hallucination) và bảng lệnh chuẩn dành cho AI Agent.
+
+---
+
+## 7. Tài Liệu Dự Án (Documentation Reference)
 
 - [Kế hoạch chi tiết Tuần 1](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/README.md)
-- [Kiến trúc hệ thống](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/5.%20System%20Architecture.md)
+- [Kiến trúc hệ thống (System Architecture)](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/5.%20System%20Architecture.md)
 - [Đặc tả RESTful API](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/2.%20API%20docs.md)
 - [Thiết kế CSDL không gian ERD](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md)
 - [Hạ tầng triển khai & CI/CD](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/7.%20Deployment%20Infrastructure.md)
+- [Lộ trình tổng thể Master Timeline](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/8.%20Master%20Timeline.md)
 
 ---
 
