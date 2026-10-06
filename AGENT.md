@@ -283,8 +283,8 @@ Tuân thủ cú pháp Husky / Commitlint:
 - [x] **W1-02:** Thiết lập Docker Compose Local Dev Stack (`deployment/docker-compose.yml`, PostGIS 16 + Redis 7.2).
 - [x] **W1-03:** Khởi động & Kiểm định Docker Local Stack trên máy phát triển.
 - [x] **W1-04:** Flyway V1: Khởi tạo phần mở rộng PostGIS & UUID (`V1__init_spatial_extensions.sql`).
-- [ ] **W1-05:** Flyway V2: DDL bảng `locations` & Chỉ mục không gian GiST (`V2__create_location_tables.sql`).
-- [ ] **W1-06:** Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84 (`V3__seed_vietnam_locations.sql`).
+- [x] **W1-05:** Flyway V2: DDL bảng `locations` & Chỉ mục không gian GiST (`V2__create_location_tables.sql`).
+- [/] **W1-06:** Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84 (`V3__seed_vietnam_locations.sql`).
 - [ ] **W1-07:** Khởi tạo Spring Boot 3.3 Gradle, Java 21 LTS, Hibernate Spatial 6, Virtual Threads.
 - [ ] **W1-08:** Hiện thực Domain `location` & Khung xử lý lỗi toàn cục RFC 7807 Problem Details.
 - [ ] **W1-09:** Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
