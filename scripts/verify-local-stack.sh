@@ -177,13 +177,22 @@ check_postgis_deep() {
         return 1
     fi
 
-    # 5.2 Kiểm định phép tính trắc địa không gian (Hà Nội -> TP.HCM)
+    # 5.2 Kiểm định quyền hạn DDL của user gis_user
+    if docker exec weathergis-postgres psql -U gis_user -d weather_gis_db -c \
+        "CREATE TEMPORARY TABLE _tmp_perm (id INT); INSERT INTO _tmp_perm VALUES (1); DROP TABLE _tmp_perm;" > /dev/null 2>&1; then
+        step_pass "Quyền hạn tài khoản 'gis_user' trên CSDL 'weather_gis_db' đạt chuẩn (DDL/DML)."
+    else
+        step_fail "Tài khoản 'gis_user' thiếu quyền thực thi DDL/DML trên 'weather_gis_db'."
+        return 1
+    fi
+
+    # 5.3 Kiểm định phép tính trắc địa không gian (Hà Nội -> TP.HCM)
     local dist_result
     dist_result=$(docker exec weathergis-postgres psql -U gis_user -d weather_gis_db -t -A -c \
         "SELECT ROUND(ST_DistanceSphere(ST_MakePoint(105.837, 21.036), ST_MakePoint(106.706, 10.768)) / 1000);" 2>/dev/null || echo "ERROR")
 
     if [ "${dist_result}" != "ERROR" ] && [ -n "${dist_result}" ]; then
-        step_pass "Phép tính trắc địa EPSG:4326 chuẩn xác: Khoảng cách Hà Nội <-> TP.HCM = ${dist_result} km (Kỳ vọng ~1140 km)."
+        step_pass "Phép tính trắc địa EPSG:4326 chuẩn xác: Khoảng cách Hà Nội <-> TP.HCM = ${dist_result} km (Kỳ vọng ~1146 km)."
     else
         step_fail "Lỗi tính toán hình học không gian ST_DistanceSphere trong PostGIS."
         return 1
@@ -207,7 +216,17 @@ check_redis_deep() {
         return 1
     fi
 
-    # 6.2 Kiểm tra cấu hình maxmemory-policy (allkeys-lru)
+    # 6.2 Kiểm tra cấu hình trần bộ nhớ (128mb = 134217728 bytes)
+    local mem_bytes
+    mem_bytes=$(docker exec weathergis-redis redis-cli CONFIG GET maxmemory 2>/dev/null | tail -n 1 || echo "ERROR")
+    if [ "${mem_bytes}" = "134217728" ]; then
+        step_pass "Cấu hình trần bộ nhớ đúng chuẩn: maxmemory = 128MB (${mem_bytes} bytes)."
+    else
+        step_fail "Cấu hình maxmemory không khớp (Kỳ vọng: 134217728, Thực tế: ${mem_bytes})."
+        return 1
+    fi
+
+    # 6.3 Kiểm tra cấu hình maxmemory-policy (allkeys-lru)
     local policy
     policy=$(docker exec weathergis-redis redis-cli CONFIG GET maxmemory-policy 2>/dev/null | tail -n 1 || echo "ERROR")
     if [ "${policy}" = "allkeys-lru" ]; then
@@ -217,7 +236,7 @@ check_redis_deep() {
         return 1
     fi
 
-    # 6.3 Kiểm tra cơ chế ghi bền vững appendonly (yes)
+    # 6.4 Kiểm tra cơ chế ghi bền vững appendonly (yes)
     local aof
     aof=$(docker exec weathergis-redis redis-cli CONFIG GET appendonly 2>/dev/null | tail -n 1 || echo "ERROR")
     if [ "${aof}" = "yes" ]; then
@@ -227,7 +246,7 @@ check_redis_deep() {
         return 1
     fi
 
-    # 6.4 Thao tác ghi/đọc khóa có thời hạn TTL
+    # 6.5 Thao tác ghi/đọc khóa có thời hạn TTL
     docker exec weathergis-redis redis-cli SET test:probe "pass" EX 60 > /dev/null 2>&1
     local test_val
     test_val=$(docker exec weathergis-redis redis-cli GET test:probe 2>/dev/null || echo "ERROR")
@@ -236,6 +255,18 @@ check_redis_deep() {
         step_pass "Kiểm thử đọc/ghi khóa nghiệp vụ và TTL thành công."
     else
         step_fail "Thao tác đọc/ghi khóa trên Redis thất bại."
+        return 1
+    fi
+
+    # 6.6 Kiểm thử cấu trúc dữ liệu không gian Geospatial trên Redis (GEOADD & GEODIST)
+    local redis_geo_dist
+    docker exec weathergis-redis redis-cli GEOADD vn:stations:geo 105.837 21.036 "HANOI" 106.706 10.768 "TPHCM" > /dev/null 2>&1
+    redis_geo_dist=$(docker exec weathergis-redis redis-cli GEODIST vn:stations:geo "HANOI" "TPHCM" km 2>/dev/null | cut -d. -f1 || echo "ERROR")
+    docker exec weathergis-redis redis-cli DEL vn:stations:geo > /dev/null 2>&1
+    if [ "${redis_geo_dist}" = "1145" ] || [ "${redis_geo_dist}" = "1146" ]; then
+        step_pass "Cấu trúc dữ liệu không gian Redis Geospatial (GEOADD/GEODIST) hoạt động chuẩn xác: ${redis_geo_dist} km."
+    else
+        step_fail "Kiểm thử Redis Geospatial thất bại (Thực tế: ${redis_geo_dist})."
         return 1
     fi
 

@@ -193,13 +193,14 @@ Dưới đây là các lệnh thao tác chuẩn mà Agent hoặc Developer cần
 
 ### 4.2. Lệnh Quản Trị Hạ Tầng (Docker Compose)
 
-| Lệnh Thực Thi                                                | Mục Đích                                          |
-| :----------------------------------------------------------- | :------------------------------------------------ |
-| `docker compose -f deployment/docker-compose.yml up -d`      | Khởi động PostGIS 16 và Redis 7.2 ngầm            |
-| `docker compose -f deployment/docker-compose.yml ps`         | Kiểm tra trạng thái healthcheck của các container |
-| `docker compose -f deployment/docker-compose.yml logs -f db` | Xem trực tiếp log khởi động PostGIS               |
-| `docker compose -f deployment/docker-compose.yml down`       | Dừng các container (vẫn giữ dữ liệu trong volume) |
-| `docker compose -f deployment/docker-compose.yml down -v`    | Xóa sạch container kèm toàn bộ volume dữ liệu     |
+| Lệnh Thực Thi                                                | Mục Đích                                                                      |
+| :----------------------------------------------------------- | :---------------------------------------------------------------------------- |
+| `docker compose -f deployment/docker-compose.yml up -d`      | Khởi động PostGIS 16 và Redis 7.2 ngầm                                        |
+| `docker compose -f deployment/docker-compose.yml ps`         | Kiểm tra trạng thái healthcheck của các container                             |
+| `npm run docker:verify`                                      | Chạy kiểm định tự động toàn diện Docker Local Stack (`verify-local-stack.sh`) |
+| `docker compose -f deployment/docker-compose.yml logs -f db` | Xem trực tiếp log khởi động PostGIS                                           |
+| `docker compose -f deployment/docker-compose.yml down`       | Dừng các container (vẫn giữ dữ liệu trong volume)                             |
+| `docker compose -f deployment/docker-compose.yml down -v`    | Xóa sạch container kèm toàn bộ volume dữ liệu                                 |
 
 ### 4.3. Lệnh Phát Triển Backend (Spring Boot / Gradle)
 

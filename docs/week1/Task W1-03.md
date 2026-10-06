@@ -445,7 +445,8 @@ SELECT
     ROUND((ST_DistanceSphere(hanoi.geom, hcm.geom) / 1000)::numeric, 2) AS distance_km,
     ST_AsText(hanoi.geom) AS hanoi_point,
     ST_AsText(hcm.geom) AS hcm_point,
-    ST_DWithin(hanoi.geom::geography, hcm.geom::geography, 1200000) AS is_within_1200km;
+    ST_DWithin(hanoi.geom::geography, hcm.geom::geography, 1200000) AS is_within_1200km
+FROM hanoi, hcm;
 EOF
 ```
 
@@ -454,11 +455,11 @@ EOF
 ```text
  distance_km |        hanoi_point         |         hcm_point          | is_within_1200km
 -------------+----------------------------+----------------------------+------------------
-     1140.42 | POINT(105.837 21.036)      | POINT(106.706 10.768)      | t
+     1145.51 | POINT(105.837 21.036)      | POINT(106.706 10.768)      | t
 (1 row)
 ```
 
-- `distance_km`: Xấp xỉ **1140.42 km** (khoảng cách đường chim bay trắc địa thực tế giữa Hà Nội và TP.HCM).
+- `distance_km`: Xấp xỉ **1145.51 km** (khoảng cách đường chim bay trắc địa thực tế giữa Hà Nội và TP.HCM).
 - `is_within_1200km`: Trả về `t` (true), xác nhận hàm trắc địa địa lý `ST_DWithin` trên kiểu dữ liệu `geography` vận hành chính xác 100%.
 
 ---

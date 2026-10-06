@@ -88,17 +88,17 @@ Sprint 1 (Tuần 1-2): In Progress
 
 Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua các chốt kiểm định tự động:
 
-| Tiêu Chuẩn Kiểm Định (Check)         | Lệnh Thực Thi / Cơ Chế               | Kỳ Vọng                                   | Trạng Thái Hiện Tại |
-| :----------------------------------- | :----------------------------------- | :---------------------------------------- | :-----------------: |
-| **Root Linter & Formatter**          | `npm run lint:root`                  | 100% JSON, YAML, MD tuân thủ Prettier     |     🟢 **PASS**     |
-| **Git Commit Format**                | `commitlint --edit` qua Husky hook   | Chuẩn Conventional Commits v1.0.0         |    🟢 **ACTIVE**    |
-| **Docker Compose Services**          | `bash scripts/verify-local-stack.sh` | PostGIS và Redis đạt `healthy` (8/8 pass) |    🟢 **READY**     |
-| **PostGIS Spatial Extension**        | `SELECT postgis_version();`          | Trả về PostGIS 3.4.x                      |    ⚪ Chờ W1-04     |
-| **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`    | Đạt chính xác 63 trạm                     |    ⚪ Chờ W1-06     |
-| **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`              | Trả về 0 bản ghi (không đảo lộn Lat/Lon)  |    ⚪ Chờ W1-06     |
-| **Java Code Format**                 | `npm run backend:format`             | Chuẩn Google Java Format (Spotless)       |    ⚪ Chờ W1-07     |
-| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`       | 100% test pass (Testcontainers PostGIS)   |    ⚪ Chờ W1-13     |
-| **Frontend TypeScript & ESLint**     | `npm run frontend:lint`              | Không có warning/error cú pháp            |    ⚪ Chờ W1-10     |
+| Tiêu Chuẩn Kiểm Định (Check)         | Lệnh Thực Thi / Cơ Chế             | Kỳ Vọng                                   | Trạng Thái Hiện Tại |
+| :----------------------------------- | :--------------------------------- | :---------------------------------------- | :-----------------: |
+| **Root Linter & Formatter**          | `npm run lint:root`                | 100% JSON, YAML, MD tuân thủ Prettier     |     🟢 **PASS**     |
+| **Git Commit Format**                | `commitlint --edit` qua Husky hook | Chuẩn Conventional Commits v1.0.0         |    🟢 **ACTIVE**    |
+| **Docker Compose Services**          | `npm run docker:verify`            | PostGIS và Redis đạt `healthy` (8/8 pass) |     🟢 **PASS**     |
+| **PostGIS Spatial Extension**        | `SELECT postgis_version();`        | Trả về PostGIS 3.4.x                      |    ⚪ Chờ W1-04     |
+| **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`  | Đạt chính xác 63 trạm                     |    ⚪ Chờ W1-06     |
+| **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`            | Trả về 0 bản ghi (không đảo lộn Lat/Lon)  |    ⚪ Chờ W1-06     |
+| **Java Code Format**                 | `npm run backend:format`           | Chuẩn Google Java Format (Spotless)       |    ⚪ Chờ W1-07     |
+| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (Testcontainers PostGIS)   |    ⚪ Chờ W1-13     |
+| **Frontend TypeScript & ESLint**     | `npm run frontend:lint`            | Không có warning/error cú pháp            |    ⚪ Chờ W1-10     |
 
 ---
 
