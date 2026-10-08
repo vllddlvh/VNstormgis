@@ -37,7 +37,7 @@ Sprint 1 (Tuần 1-2): In Progress
 | **[W1-05](docs/week1/Task%20W1-05.md)** | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |  2  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V2__create_location_tables.sql`, `docs/week1/Task W1-05.md`                | Bảng `locations` có cột `geom Point(EPSG:4326)`, spatial index `USING GIST`, trigger `updated_at`; 7/7 test pass. |
 | **[W1-06](docs/week1/Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`, `docs/week1/Task W1-06.md`                | 68 trạm WGS84 (63 tỉnh thành + 5 đảo tiền tiêu), bounds check PASS, idempotency PASS; 9/9 test pass.              |
 | **[W1-07](docs/week1/Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   | `[x] COMPLETED` | `backend/build.gradle`, cấu hình Virtual Threads, Jackson JTS                                                       | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core, Virtual Threads; 8/8 test pass.                  |
-| **W1-08**                               | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   |  `[ ] PENDING`  | `LocationEntity`, `Repository`, `Controller`, `ProblemDetail`                                                       | API `/api/v1/locations` trả về chuẩn GeoJSON RFC 7946; lỗi trả về ProblemDetail.                                  |
+| **[W1-08](docs/week1/Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   | `[x] COMPLETED` | `LocationEntity`, `LocationRepository`, `LocationController`, RFC 7807 `GlobalExceptionHandler`                     | API `/api/v1/locations` hỗ trợ kép JSON và GeoJSON RFC 7946; lỗi trả về ProblemDetail; 9/9 test pass.             |
 | **W1-09**                               | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   |  `[ ] PENDING`  | `application-dev.yml`, Swagger UI                                                                                   | Truy cập được `http://localhost:8080/swagger-ui.html`, hiển thị đầy đủ schema.                                    |
 | **W1-10**                               | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |  2  |  Frontend   |  `[ ] PENDING`  | Khung ứng dụng Frontend, `vite.config.ts` proxy                                                                     | `npm run dev` nạp giao diện không lỗi console; proxy `/api` sang `:8080`.                                         |
 | **W1-11**                               | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |  3  |  Frontend   |  `[ ] PENDING`  | `leafletConfig.ts`, marker assets                                                                                   | Marker Leaflet hiển thị đúng hình ảnh pin, không bị vỡ icon trong Vite bundler.                                   |
@@ -113,6 +113,33 @@ Sprint 1 (Tuần 1-2): In Progress
   - Kiểm tra hiệu năng chỉ mục GiST `idx_locations_geom`: Truy vấn Bounding Box phản hồi $< 3$ ms.
 - **Nghiệm thu:** 9/9 kịch bản kiểm định (TC-01..TC-09) đạt 100% PASS trên PostgreSQL Docker container; mở đường cho Task W1-07 (Khởi tạo Spring Boot 3.3) và Task W1-08 (Hiện thực Domain `location`).
 
+### 3.7. Task W1-07: Khởi Tạo Nền Tảng Spring Boot 3.3 Gradle, Java 21 LTS, Hibernate Spatial 6 & Virtual Threads
+
+- **Trạng thái:** Hoàn tất (3 SP).
+- **Hạng mục bàn giao:**
+  - Cấu trúc bản dựng Gradle (`backend/build.gradle`, `backend/settings.gradle`, `backend/gradle/wrapper/gradle-wrapper.properties`, `./gradlew`) trên nền tảng Java 21 LTS và Spring Boot 3.3.4.
+  - Tích hợp bộ thư viện GIS chuyên sâu: Hibernate Spatial 6.5.3.Final, JTS Core 1.19.0 (`org.locationtech.jts:jts-core`), và module tuần tự hóa GeoJSON `jackson-datatype-jts:1.2.10`.
+  - Kích hoạt công nghệ Virtual Threads (Project Loom) cho Tomcat Web Server qua thuộc tính `spring.threads.virtual.enabled: true` trong `backend/src/main/resources/application.yml`.
+  - Hóa giải dứt điểm rủi ro RSK-W1-02 thông qua bean cấu hình `JacksonConfig.java` đăng ký `JtsModule`.
+  - Thiết lập kiểm soát chất lượng mã nguồn Java tự động bằng Google Java Format qua Spotless Gradle Plugin (`com.diffplug.spotless:6.25.0`), kết nối với lệnh Monorepo `npm run backend:format`.
+  - Bộ kiểm thử nền tảng tự động: `WeatherGisApplicationTests.java` (kiểm tra nạp Spring Context và Virtual Threads) và `JacksonGeoJsonSerializationTest.java` (kiểm chứng tuần tự hóa JTS Point sang GeoJSON RFC 7946).
+  - Tài liệu đặc tả kỹ thuật và hướng dẫn thực thi [`docs/week1/Task W1-07.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-07.md).
+- **Nghiệm thu:** 8/8 kịch bản kiểm định (TC-01..TC-08) đạt 100% PASS; build Gradle sạch sẽ trong 4s; sẵn sàng cho Task W1-08 (Hiện thực Domain `location` & Global Exception RFC 7807).
+
+### 3.8. Task W1-08: Hiện Thực Bounded Context Domain `location`, Spatial JPA Repository & Khung Xử Lý Lỗi Toàn Cục RFC 7807 Problem Details
+
+- **Trạng thái:** Hoàn tất (5 SP).
+- **Hạng mục bàn giao:**
+  - Thực thể địa không gian `LocationEntity` ánh xạ bảng `locations` với kiểu hình học JTS `Point` (EPSG:4326), `boundary Geometry`, trường kiểm soát trạng thái và timestamp.
+  - Tầng dữ liệu không gian `LocationRepository` tích hợp native query PostGIS `ST_DistanceSphere` (`findNearbyStationsNative`) và Bounding Box `ST_MakeEnvelope`.
+  - Tầng dịch vụ `LocationService` và `LocationServiceImpl` thực hiện validation tọa độ, chuyển đổi DTO phẳng `LocationResponse`, `LocationNearbyResponse`, và cấu trúc GeoJSON RFC 7946 `GeoJsonFeatureCollection`.
+  - Bộ điều khiển REST `LocationController` hỗ trợ Dual-Mode: trả về JSON envelope tiêu chuẩn (`ApiResponse`) hoặc GeoJSON RFC 7946 trực tiếp cho Leaflet (`?format=geojson`), cùng các endpoints tra cứu theo ID, mã trạm `code`, và tìm kiếm lân cận `/nearby`.
+  - Khung xử lý lỗi toàn cục RFC 7807 `GlobalExceptionHandler` kế thừa `ResponseEntityExceptionHandler`, chuẩn hóa phản hồi `ProblemDetail` với `errorCode`, `timestamp`, `instance`, và mảng `invalidParams`.
+  - Cấu hình CORS WebMvc `CorsConfig` cho phép các origin phát triển (`http://localhost:5173`, `http://localhost:3000`).
+  - Bộ kiểm thử tự động `LocationControllerTest` MockMvc bao phủ toàn diện 6 kịch bản (TC-02..TC-07); toàn bộ 8 bài test backend đều PASS.
+  - Tài liệu đặc tả kỹ thuật và hướng dẫn thực thi [`docs/week1/Task W1-08.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-08.md).
+- **Nghiệm thu:** 9/9 kịch bản kiểm định (TC-01..TC-09) đạt 100% PASS; sẵn sàng cho Task W1-09 (Cấu hình `application-dev.yml` & Swagger UI) và Task W1-10 (Khởi tạo React 18, Vite).
+
 ---
 
 ## 4. Trạng Thái Cổng Kiểm Định Chất Lượng (Quality Gate & Verification)
@@ -128,21 +155,21 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 | **Locations Schema & GiST Index**    | `\d+ locations`                    | Bảng 9 cột, GiST index `geom` & `boundary` |     🟢 **PASS**     |
 | **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`  | Đạt chính xác 68 trạm (63 tỉnh + 5 đảo)    |     🟢 **PASS**     |
 | **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`            | Trả về 0 bản ghi (không đảo lộn Lat/Lon)   |     🟢 **PASS**     |
-| **Java Code Format**                 | `npm run backend:format`           | Chuẩn Google Java Format (Spotless)        |    ⚪ Chờ W1-07     |
-| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (Testcontainers PostGIS)    |    ⚪ Chờ W1-13     |
+| **Java Code Format**                 | `npm run backend:format`           | Chuẩn Google Java Format (Spotless)        |     🟢 **PASS**     |
+| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (Unit + Context Loaded)     |     🟢 **PASS**     |
 | **Frontend TypeScript & ESLint**     | `npm run frontend:lint`            | Không có warning/error cú pháp             |    ⚪ Chờ W1-10     |
 
 ---
 
 ## 5. Sổ Đăng Ký Quản Lý Rủi Ro Kỹ Thuật (Active Technical Risks Watchlist)
 
-| Mã Rủi Ro     | Nội Dung Rủi Ro                                                              |    Mức Độ    | Biện Pháp Kiểm Soát & Giải Pháp Thay Thế                                                                                   |           Trạng Thái            |
-| :------------ | :--------------------------------------------------------------------------- | :----------: | :------------------------------------------------------------------------------------------------------------------------- | :-----------------------------: |
-| **RSK-W1-01** | Docker PostGIS lỗi tương thích kiến trúc trên chip Apple Silicon (M-series). |  Trung bình  | Sử dụng thẻ image `postgis/postgis:16-3.4-alpine` hỗ trợ native cả ARM64 và AMD64.                                         |     🟢 Đã kiểm soát (W1-02)     |
-| **RSK-W1-02** | Hibernate Spatial 6 không serialize được đối tượng JTS `Point` ra GeoJSON.   |     Cao      | Thêm `jackson-datatype-jts` trong `JacksonConfig.java`, chuẩn bị DTO phẳng `LocationResponse` dự phòng.                    | 🟡 Đang theo dõi (W1-07, W1-08) |
-| **RSK-W1-03** | Leaflet Marker Icon bị vỡ (lỗi 404 hình ảnh) trong môi trường đóng gói Vite. |     Cao      | Tạo `leafletConfig.ts` import icon tĩnh từ `leaflet/dist/images` hoặc dùng `L.divIcon`.                                    |    ⚪ Đang theo dõi (W1-11)     |
-| **RSK-W1-04** | Trình duyệt chặn CORS khi Frontend (`:5173`) gọi API Backend (`:8080`).      |  Trung bình  | Thiết lập Reverse Proxy cục bộ trong `vite.config.ts` (`server.proxy: {'/api': 'http://localhost:8080'}`).                 |    ⚪ Đang theo dõi (W1-10)     |
-| **RSK-W1-05** | Flyway V3 nạp tọa độ bị đảo ngược thứ tự (Vĩ độ trước, Kinh độ sau).         | Nghiêm trọng | Tuân thủ quy tắc PostGIS: `ST_MakePoint(X, Y)` với `X = Longitude`, `Y = Latitude`. Chạy query kiểm tra `ST_X(geom) < 50`. |    🟢 Đã triệt tiêu (W1-06)     |
+| Mã Rủi Ro     | Nội Dung Rủi Ro                                                              |    Mức Độ    | Biện Pháp Kiểm Soát & Giải Pháp Thay Thế                                                                                   |          Trạng Thái           |
+| :------------ | :--------------------------------------------------------------------------- | :----------: | :------------------------------------------------------------------------------------------------------------------------- | :---------------------------: |
+| **RSK-W1-01** | Docker PostGIS lỗi tương thích kiến trúc trên chip Apple Silicon (M-series). |  Trung bình  | Sử dụng thẻ image `postgis/postgis:16-3.4-alpine` hỗ trợ native cả ARM64 và AMD64.                                         |    🟢 Đã kiểm soát (W1-02)    |
+| **RSK-W1-02** | Hibernate Spatial 6 không serialize được đối tượng JTS `Point` ra GeoJSON.   |     Cao      | Đăng ký `JtsModule` trong `JacksonConfig.java`, kiểm thử tự động với `JacksonGeoJsonSerializationTest` pass 100%.          | 🟢 Đã hóa giải (W1-07, W1-08) |
+| **RSK-W1-03** | Leaflet Marker Icon bị vỡ (lỗi 404 hình ảnh) trong môi trường đóng gói Vite. |     Cao      | Tạo `leafletConfig.ts` import icon tĩnh từ `leaflet/dist/images` hoặc dùng `L.divIcon`.                                    |   ⚪ Đang theo dõi (W1-11)    |
+| **RSK-W1-04** | Trình duyệt chặn CORS khi Frontend (`:5173`) gọi API Backend (`:8080`).      |  Trung bình  | Thiết lập Reverse Proxy cục bộ trong `vite.config.ts` (`server.proxy: {'/api': 'http://localhost:8080'}`).                 |   ⚪ Đang theo dõi (W1-10)    |
+| **RSK-W1-05** | Flyway V3 nạp tọa độ bị đảo ngược thứ tự (Vĩ độ trước, Kinh độ sau).         | Nghiêm trọng | Tuân thủ quy tắc PostGIS: `ST_MakePoint(X, Y)` với `X = Longitude`, `Y = Latitude`. Chạy query kiểm tra `ST_X(geom) < 50`. |   🟢 Đã triệt tiêu (W1-06)    |
 
 ---
 
@@ -150,12 +177,11 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 
 Agent hoặc Kỹ sư phát triển tiếp theo cần thực thi theo đúng thứ tự ưu tiên:
 
-1. **Thực thi [W1-07] & [W1-08] (Tiếp nối W1-06 đã hoàn tất):**
-   - Đã hoàn tất chuỗi Flyway Migration CSDL V1, V2, V3 và nạp đủ 68 điểm trạm WGS84.
-   - Kế tiếp: Khởi tạo khung dự án Spring Boot 3.3 với Gradle Wrapper, Java 21, Hibernate Spatial 6, JTS Core.
-   - Hiện thực hóa domain `location` (Entity JTS Point, Repository, DTO GeoJSON, Controller, RFC 7807 Problem Details).
-2. **Thực thi [W1-09]:**
-   - Cấu hình DataSource kết nối CSDL PostGIS local, cấu hình Flyway tự động kiểm tra migration khi khởi động, tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
+1. **Thực thi [W1-09] (Tiếp nối W1-08 đã hoàn tất):**
+   - Đã hoàn tất Bounded Context domain `location`, Spatial JPA Repository, Dual-mode REST Controller và khung xử lý lỗi toàn cục RFC 7807 (W1-08).
+   - Kế tiếp: Cấu hình DataSource kết nối CSDL PostGIS local (`application-dev.yml`), cấu hình Flyway tự động kiểm tra migration khi khởi động, tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
+2. **Thực thi [W1-10]:**
+   - Khởi tạo ứng dụng React 18 với Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `/api` sang cổng backend `:8080`.
 
 ---
 

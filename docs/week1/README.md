@@ -319,7 +319,7 @@ flowchart TD
           enabled: true
     ```
 
-- **Task W1-08 (Backend Engineer):**
+- **[Task W1-08: Hiện thực Domain location & Global Exception RFC 7807](Task%20W1-08.md) (Backend Engineer):**
   - Xây dựng cấu trúc phân gói Modular Monolith theo đúng [5. System Architecture.md](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/5.%20System%20Architecture.md):
     - `vn.weathergis.common.config`: Cấu hình Jackson Mapper đăng ký JtsModule, cấu hình CORS (`allowedOrigins: "http://localhost:5173", "http://localhost:3000"`).
     - `vn.weathergis.common.exception`:
@@ -341,10 +341,10 @@ flowchart TD
 
 #### Tiêu chí hoàn thành Ngày 3 (Day 3 Done Checklist):
 
-- [ ] Backend Spring Boot 3.3 biên dịch sạch (`BUILD SUCCESSFUL`), khởi chạy không xung đột thư viện.
-- [ ] Flyway tự động chạy kiểm tra và đồng bộ script V1, V2, V3 khi ứng dụng start.
-- [ ] Hibernate Spatial nhận diện đúng kiểu dữ liệu `Point` WGS84 mà không báo lỗi dialect.
-- [ ] Truy cập được Swagger UI tại `http://localhost:8080/swagger-ui.html` và hiển thị tài liệu hóa API.
+- [x] Backend Spring Boot 3.3 biên dịch sạch (`BUILD SUCCESSFUL`), khởi chạy không xung đột thư viện (W1-07).
+- [ ] Flyway tự động chạy kiểm tra và đồng bộ script V1, V2, V3 khi ứng dụng start (W1-09).
+- [x] Hibernate Spatial nhận diện đúng kiểu dữ liệu `Point` WGS84 mà không báo lỗi dialect (W1-07).
+- [ ] Truy cập được Swagger UI tại `http://localhost:8080/swagger-ui.html` và hiển thị tài liệu hóa API (W1-09).
 
 ---
 
@@ -445,7 +445,7 @@ flowchart TD
 | **[W1-05](Task%20W1-05.md)** | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |      GIS / DB       |       BE       |   Tech Lead   |   **2**   |      4h      | [1. ERD Sec 2.1](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md#L142)                              | `V2__create_location_tables.sql` kèm index GiST         |
 | **[W1-06](Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |      GIS / DB       |       BE       |   Tech Lead   |   **3**   |      8h      | Tọa độ địa lý Việt Nam                                                                                                                         | `V3__seed_vietnam_locations.sql` đầy đủ 68 điểm         |
 | **[W1-07](Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |     Backend Eng     |   Tech Lead    |   Tech Lead   |   **3**   |      6h      | [6. Tech Stack Sec 3](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | `backend/build.gradle`, cấu hình Virtual Threads        |
-| **W1-08**                    | Hiện thực Domain `location` & Global Exception RFC 7807     |     Backend Eng     | GIS, Tech Lead |   Tech Lead   |   **5**   |     10h      | W1-05, W1-07                                                                                                                                   | `LocationEntity`, `Repository`, `Controller`, Exception |
+| **[W1-08](Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |     Backend Eng     | GIS, Tech Lead |   Tech Lead   |   **5**   |     10h      | W1-05, W1-07                                                                                                                                   | `LocationEntity`, `Repository`, `Controller`, Exception |
 | **W1-09**                    | Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI |     Backend Eng     |     DevOps     |   Tech Lead   |   **2**   |      4h      | W1-07, W1-08                                                                                                                                   | `application-dev.yml`, Swagger UI `/swagger-ui.html`    |
 | **W1-10**                    | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |    Frontend Eng     |   Tech Lead    |   Tech Lead   |   **2**   |      4h      | [6. Tech Stack Sec 6](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | Khung Frontend, Tailwind, `vite.config.ts` proxy        |
 | **W1-11**                    | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |    Frontend Eng     |      GIS       |   Tech Lead   |   **3**   |      6h      | Leaflet docs                                                                                                                                   | `leafletConfig.ts`, icon assets chuẩn hóa               |

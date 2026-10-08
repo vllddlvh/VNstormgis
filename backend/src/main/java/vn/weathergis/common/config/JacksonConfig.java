@@ -1,4 +1,4 @@
-package vn.weathergis.config;
+package vn.weathergis.common.config;
 
 import org.n52.jackson.datatype.jts.JtsModule;
 import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
@@ -19,6 +19,6 @@ public class JacksonConfig {
 
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer jacksonCustomizer(JtsModule jtsModule) {
-        return builder -> builder.modules(jtsModule);
+        return builder -> builder.modulesToInstall(jtsModule);
     }
 }
