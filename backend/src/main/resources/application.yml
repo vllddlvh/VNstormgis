@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: weather-gis-backend
+
+  # Kích hoạt công nghệ Virtual Threads của Java 21 (Project Loom)
+  threads:
+    virtual:
+      enabled: true
+
+  # Cấu hình Jackson JSON Serialization
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    default-property-inclusion: non_null
+
+  # Cấu hình Hibernate JPA
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate # Không tự động sửa bảng; toàn bộ DDL do Flyway quản lý
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 50
+
+  # Tạm thời tắt tự động kích hoạt Flyway ở profile mặc định; kích hoạt ở profile dev (W1-09)
+  flyway:
+    enabled: false
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
