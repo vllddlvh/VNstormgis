@@ -287,7 +287,7 @@ Tuân thủ cú pháp Husky / Commitlint:
 - [x] **W1-06:** Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84 (`V3__seed_vietnam_locations.sql`).
 - [x] **W1-07:** Khởi tạo Spring Boot 3.3 Gradle, Java 21 LTS, Hibernate Spatial 6, Virtual Threads.
 - [x] **W1-08:** Hiện thực Domain `location` & Khung xử lý lỗi toàn cục RFC 7807 Problem Details.
-- [ ] **W1-09:** Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
+- [x] **W1-09:** Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
 - [ ] **W1-10:** Khởi tạo React 18, Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `:8080`.
 - [ ] **W1-11:** Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Marker Bug trong Vite bundler.
 - [ ] **W1-12:** Dựng Component `BaseMap` Lãnh thổ Việt Nam ($16^\circ N, 108^\circ E$, zoom 6) & App Layout.
@@ -326,6 +326,7 @@ Khi cần đào sâu bất kỳ khía cạnh kỹ thuật nào, AI Agent hãy m�
 | **Đặc tả Task W1-06**                | [week1/Task W1-06.md](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-06.md)                                                                                                                                     | Chi tiết Flyway V3: Seed 68 trạm WGS84 Việt Nam                    |
 | **Đặc tả Task W1-07**                | [week1/Task W1-07.md](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-07.md)                                                                                                                                     | Khởi tạo Spring Boot 3.3, Java 21, Hibernate Spatial 6             |
 | **Đặc tả Task W1-08**                | [week1/Task W1-08.md](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-08.md)                                                                                                                                     | Hiện thực Domain location, Spatial JPA & RFC 7807                  |
+| **Đặc tả Task W1-09**                | [week1/Task W1-09.md](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-09.md)                                                                                                                                     | Cấu hình application-dev.yml, Flyway Auto-Migration & OpenAPI 3    |
 
 ---
 

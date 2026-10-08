@@ -1,0 +1,111 @@
+# ==============================================================================
+# HỆ THỐNG WEBGIS GIÁM SÁT MƯA GIÓ BÃO TÍCH HỢP AI AGENT (VNSTORMGIS)
+# CẤU HÌNH MÔI TRƯỜNG PHÁT TRIỂN CỤC BỘ (LOCAL DEVELOPMENT PROFILE)
+# ==============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # ----------------------------------------------------------------------------
+  # 1. CẤU HÌNH KẾT NỐI CƠ SỞ DỮ LIỆU POSTGRESQL + POSTGIS 16
+  # ----------------------------------------------------------------------------
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:weather_gis_db}
+    username: ${DB_USERNAME:${DB_USER:gis_user}}
+    password: ${DB_PASSWORD:gis_password_secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: WeatherGisDevHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000 # 5 phút nhàn rỗi thì giải phóng kết nối thừa
+      connection-timeout: 20000 # 20 giây chờ lấy kết nối tối đa
+      max-lifetime: 1200000 # 20 phút vòng đời kết nối tối đa
+      auto-commit: true
+      connection-test-query: SELECT 1
+
+  # ----------------------------------------------------------------------------
+  # 2. CẤU HÌNH QUẢN TRỊ DI TRÚ CSDL FLYWAY (TỰ ĐỘNG KÍCH HOẠT TRÊN DEV)
+  # ----------------------------------------------------------------------------
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    schemas: public
+    table: flyway_schema_history
+    validate-on-migrate: true
+    out-of-order: false
+    clean-disabled: true # Tuyệt đối không cho phép lệnh clean phá hủy CSDL dev
+
+  # ----------------------------------------------------------------------------
+  # 3. CẤU HÌNH HIBERNATE SPATIAL 6 & JPA LOGGING
+  # ----------------------------------------------------------------------------
+  jpa:
+    open-in-view: false
+    show-sql: false # Tắt show-sql mặc định để dùng logger có định dạng bên dưới
+    hibernate:
+      ddl-auto: validate # Đối soát chặt chẽ Entity với DDL Flyway; không tự tạo sửa bảng
+    properties:
+      hibernate:
+        format_sql: true # Tự động thụt lề định dạng câu lệnh SQL cho dễ quan sát
+        highlight_sql: true # Làm nổi bật từ khóa SQL trên console có màu ANSI
+        use_sql_comments: true # Thêm comment chú thích nguồn gốc câu lệnh trong Hibernate
+        jdbc:
+          batch_size: 50 # Tối ưu chèn hàng loạt dữ liệu khí tượng trong tương lai
+        order_inserts: true
+        order_updates: true
+
+# ------------------------------------------------------------------------------
+# 4. CẤU HÌNH TÀI LIỆU HÓA SPRINGDOC OPENAPI 3 & SWAGGER UI
+# ------------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha # Sắp xếp các nhóm API theo bảng chữ cái A-Z
+    operations-sorter: method # Sắp xếp các endpoint theo phương thức HTTP (GET, POST, ...)
+    display-request-duration: true # Hiển thị thời gian thực thi của từng request trên giao diện
+    doc-expansion: list # Mở rộng danh sách endpoint ở mức tổng quan gọn gàng
+    try-it-out-enabled: true # Bật sẵn chế độ thử nghiệm API tương tác trực tiếp
+    filter: true # Bật ô tìm kiếm lọc nhanh endpoint trên giao diện Swagger
+  show-actuator: true # Hiển thị các endpoint Actuator trong tài liệu API
+  packages-to-scan: vn.weathergis
+  paths-to-match: /api/**, /actuator/**
+
+# ------------------------------------------------------------------------------
+# 5. CẤU HÌNH GHI NHẬT KÝ (LOGGING) MÔI TRƯỜNG DEV
+# ------------------------------------------------------------------------------
+logging:
+  level:
+    root: INFO
+    vn.weathergis: DEBUG # Ghi log chi tiết toàn bộ nghiệp vụ ứng dụng WeatherGIS
+    org.hibernate.SQL: DEBUG # Hiển thị các câu truy vấn SQL thực thi
+    org.hibernate.orm.jdbc.bind: TRACE # Hiển thị chi tiết giá trị tham số bind vào câu lệnh SQL
+    org.flywaydb: INFO # Ghi log chi tiết quá trình quét và di trú Flyway
+    org.springdoc: INFO # Ghi log quá trình quét khởi tạo tài liệu OpenAPI
+    com.zaxxer.hikari: INFO # Giám sát trạng thái cấp phát kết nối của HikariCP
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+
+# ------------------------------------------------------------------------------
+# 6. CẤU HÌNH GIÁM SÁT VẬN HÀNH SPRING BOOT ACTUATOR
+# ------------------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,flyway # Mở endpoint xem sức khỏe và lịch sử di trú Flyway
+  endpoint:
+    health:
+      show-details: always # Hiển thị chi tiết trạng thái kết nối CSDL và đĩa cứng
+      probes:
+        enabled: true # Bật liveness và readiness probes chuẩn Kubernetes
+  info:
+    env:
+      enabled: true

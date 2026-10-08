@@ -38,7 +38,7 @@ Sprint 1 (Tuần 1-2): In Progress
 | **[W1-06](docs/week1/Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`, `docs/week1/Task W1-06.md`                | 68 trạm WGS84 (63 tỉnh thành + 5 đảo tiền tiêu), bounds check PASS, idempotency PASS; 9/9 test pass.              |
 | **[W1-07](docs/week1/Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   | `[x] COMPLETED` | `backend/build.gradle`, cấu hình Virtual Threads, Jackson JTS                                                       | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core, Virtual Threads; 8/8 test pass.                  |
 | **[W1-08](docs/week1/Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   | `[x] COMPLETED` | `LocationEntity`, `LocationRepository`, `LocationController`, RFC 7807 `GlobalExceptionHandler`                     | API `/api/v1/locations` hỗ trợ kép JSON và GeoJSON RFC 7946; lỗi trả về ProblemDetail; 9/9 test pass.             |
-| **W1-09**                               | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   |  `[ ] PENDING`  | `application-dev.yml`, Swagger UI                                                                                   | Truy cập được `http://localhost:8080/swagger-ui.html`, hiển thị đầy đủ schema.                                    |
+| **[W1-09](docs/week1/Task%20W1-09.md)** | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   | `[x] COMPLETED` | `application-dev.yml`, `OpenApiConfig.java`, Swagger UI `/swagger-ui.html`, Actuator `/actuator/flyway`             | Profile dev kết nối PostGIS local; Flyway auto-migrate 3 scripts; Swagger UI & Actuator UP; 10/10 test pass.      |
 | **W1-10**                               | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |  2  |  Frontend   |  `[ ] PENDING`  | Khung ứng dụng Frontend, `vite.config.ts` proxy                                                                     | `npm run dev` nạp giao diện không lỗi console; proxy `/api` sang `:8080`.                                         |
 | **W1-11**                               | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |  3  |  Frontend   |  `[ ] PENDING`  | `leafletConfig.ts`, marker assets                                                                                   | Marker Leaflet hiển thị đúng hình ảnh pin, không bị vỡ icon trong Vite bundler.                                   |
 | **W1-12**                               | Dựng Component `BaseMap` Lãnh thổ Việt Nam & Layout         |  3  |  Frontend   |  `[ ] PENDING`  | `BaseMap.tsx`, Layout Dashboard                                                                                     | Bản đồ mặc định tâm Việt Nam ($16^\circ N, 108^\circ E$, zoom 6); pan/zoom mượt.                                  |
@@ -140,6 +140,18 @@ Sprint 1 (Tuần 1-2): In Progress
   - Tài liệu đặc tả kỹ thuật và hướng dẫn thực thi [`docs/week1/Task W1-08.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-08.md).
 - **Nghiệm thu:** 9/9 kịch bản kiểm định (TC-01..TC-09) đạt 100% PASS; sẵn sàng cho Task W1-09 (Cấu hình `application-dev.yml` & Swagger UI) và Task W1-10 (Khởi tạo React 18, Vite).
 
+### 3.9. Task W1-09: Cấu hình `application-dev.yml` & SpringDoc OpenAPI
+
+- **Trạng thái:** Hoàn tất (2 SP).
+- **Hạng mục bàn giao:**
+  - Cấu hình Profile phát triển cục bộ `backend/src/main/resources/application-dev.yml`: kết nối PostGIS 16 `weather_gis_db` trên `localhost:5432`, HikariCP Connection Pool (`maximum-pool-size: 10`, `minimum-idle: 5`), tự động hóa Flyway Migration (`spring.flyway.enabled: true`, `baseline-on-migrate: true`), logging định dạng SQL thụt lề (`format_sql: true`, `org.hibernate.orm.jdbc.bind: TRACE`), và mở Actuator endpoints (`health`, `info`, `metrics`, `flyway`).
+  - Lớp cấu hình OpenAPI toàn cục `backend/src/main/java/vn/weathergis/common/config/OpenApiConfig.java`: OpenAPI 3.0 metadata, danh sách server (Local & Staging), 3 nhóm `GroupedOpenApi` (`v1-all`, `v1-locations`, `actuator`), hóa giải rủi ro loop schema OGC JTS Geometry bằng `SpringDocUtils.replaceWithSchema`.
+  - Làm giàu siêu dữ liệu Swagger annotations (`@Tag`, `@Operation`, `@ApiResponses`, `@Parameter`) trên toàn bộ endpoint của `LocationController` tài liệu hóa chuẩn xác phản hồi kép `format=json` và `format=geojson`.
+  - Bổ sung `@Schema` vào các DTO (`LocationResponse`, `LocationNearbyResponse`, `ApiResponse`, `GeoJsonFeature`, `GeoJsonFeatureCollection`).
+  - Bộ kiểm thử tự động `OpenApiConfigTest` kiểm tra thông tin metadata OpenAPI và phân nhóm endpoints.
+  - Tài liệu đặc tả kỹ thuật và cẩm nang vận hành [`docs/week1/Task W1-09.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-09.md).
+- **Nghiệm thu:** 10/10 kịch bản kiểm định (TC-01..TC-10) đạt 100% PASS: Actuator Health UP, Flyway auto-migrated 3 scripts, Swagger UI `/swagger-ui.html` và `/v3/api-docs` hoạt động hoàn hảo, 10/10 tests pass; sẵn sàng bàn giao cho Task W1-10 (Khởi tạo React 18, Vite).
+
 ---
 
 ## 4. Trạng Thái Cổng Kiểm Định Chất Lượng (Quality Gate & Verification)
@@ -177,11 +189,11 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 
 Agent hoặc Kỹ sư phát triển tiếp theo cần thực thi theo đúng thứ tự ưu tiên:
 
-1. **Thực thi [W1-09] (Tiếp nối W1-08 đã hoàn tất):**
-   - Đã hoàn tất Bounded Context domain `location`, Spatial JPA Repository, Dual-mode REST Controller và khung xử lý lỗi toàn cục RFC 7807 (W1-08).
-   - Kế tiếp: Cấu hình DataSource kết nối CSDL PostGIS local (`application-dev.yml`), cấu hình Flyway tự động kiểm tra migration khi khởi động, tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
-2. **Thực thi [W1-10]:**
-   - Khởi tạo ứng dụng React 18 với Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `/api` sang cổng backend `:8080`.
+1. **Thực thi [W1-10] (Tiếp nối W1-09 đã hoàn tất):**
+   - Đã hoàn tất profile `application-dev.yml`, Flyway auto-migration, SpringDoc OpenAPI `/swagger-ui.html` và 10/10 tests pass (W1-09).
+   - Kế tiếp: Khởi tạo ứng dụng React 18 với Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `/api` sang cổng backend `:8080`.
+2. **Thực thi [W1-11]:**
+   - Tích hợp Leaflet 1.9, giải quyết Leaflet Icon Bug và chuẩn bị marker assets.
 
 ---
 

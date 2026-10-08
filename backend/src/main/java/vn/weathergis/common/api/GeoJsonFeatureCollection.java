@@ -1,6 +1,7 @@
 package vn.weathergis.common.api;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,9 +10,15 @@ import java.util.List;
  * thư viện Leaflet thông qua L.geoJSON(data).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(
+        description =
+                "Tập hợp đối tượng không gian GeoJSON FeatureCollection theo RFC 7946, nạp trực tiếp vào Leaflet L.geoJSON()")
 public class GeoJsonFeatureCollection {
 
+    @Schema(description = "Kiểu đối tượng GeoJSON", example = "FeatureCollection")
     private final String type = "FeatureCollection";
+
+    @Schema(description = "Danh sách các đối tượng GeoJSON Feature")
     private List<GeoJsonFeature> features;
 
     public GeoJsonFeatureCollection() {
