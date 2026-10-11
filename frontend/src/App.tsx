@@ -8,10 +8,12 @@ import {
   RefreshCw,
   ExternalLink,
   MapPin,
+  Compass,
 } from "lucide-react";
 import { StatusBadge, StatusType } from "@/components/common/StatusBadge";
 import { locationService } from "@/services/locationService";
 import { LocationItem } from "@/types/location";
+import { MarkerVerificationMap } from "@/components/map/MarkerVerificationMap";
 
 export function App() {
   const [backendStatus, setBackendStatus] = useState<StatusType>("loading");
@@ -229,21 +231,22 @@ export function App() {
             )}
           </div>
 
-          {/* Vùng Placeholder Sẵn Sàng Cho Task W1-11 & W1-12 */}
-          <div className="p-8 rounded-2xl border-2 border-dashed border-slate-700/70 bg-slate-900/30 text-center space-y-3">
-            <div className="inline-flex p-3 rounded-full bg-slate-800 text-slate-400 mb-1">
-              <Layers className="w-6 h-6" />
+          {/* Component Kiểm Định Bản Đồ & Markers của Task W1-11 */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between border-b border-[#2d3329] pb-2">
+              <div className="flex items-center space-x-2">
+                <Compass className="w-5 h-5 text-[#e2ffcc]" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-[#dde2e4]">
+                  Khung Nhìn Bản Đồ WebGIS &amp; Kiểm Định Leaflet Icon Marker
+                </h2>
+              </div>
+              <span className="text-xs text-[#84907f] font-mono">
+                Tâm: 16.047°N, 108.206°E | Zoom: 6
+              </span>
             </div>
-            <h3 className="text-sm font-bold text-slate-200">
-              Khu Vực Bản Đồ Nền Leaflet Việt Nam (BaseMap Container Placeholder)
-            </h3>
-            <p className="text-xs text-slate-400 max-w-lg mx-auto leading-relaxed">
-              Vùng hiển thị này sẽ được tích hợp component{" "}
-              <code className="text-sky-300 font-mono">BaseMap.tsx</code> tại{" "}
-              <strong>Task W1-11 (Leaflet 1.9 & Fix Icon Bug)</strong> và{" "}
-              <strong>Task W1-12 (Center VN, Zoom 6, App Layout)</strong>.
-            </p>
-          </div>
+
+            <MarkerVerificationMap />
+          </section>
         </div>
       </main>
 

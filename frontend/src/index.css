@@ -5,6 +5,12 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --color-highlighter-mint: #e2ffcc;
+    --color-sage-stone: #84907f;
+    --color-carbon-ink: #161b13;
+    --color-forest-charcoal: #2d3329;
+    --color-topo-gray: #dde2e4;
+    --color-pure-black: #000000;
   }
 
   body {
@@ -13,12 +19,129 @@
   }
 }
 
-/* Khắc phục lỗi hiển thị Leaflet trong bố cục Flex/Grid hiện đại */
+/* ==========================================================================
+   TINH CHỈNH BẢN ĐỒ SỐ LEAFLET THEO PHONG CÁCH SAN RITA (ALPINE FIELD GUIDE)
+   ========================================================================== */
+
+/* 1. Thiết lập container bản đồ và xử lý hiển thị gạch bản đồ */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  z-index: 10;
-  background-color: #1e293b !important;
+  background-color: var(--color-carbon-ink) !important;
+  font-family: inherit;
+  outline: none;
+}
+
+/* 2. Loại bỏ đường viền focus màu xanh lam mặc định của trình duyệt */
+.leaflet-container :focus {
+  outline: none;
+}
+
+/* 3. Tinh chỉnh Cửa Sổ Thông Tin Nổi (Leaflet Popup) theo San Rita Tokens */
+.leaflet-popup-content-wrapper {
+  background-color: var(--color-carbon-ink) !important;
+  color: var(--color-topo-gray) !important;
+  border: 1px solid var(--color-forest-charcoal) !important;
+  border-radius: 0px !important; /* Tuyệt đối không bo tròn góc */
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4) !important; /* Đổ bóng phẳng cứng góc cạnh */
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.3 !important;
+  font-family: inherit !important;
+}
+
+.leaflet-popup-tip {
+  background-color: var(--color-carbon-ink) !important;
+  border: 1px solid var(--color-forest-charcoal) !important;
+  box-shadow: none !important;
+}
+
+/* Nút đóng Popup góc phải */
+.leaflet-popup-close-button {
+  color: var(--color-topo-gray) !important;
+  padding: 6px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: var(--color-highlighter-mint) !important;
+  background: transparent !important;
+}
+
+/* 4. Tinh chỉnh Thanh Điều Khiển Thu Phóng (Zoom Control) */
+.leaflet-bar {
+  border: 1px solid var(--color-forest-charcoal) !important;
+  border-radius: 0px !important;
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--color-carbon-ink) !important;
+  color: var(--color-highlighter-mint) !important;
+  border-bottom: 1px solid var(--color-forest-charcoal) !important;
+  border-radius: 0px !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  transition: all 0.15s ease-in-out;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--color-forest-charcoal) !important;
+  color: #ffffff !important;
+}
+
+/* 5. Dòng chữ Bản Quyền Bản Đồ (Attribution Control) */
+.leaflet-control-attribution {
+  background-color: rgba(22, 27, 19, 0.85) !important;
+  color: var(--color-sage-stone) !important;
+  font-size: 10px !important;
+  font-family: inherit !important;
+  border-top: 1px solid var(--color-forest-charcoal);
+  border-left: 1px solid var(--color-forest-charcoal);
+  padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-highlighter-mint) !important;
+  text-decoration: none !important;
+}
+
+.leaflet-control-attribution a:hover {
+  text-decoration: underline !important;
+}
+
+/* 6. Hoạt họa Xung Radar Phục Vụ Cảnh Báo Bão Lũ */
+@keyframes pingSlow {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes pingFast {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  animation: pingSlow 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-ping-fast {
+  animation: pingFast 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 /* Tinh chỉnh thanh cuộn thanh mảnh cho các panel WebGIS */
