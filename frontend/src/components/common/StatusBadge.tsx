@@ -14,23 +14,23 @@ interface StatusBadgeProps {
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, subLabel, className }) => {
   const statusConfig = {
     online: {
-      bg: "bg-emerald-950/80 border-emerald-500/50 text-emerald-300",
-      dot: "bg-emerald-400 animate-pulse",
+      bg: "bg-[#1a2117] border-[#2d3329] text-[#e2ffcc]",
+      dot: "bg-[#e2ffcc]",
       icon: CheckCircle2,
     },
     warning: {
-      bg: "bg-amber-950/80 border-amber-500/50 text-amber-300",
-      dot: "bg-amber-400",
+      bg: "bg-[#1a2117] border-[#f59e0b]/60 text-[#f59e0b]",
+      dot: "bg-[#f59e0b]",
       icon: AlertTriangle,
     },
     error: {
-      bg: "bg-rose-950/80 border-rose-500/50 text-rose-300",
-      dot: "bg-rose-400",
+      bg: "bg-[#1a2117] border-[#dc2626]/60 text-[#dc2626]",
+      dot: "bg-[#dc2626]",
       icon: XCircle,
     },
     loading: {
-      bg: "bg-slate-800/80 border-slate-600/50 text-slate-300",
-      dot: "bg-sky-400 animate-ping",
+      bg: "bg-[#1a2117] border-[#2d3329] text-[#84907f]",
+      dot: "bg-[#84907f] animate-pulse",
       icon: Activity,
     },
   };
@@ -41,15 +41,15 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, subLabe
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium backdrop-blur-sm shadow-sm transition-all",
+        "inline-flex items-center gap-2 px-2.5 py-1 border font-mono text-[10px] uppercase tracking-wider select-none",
         current.bg,
         className,
       )}
     >
-      <span className={cn("w-2 h-2 rounded-full", current.dot)} />
-      <Icon className="w-3.5 h-3.5" />
-      <span>{label}</span>
-      {subLabel && <span className="text-slate-400 font-normal">| {subLabel}</span>}
+      <span className={cn("w-1.5 h-1.5", current.dot)} />
+      <Icon className="w-3 h-3" />
+      <span className="font-bold">{label}</span>
+      {subLabel && <span className="text-[#84907f] font-normal">| {subLabel}</span>}
     </div>
   );
 };

@@ -5,17 +5,48 @@
 @layer base {
   :root {
     color-scheme: dark;
+    /* San Rita Design Tokens (alpine field guide on sage paper) */
     --color-highlighter-mint: #e2ffcc;
     --color-sage-stone: #84907f;
     --color-carbon-ink: #161b13;
     --color-forest-charcoal: #2d3329;
     --color-topo-gray: #dde2e4;
     --color-pure-black: #000000;
+
+    --font-display: "Bebas Neue", "Oswald", sans-serif;
+    --font-mono:
+      "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+      monospace;
+    --font-times: "Times New Roman", Times, serif;
+
+    --spacing-unit: 6px;
+    --section-gap: 67px;
+    --card-padding: 16px;
+    --element-gap: 24px;
+
+    --radius-tags: 0px;
+    --radius-cards: 0px;
+    --radius-buttons: 0px;
+
+    --surface-topo-gray: #dde2e4;
+    --surface-highlighter-mint: #e2ffcc;
+    --surface-sage-stone: #84907f;
+    --surface-forest-charcoal: #2d3329;
+    --surface-carbon-ink: #161b13;
+  }
+
+  /* San Rita Non-negotiable Rule: Tuyệt đối không bo tròn góc */
+  *,
+  ::before,
+  ::after {
+    border-radius: 0px !important;
   }
 
   body {
-    @apply m-0 p-0 font-sans antialiased bg-gis-bg text-slate-100 overflow-hidden;
+    @apply m-0 p-0 font-mono antialiased bg-gis-bg text-[#dde2e4] overflow-hidden;
     min-height: 100vh;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
   }
 }
 
@@ -42,15 +73,16 @@
   background-color: var(--color-carbon-ink) !important;
   color: var(--color-topo-gray) !important;
   border: 1px solid var(--color-forest-charcoal) !important;
-  border-radius: 0px !important; /* Tuyệt đối không bo tròn góc */
-  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.4) !important; /* Đổ bóng phẳng cứng góc cạnh */
+  border-radius: 0px !important;
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5) !important;
   padding: 0 !important;
 }
 
 .leaflet-popup-content {
   margin: 12px 14px !important;
-  line-height: 1.3 !important;
+  line-height: 1.2 !important;
   font-family: inherit !important;
+  letter-spacing: -0.01em !important;
 }
 
 .leaflet-popup-tip {
@@ -95,7 +127,7 @@
 
 /* 5. Dòng chữ Bản Quyền Bản Đồ (Attribution Control) */
 .leaflet-control-attribution {
-  background-color: rgba(22, 27, 19, 0.85) !important;
+  background-color: rgba(22, 27, 19, 0.9) !important;
   color: var(--color-sage-stone) !important;
   font-size: 10px !important;
   font-family: inherit !important;
@@ -144,21 +176,20 @@
   animation: pingFast 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* Tinh chỉnh thanh cuộn thanh mảnh cho các panel WebGIS */
+/* 7. Thanh cuộn utilitarian sắc cạnh tối giản */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #161b13;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 9999px;
+  background: #2d3329;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #84907f;
 }
