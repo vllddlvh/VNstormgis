@@ -388,6 +388,7 @@ flowchart TD
       - Cột bên trái: Khung điều khiển lớp bản đồ (`LayerControl` placeholder).
       - Băng ngang dưới đáy: Khung cảnh báo khẩn cấp (`AlertTicker` placeholder).
       - Góc dưới bên phải: Nút mở khung chat AI Agent (`ChatDrawer` floating trigger button).
+    - **Quy chuẩn Thiết kế Giao diện (Design Template Compliance):** Giao diện WebGIS, Layout và các thành phần UI bắt buộc bám sát bộ mẫu thiết kế trong thư mục [`docs/The plans of project/Frontend - template/`](../The%20plans%20of%20project/Frontend%20-%20template) (`DESIGN.md`, `tokens.json`, `theme.css`, `variables.css`): phong cách _alpine field guide_, bảng màu tương phản (Highlighter Mint `#e2ffcc`, Sage Stone `#84907f`, Carbon Ink `#161b13`, Topo Gray `#dde2e4`), typography utilitarian mono + display, border radius `0px` phẳng góc cạnh không đổ bóng.
 
 #### Tiêu chí hoàn thành Ngày 4 (Day 4 Done Checklist):
 

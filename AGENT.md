@@ -44,9 +44,10 @@ Hệ thống WebGIS giám sát thời tiết, lượng mưa, gió bão thời gi
    - Bắt buộc kiểm tra đối soát đầu ra (Output Verification); kích hoạt Fallback Template xác định nếu Gemini lỗi hoặc số liệu không khớp.
 3. **Chuẩn hóa lỗi RFC 7807 (Problem Details):**
    - Mọi phản hồi lỗi API từ Backend phải thông qua `GlobalExceptionHandler` trả về cấu trúc `ProblemDetail` thống nhất (`status`, `title`, `detail`, `instance`, `code`, `timestamp`).
-4. **Chuẩn định dạng mã nguồn & Commit Git:**
+4. **Chuẩn định dạng mã nguồn & Frontend Design System:**
    - Backend: Google Java Format (2 spaces), kiểm soát tự động bằng Spotless (`./gradlew spotlessApply`).
    - Frontend: Prettier + ESLint (`--max-warnings 0`), strict TypeScript không cho phép biến/tham số thừa.
+   - **Quy chuẩn Giao diện & Tokens:** Toàn bộ giao diện bắt buộc tuân thủ và phát triển bám sát bộ mẫu thiết kế trong `docs/The plans of project/Frontend - template/` (`DESIGN.md`, `tokens.json`, `theme.css`, `variables.css`): phong cách _alpine field guide_, bảng màu tương phản (Highlighter Mint, Sage Stone, Carbon Ink, Topo Gray), typography utilitarian mono + display, border radius `0px` phẳng góc cạnh không đổ bóng.
    - Commit Message: Tuân thủ Conventional Commits `<type>(<scope>): <desc> [W1-xx]` (< 120 ký tự), bắt buộc pass Husky hook.
 5. **Bảo mật & Quyền riêng tư (Zero PII):**
    - Tuyệt đối không commit file `.env*`, bí mật hoặc API keys; chỉ đọc từ biến môi trường.
@@ -55,6 +56,7 @@ Hệ thống WebGIS giám sát thời tiết, lượng mưa, gió bão thời gi
 ## Tài liệu chủ đề
 
 - **Kế hoạch & Tiến độ Sprint** (`PROGRESS.md`, `docs/week1/README.md`) — Tra cứu tiến độ, ma trận RACI và tiêu chí nghiệm thu từng Task.
+- **Mẫu thiết kế Frontend & Design Tokens** (`docs/The plans of project/Frontend - template/`) — Đọc bắt buộc khi tạo/sửa giao diện, CSS và components UI (`DESIGN.md`, `tokens.json`, `theme.css`, `variables.css`).
 - **Lược đồ CSDL 10 bảng PostGIS** (`docs/The plans of project/1. ERD.md`) — Đọc bắt buộc khi tạo Entity, DDL hoặc viết migration Flyway.
 - **Đặc tả RESTful API & GeoJSON RFC 7946** (`docs/The plans of project/2. API docs.md`) — Đọc bắt buộc khi thêm hoặc sửa đổi API endpoint.
 - **Yêu cầu nghiệp vụ & Ngưỡng rủi ro thiên tai** (`docs/The plans of project/3. BRD.md`) — Bắt buộc khi tính toán cảnh báo thời tiết (mưa, bão, gió giật).
