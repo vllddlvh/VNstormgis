@@ -354,7 +354,7 @@ flowchart TD
 
 #### Chi tiết các tác vụ thực hiện:
 
-- **Task W1-10 (Frontend Engineer):**
+- **[Task W1-10 (Frontend Engineer)](Task%20W1-10.md):**
   - Khởi tạo dự án Frontend bằng Vite:
     ```bash
     npm create vite@latest frontend -- --template react-ts
@@ -447,7 +447,7 @@ flowchart TD
 | **[W1-07](Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |     Backend Eng     |   Tech Lead    |   Tech Lead   |   **3**   |      6h      | [6. Tech Stack Sec 3](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | `backend/build.gradle`, cấu hình Virtual Threads        |
 | **[W1-08](Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |     Backend Eng     | GIS, Tech Lead |   Tech Lead   |   **5**   |     10h      | W1-05, W1-07                                                                                                                                   | `LocationEntity`, `Repository`, `Controller`, Exception |
 | **[W1-09](Task%20W1-09.md)** | Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI |     Backend Eng     |     DevOps     |   Tech Lead   |   **2**   |      4h      | W1-07, W1-08                                                                                                                                   | `application-dev.yml`, Swagger UI `/swagger-ui.html`    |
-| **W1-10**                    | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |    Frontend Eng     |   Tech Lead    |   Tech Lead   |   **2**   |      4h      | [6. Tech Stack Sec 6](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | Khung Frontend, Tailwind, `vite.config.ts` proxy        |
+| **[W1-10](Task%20W1-10.md)** | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |    Frontend Eng     |   Tech Lead    |   Tech Lead   |   **2**   |      4h      | [6. Tech Stack Sec 6](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/6.%20Technical%20Stack.md)                | Khung Frontend, Tailwind, `vite.config.ts` proxy        |
 | **W1-11**                    | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |    Frontend Eng     |      GIS       |   Tech Lead   |   **3**   |      6h      | Leaflet docs                                                                                                                                   | `leafletConfig.ts`, icon assets chuẩn hóa               |
 | **W1-12**                    | Dựng Component `BaseMap` Lãnh thổ Việt Nam & App Layout     |    Frontend Eng     |      GIS       |   Tech Lead   |   **3**   |      6h      | W1-10, W1-11                                                                                                                                   | `BaseMap.tsx` (Center VN, Zoom 6), Layout chuẩn         |
 | **W1-13**                    | Viết Integration Test với Testcontainers PostGIS & WireMock |     QA / DevOps     |       BE       |   Tech Lead   |   **3**   |      8h      | W1-08, Docker                                                                                                                                  | `LocationRepositoryTest.java` tự động chạy Pass         |

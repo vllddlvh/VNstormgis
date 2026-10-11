@@ -28,23 +28,23 @@ Sprint 1 (Tuần 1-2): In Progress
 
 ## 2. Ma Trận Tiến Độ Chi Tiết Tuần 1 (Week 1 Detailed Task Matrix)
 
-| Mã Task                                 | Tên Nhiệm Vụ Chi Tiết                                       | SP  |  Phụ Trách  |   Trạng Thái    | Sản Phẩm Bàn Giao (Deliverables)                                                                                    | Tiêu Chuẩn Nghiệm Thu (DoD)                                                                                       |
-| :-------------------------------------- | :---------------------------------------------------------- | :-: | :---------: | :-------------: | :------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------- |
-| **[W1-01](docs/week1/Task%20W1-01.md)** | Tổ chức Monorepo, Git Workflow & Pre-commit Hooks           |  2  |  Tech Lead  | `[x] COMPLETED` | Cấu trúc Monorepo, Husky (`pre-commit`, `commit-msg`), `.lintstagedrc.json`, `commitlint.config.js`, `package.json` | `npm run lint:root` pass; commit sai format bị chặn; hooks kích hoạt tự động.                                     |
-| **[W1-02](docs/week1/Task%20W1-02.md)** | Thiết lập Docker Compose Local Stack (PostGIS + Redis)      |  3  |   DevOps    | `[x] COMPLETED` | `deployment/docker-compose.yml`, `deployment/env/.env.example`, `.env.local`                                        | `docker-compose.yml` đạt chuẩn Compose v3.8, healthchecks cấu hình đầy đủ.                                        |
-| **[W1-03](docs/week1/Task%20W1-03.md)** | Khởi động & Kiểm định Docker Local Stack                    |  1  |  All Team   | `[x] COMPLETED` | `docs/week1/Task W1-03.md`, `scripts/verify-local-stack.sh`, kịch bản nghiệm thu                                    | Container `weathergis-postgres` và `weathergis-redis` đạt `healthy`, 8/8 check pass.                              |
-| **[W1-04](docs/week1/Task%20W1-04.md)** | Flyway V1: Khởi tạo mở rộng PostGIS & UUID                  |  1  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V1__init_spatial_extensions.sql`, `docs/week1/Task W1-04.md`               | Kích hoạt thành công extension `postgis` và `uuid-ossp` trong PostgreSQL; 6/6 test pass.                          |
-| **[W1-05](docs/week1/Task%20W1-05.md)** | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |  2  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V2__create_location_tables.sql`, `docs/week1/Task W1-05.md`                | Bảng `locations` có cột `geom Point(EPSG:4326)`, spatial index `USING GIST`, trigger `updated_at`; 7/7 test pass. |
-| **[W1-06](docs/week1/Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`, `docs/week1/Task W1-06.md`                | 68 trạm WGS84 (63 tỉnh thành + 5 đảo tiền tiêu), bounds check PASS, idempotency PASS; 9/9 test pass.              |
-| **[W1-07](docs/week1/Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   | `[x] COMPLETED` | `backend/build.gradle`, cấu hình Virtual Threads, Jackson JTS                                                       | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core, Virtual Threads; 8/8 test pass.                  |
-| **[W1-08](docs/week1/Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   | `[x] COMPLETED` | `LocationEntity`, `LocationRepository`, `LocationController`, RFC 7807 `GlobalExceptionHandler`                     | API `/api/v1/locations` hỗ trợ kép JSON và GeoJSON RFC 7946; lỗi trả về ProblemDetail; 9/9 test pass.             |
-| **[W1-09](docs/week1/Task%20W1-09.md)** | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   | `[x] COMPLETED` | `application-dev.yml`, `OpenApiConfig.java`, Swagger UI `/swagger-ui.html`, Actuator `/actuator/flyway`             | Profile dev kết nối PostGIS local; Flyway auto-migrate 3 scripts; Swagger UI & Actuator UP; 10/10 test pass.      |
-| **W1-10**                               | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |  2  |  Frontend   |  `[ ] PENDING`  | Khung ứng dụng Frontend, `vite.config.ts` proxy                                                                     | `npm run dev` nạp giao diện không lỗi console; proxy `/api` sang `:8080`.                                         |
-| **W1-11**                               | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |  3  |  Frontend   |  `[ ] PENDING`  | `leafletConfig.ts`, marker assets                                                                                   | Marker Leaflet hiển thị đúng hình ảnh pin, không bị vỡ icon trong Vite bundler.                                   |
-| **W1-12**                               | Dựng Component `BaseMap` Lãnh thổ Việt Nam & Layout         |  3  |  Frontend   |  `[ ] PENDING`  | `BaseMap.tsx`, Layout Dashboard                                                                                     | Bản đồ mặc định tâm Việt Nam ($16^\circ N, 108^\circ E$, zoom 6); pan/zoom mượt.                                  |
-| **W1-13**                               | Viết Integration Test với Testcontainers PostGIS            |  3  | QA / DevOps |  `[ ] PENDING`  | `LocationRepositoryTest.java`                                                                                       | Testcontainers tự kéo image PostGIS và chạy JUnit 5 test pass 100%.                                               |
-| **W1-14**                               | Kết nối Smoke Test E2E (Render 63 Trạm lên Leaflet)         |  2  |   BE & FE   |  `[ ] PENDING`  | Tích hợp toàn diện Backend - Frontend                                                                               | Bản đồ tải dữ liệu từ API Backend và vẽ đủ 63 điểm trạm quan trắc.                                                |
-| **W1-15**                               | Họp Demo Tuần 1 & Nghiệm thu Cổng 1 Alpha                   |  1  |  All Team   |  `[ ] PENDING`  | Biên bản nghiệm thu Gate 1 Alpha                                                                                    | 100% tiêu chí nghiệm thu Gate 1 Alpha được thông qua; sẵn sàng Sprint 1 - Tuần 2.                                 |
+| Mã Task                                 | Tên Nhiệm Vụ Chi Tiết                                       | SP  |  Phụ Trách  |   Trạng Thái    | Sản Phẩm Bàn Giao (Deliverables)                                                                                    | Tiêu Chuẩn Nghiệm Thu (DoD)                                                                                            |
+| :-------------------------------------- | :---------------------------------------------------------- | :-: | :---------: | :-------------: | :------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------- |
+| **[W1-01](docs/week1/Task%20W1-01.md)** | Tổ chức Monorepo, Git Workflow & Pre-commit Hooks           |  2  |  Tech Lead  | `[x] COMPLETED` | Cấu trúc Monorepo, Husky (`pre-commit`, `commit-msg`), `.lintstagedrc.json`, `commitlint.config.js`, `package.json` | `npm run lint:root` pass; commit sai format bị chặn; hooks kích hoạt tự động.                                          |
+| **[W1-02](docs/week1/Task%20W1-02.md)** | Thiết lập Docker Compose Local Stack (PostGIS + Redis)      |  3  |   DevOps    | `[x] COMPLETED` | `deployment/docker-compose.yml`, `deployment/env/.env.example`, `.env.local`                                        | `docker-compose.yml` đạt chuẩn Compose v3.8, healthchecks cấu hình đầy đủ.                                             |
+| **[W1-03](docs/week1/Task%20W1-03.md)** | Khởi động & Kiểm định Docker Local Stack                    |  1  |  All Team   | `[x] COMPLETED` | `docs/week1/Task W1-03.md`, `scripts/verify-local-stack.sh`, kịch bản nghiệm thu                                    | Container `weathergis-postgres` và `weathergis-redis` đạt `healthy`, 8/8 check pass.                                   |
+| **[W1-04](docs/week1/Task%20W1-04.md)** | Flyway V1: Khởi tạo mở rộng PostGIS & UUID                  |  1  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V1__init_spatial_extensions.sql`, `docs/week1/Task W1-04.md`               | Kích hoạt thành công extension `postgis` và `uuid-ossp` trong PostgreSQL; 6/6 test pass.                               |
+| **[W1-05](docs/week1/Task%20W1-05.md)** | Flyway V2: DDL bảng `locations` & Chỉ mục GiST              |  2  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V2__create_location_tables.sql`, `docs/week1/Task W1-05.md`                | Bảng `locations` có cột `geom Point(EPSG:4326)`, spatial index `USING GIST`, trigger `updated_at`; 7/7 test pass.      |
+| **[W1-06](docs/week1/Task%20W1-06.md)** | Flyway V3: Seed 63 Tỉnh Thành & Trạm Khí Tượng WGS84        |  3  |  GIS / DB   | `[x] COMPLETED` | `backend/src/main/resources/db/migration/V3__seed_vietnam_locations.sql`, `docs/week1/Task W1-06.md`                | 68 trạm WGS84 (63 tỉnh thành + 5 đảo tiền tiêu), bounds check PASS, idempotency PASS; 9/9 test pass.                   |
+| **[W1-07](docs/week1/Task%20W1-07.md)** | Khởi tạo Spring Boot 3.3 Gradle, Java 21, Hibernate Spatial |  3  |   Backend   | `[x] COMPLETED` | `backend/build.gradle`, cấu hình Virtual Threads, Jackson JTS                                                       | Build Gradle thành công, tích hợp Hibernate Spatial 6, JTS Core, Virtual Threads; 8/8 test pass.                       |
+| **[W1-08](docs/week1/Task%20W1-08.md)** | Hiện thực Domain `location` & Global Exception RFC 7807     |  5  |   Backend   | `[x] COMPLETED` | `LocationEntity`, `LocationRepository`, `LocationController`, RFC 7807 `GlobalExceptionHandler`                     | API `/api/v1/locations` hỗ trợ kép JSON và GeoJSON RFC 7946; lỗi trả về ProblemDetail; 9/9 test pass.                  |
+| **[W1-09](docs/week1/Task%20W1-09.md)** | Cấu hình `application-dev.yml` & SpringDoc OpenAPI          |  2  |   Backend   | `[x] COMPLETED` | `application-dev.yml`, `OpenApiConfig.java`, Swagger UI `/swagger-ui.html`, Actuator `/actuator/flyway`             | Profile dev kết nối PostGIS local; Flyway auto-migrate 3 scripts; Swagger UI & Actuator UP; 10/10 test pass.           |
+| **[W1-10](docs/week1/Task%20W1-10.md)** | Khởi tạo React 18, Vite, TypeScript, Tailwind CSS           |  2  |  Frontend   | `[x] COMPLETED` | `docs/week1/Task W1-10.md`, Khung ứng dụng Frontend, `vite.config.ts` proxy, Axios Client                           | `npm run dev` nạp UI không lỗi; proxy `/api` & `/actuator` sang `:8080`; build pass; type-check pass; 10/10 test pass. |
+| **W1-11**                               | Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Bug               |  3  |  Frontend   |  `[ ] PENDING`  | `leafletConfig.ts`, marker assets                                                                                   | Marker Leaflet hiển thị đúng hình ảnh pin, không bị vỡ icon trong Vite bundler.                                        |
+| **W1-12**                               | Dựng Component `BaseMap` Lãnh thổ Việt Nam & Layout         |  3  |  Frontend   |  `[ ] PENDING`  | `BaseMap.tsx`, Layout Dashboard                                                                                     | Bản đồ mặc định tâm Việt Nam ($16^\circ N, 108^\circ E$, zoom 6); pan/zoom mượt.                                       |
+| **W1-13**                               | Viết Integration Test với Testcontainers PostGIS            |  3  | QA / DevOps |  `[ ] PENDING`  | `LocationRepositoryTest.java`                                                                                       | Testcontainers tự kéo image PostGIS và chạy JUnit 5 test pass 100%.                                                    |
+| **W1-14**                               | Kết nối Smoke Test E2E (Render 63 Trạm lên Leaflet)         |  2  |   BE & FE   |  `[ ] PENDING`  | Tích hợp toàn diện Backend - Frontend                                                                               | Bản đồ tải dữ liệu từ API Backend và vẽ đủ 63 điểm trạm quan trắc.                                                     |
+| **W1-15**                               | Họp Demo Tuần 1 & Nghiệm thu Cổng 1 Alpha                   |  1  |  All Team   |  `[ ] PENDING`  | Biên bản nghiệm thu Gate 1 Alpha                                                                                    | 100% tiêu chí nghiệm thu Gate 1 Alpha được thông qua; sẵn sàng Sprint 1 - Tuần 2.                                      |
 
 ---
 
@@ -152,6 +152,22 @@ Sprint 1 (Tuần 1-2): In Progress
   - Tài liệu đặc tả kỹ thuật và cẩm nang vận hành [`docs/week1/Task W1-09.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-09.md).
 - **Nghiệm thu:** 10/10 kịch bản kiểm định (TC-01..TC-10) đạt 100% PASS: Actuator Health UP, Flyway auto-migrated 3 scripts, Swagger UI `/swagger-ui.html` và `/v3/api-docs` hoạt động hoàn hảo, 10/10 tests pass; sẵn sàng bàn giao cho Task W1-10 (Khởi tạo React 18, Vite).
 
+### 3.10. Task W1-10: Khởi Tạo Frontend React 18, Vite 5, TypeScript 5, Tailwind CSS 3.4 & Thiết Lập Reverse Proxy Vite sang Backend (:8080)
+
+- **Trạng thái:** Hoàn tất (2 SP).
+- **Hạng mục bàn giao:**
+  - Cấu trúc hoàn chỉnh Single Page Application (SPA) tại `frontend/` trên nền tảng React 18.3, Vite 5.4, TypeScript 5.4, Tailwind CSS 3.4, PostCSS, Leaflet 1.9, `react-leaflet`, Lucide React, và Axios.
+  - Cấu hình Path Alias `@/*` trỏ chuẩn xác vào `./src/*` đồng bộ trong cả `frontend/tsconfig.json` và `frontend/vite.config.ts`.
+  - Thiết lập Vite Reverse Proxy chuyển tiếp `/api` và `/actuator` sang `http://localhost:8080`, triệt tiêu dứt điểm rủi ro CORS (RSK-W1-04) và overhead OPTIONS preflight.
+  - Bảng mã màu Weather Design System trong `tailwind.config.js` (Warning Yellow, Threat Orange, Disaster Red, Heavy Rain Teal, Tropical Storm Indigo) và kiểu dáng nền tảng trong `src/index.css`.
+  - Tiện ích ghép lớp Tailwind `cn()` (`src/lib/utils.ts` dựa trên `clsx` và `tailwind-merge`).
+  - Hợp đồng TypeScript `src/types/api.ts` (chuẩn `ApiResponse<T>`, `ProblemDetail`) và `src/types/location.ts` (`LocationResponse`, `GeoJsonFeatureCollection`).
+  - Singleton HTTP Client `src/services/apiClient.ts` và dịch vụ trắc địa `src/services/locationService.ts` (`getLocations`, `getLocationsGeoJson`, `checkHealth`).
+  - Linh kiện giao diện `src/components/common/StatusBadge.tsx` và Dashboard kiểm thử sống động `src/App.tsx` (hiển thị trạng thái trạm quan trắc PostGIS kết nối thực tế với backend Spring Boot 3.3).
+  - Khắc phục lỗi tương thích Postgres JPQL khi `:search` null trong `LocationRepository.java` (`CAST(:search AS String)`).
+  - Tài liệu đặc tả kỹ thuật và nhật ký kiểm thử [`docs/week1/Task W1-10.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/Task%20W1-10.md).
+- **Nghiệm thu:** 9/9 kịch bản kiểm định (TC-01..TC-09) đạt 100% PASS: `npm run type-check` sạch sẽ, `npm run lint` đạt max-warnings 0, `npm run build` xuất gói production tối ưu, dev server & proxy kết nối thực tế tới Backend lấy 68 trạm quan trắc PostGIS thành công qua trình duyệt thực tế; sẵn sàng cho Task W1-11 (Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Marker Bug).
+
 ---
 
 ## 4. Trạng Thái Cổng Kiểm Định Chất Lượng (Quality Gate & Verification)
@@ -168,8 +184,9 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 | **Location Seed Accuracy**           | `SELECT count(*) FROM locations;`  | Đạt chính xác 68 trạm (63 tỉnh + 5 đảo)    |     🟢 **PASS**     |
 | **Coordinate Bounds Check**          | `WHERE ST_X(geom) < 50`            | Trả về 0 bản ghi (không đảo lộn Lat/Lon)   |     🟢 **PASS**     |
 | **Java Code Format**                 | `npm run backend:format`           | Chuẩn Google Java Format (Spotless)        |     🟢 **PASS**     |
-| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (Unit + Context Loaded)     |     🟢 **PASS**     |
-| **Frontend TypeScript & ESLint**     | `npm run frontend:lint`            | Không có warning/error cú pháp             |    ⚪ Chờ W1-10     |
+| **Backend Unit & Integration Tests** | `cd backend && ./gradlew test`     | 100% test pass (10/10 tests pass)          |     🟢 **PASS**     |
+| **Frontend TypeScript & ESLint**     | `npm run frontend:lint`            | Không có warning/error cú pháp             |     🟢 **PASS**     |
+| **Frontend Production Build**        | `cd frontend && npm run build`     | Bundle tối ưu không lỗi type/build         |     🟢 **PASS**     |
 
 ---
 
@@ -180,7 +197,7 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 | **RSK-W1-01** | Docker PostGIS lỗi tương thích kiến trúc trên chip Apple Silicon (M-series). |  Trung bình  | Sử dụng thẻ image `postgis/postgis:16-3.4-alpine` hỗ trợ native cả ARM64 và AMD64.                                         |    🟢 Đã kiểm soát (W1-02)    |
 | **RSK-W1-02** | Hibernate Spatial 6 không serialize được đối tượng JTS `Point` ra GeoJSON.   |     Cao      | Đăng ký `JtsModule` trong `JacksonConfig.java`, kiểm thử tự động với `JacksonGeoJsonSerializationTest` pass 100%.          | 🟢 Đã hóa giải (W1-07, W1-08) |
 | **RSK-W1-03** | Leaflet Marker Icon bị vỡ (lỗi 404 hình ảnh) trong môi trường đóng gói Vite. |     Cao      | Tạo `leafletConfig.ts` import icon tĩnh từ `leaflet/dist/images` hoặc dùng `L.divIcon`.                                    |   ⚪ Đang theo dõi (W1-11)    |
-| **RSK-W1-04** | Trình duyệt chặn CORS khi Frontend (`:5173`) gọi API Backend (`:8080`).      |  Trung bình  | Thiết lập Reverse Proxy cục bộ trong `vite.config.ts` (`server.proxy: {'/api': 'http://localhost:8080'}`).                 |   ⚪ Đang theo dõi (W1-10)    |
+| **RSK-W1-04** | Trình duyệt chặn CORS khi Frontend (`:5173`) gọi API Backend (`:8080`).      |  Trung bình  | Thiết lập Reverse Proxy cục bộ trong `vite.config.ts` (`server.proxy: {'/api': 'http://localhost:8080'}`).                 |    🟢 Đã hóa giải (W1-10)     |
 | **RSK-W1-05** | Flyway V3 nạp tọa độ bị đảo ngược thứ tự (Vĩ độ trước, Kinh độ sau).         | Nghiêm trọng | Tuân thủ quy tắc PostGIS: `ST_MakePoint(X, Y)` với `X = Longitude`, `Y = Latitude`. Chạy query kiểm tra `ST_X(geom) < 50`. |   🟢 Đã triệt tiêu (W1-06)    |
 
 ---
@@ -189,11 +206,11 @@ Theo nguyên tắc Harness, mọi thành phần bàn giao phải vượt qua cá
 
 Agent hoặc Kỹ sư phát triển tiếp theo cần thực thi theo đúng thứ tự ưu tiên:
 
-1. **Thực thi [W1-10] (Tiếp nối W1-09 đã hoàn tất):**
-   - Đã hoàn tất profile `application-dev.yml`, Flyway auto-migration, SpringDoc OpenAPI `/swagger-ui.html` và 10/10 tests pass (W1-09).
-   - Kế tiếp: Khởi tạo ứng dụng React 18 với Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `/api` sang cổng backend `:8080`.
-2. **Thực thi [W1-11]:**
-   - Tích hợp Leaflet 1.9, giải quyết Leaflet Icon Bug và chuẩn bị marker assets.
+1. **Thực thi [W1-11] (Tiếp nối W1-10 đã hoàn tất):**
+   - Đã hoàn tất khung SPA React 18, Vite 5, Tailwind CSS 3.4, Axios client và Reverse proxy kết nối Backend :8080 (W1-10).
+   - Kế tiếp: Tích hợp Leaflet 1.9, giải quyết Leaflet Icon Bug và chuẩn bị marker assets trong `leafletConfig.ts`.
+2. **Thực thi [W1-12]:**
+   - Xây dựng component `BaseMap.tsx` định vị trung tâm Việt Nam ($16^\circ N, 108^\circ E$, zoom 6) và hoàn thiện App Layout.
 
 ---
 

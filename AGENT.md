@@ -288,7 +288,7 @@ Tuân thủ cú pháp Husky / Commitlint:
 - [x] **W1-07:** Khởi tạo Spring Boot 3.3 Gradle, Java 21 LTS, Hibernate Spatial 6, Virtual Threads.
 - [x] **W1-08:** Hiện thực Domain `location` & Khung xử lý lỗi toàn cục RFC 7807 Problem Details.
 - [x] **W1-09:** Cấu hình `application-dev.yml` & Tích hợp SpringDoc OpenAPI (`/swagger-ui.html`).
-- [ ] **W1-10:** Khởi tạo React 18, Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `:8080`.
+- [x] **[W1-10](docs/week1/Task%20W1-10.md):** Khởi tạo React 18, Vite, TypeScript 5, Tailwind CSS, cấu hình proxy `:8080`.
 - [ ] **W1-11:** Tích hợp Leaflet 1.9 & Xử lý Leaflet Icon Marker Bug trong Vite bundler.
 - [ ] **W1-12:** Dựng Component `BaseMap` Lãnh thổ Việt Nam ($16^\circ N, 108^\circ E$, zoom 6) & App Layout.
 - [ ] **W1-13:** Viết Integration Test với Testcontainers PostGIS & WireMock.

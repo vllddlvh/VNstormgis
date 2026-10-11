@@ -93,6 +93,9 @@ frontend/dist/
 frontend/dist-ssr/
 frontend/.vite/
 frontend/coverage/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # NPM / Yarn / PNPM debug logs
 npm-debug.log*

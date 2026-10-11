@@ -23,7 +23,7 @@ public interface LocationRepository extends JpaRepository<LocationEntity, UUID> 
             "SELECT l FROM LocationEntity l WHERE "
                     + "(:region IS NULL OR l.region = :region) AND "
                     + "(:isActive IS NULL OR l.isActive = :isActive) AND "
-                    + "(:search IS NULL OR LOWER(l.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(l.code) LIKE LOWER(CONCAT('%', :search, '%')))")
+                    + "(:search IS NULL OR LOWER(l.name) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR LOWER(l.code) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     List<LocationEntity> searchLocations(
             @Param("region") String region,
             @Param("isActive") Boolean isActive,
