@@ -4,6 +4,21 @@
 
 ---
 
+## Khi bắt đầu phiên (vào ca)
+
+1. Đọc PROGRESS.md để nắm trạng thái hiện tại
+2. Đọc DECISIONS.md để nắm các quyết định quan trọng
+3. Chạy make check để xác nhận repo đang ở trạng thái nhất quán
+4. Tiếp tục từ mục "Các bước tiếp theo" trong PROGRESS.md
+
+## Trước khi kết thúc phiên (tan ca)
+
+1. Cập nhật PROGRESS.md
+2. Chạy make check để xác nhận trạng thái nhất quán
+3. Commit tất cả phần việc đã hoàn thành
+
+---
+
 ## 1. Giới Thiệu Dự Án (Project Overview)
 
 **VNstormgis** là giải pháp nền tảng công nghệ toàn diện phục vụ giám sát lượng mưa, gió giật, bão lũ và cảnh báo thiên tai sớm tại Việt Nam. Hệ thống tích hợp sâu giữa công nghệ bản đồ số địa không gian (WebGIS) và mô hình ngôn ngữ lớn (Grounded AI Warning Agent) nhằm hỗ trợ người dân và cơ quan quản lý tra cứu, cập nhật thông tin chuẩn xác theo thời gian thực.

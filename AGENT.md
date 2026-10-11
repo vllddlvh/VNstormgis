@@ -1,5 +1,24 @@
 # AGENTS.md
 
+## Khi bắt đầu phiên (vào ca)
+
+1. Đọc PROGRESS.md để nắm trạng thái hiện tại
+2. Đọc DECISIONS.md để nắm các quyết định quan trọng
+3. Chạy make check để xác nhận repo đang ở trạng thái nhất quán
+4. Tiếp tục từ mục "Các bước tiếp theo" trong PROGRESS.md
+
+## Trước khi kết thúc phiên (tan ca)
+
+1. Cập nhật PROGRESS.md
+2. Chạy make check để xác nhận trạng thái nhất quán
+3. Commit tất cả phần việc đã hoàn thành
+
+## Quy tắc làm việc
+
+- Làm một tính năng tại một thời điểm
+- Chỉ bắt đầu tính năng tiếp theo sau khi tính năng hiện tại pass xác minh end-to-end
+- Đừng "tiện thể tái cấu trúc" tính năng B trong khi triển khai tính năng A
+
 ## Tổng quan dự án
 
 Hệ thống WebGIS giám sát thời tiết, lượng mưa, gió bão thời gian thực tại Việt Nam tích hợp Grounded AI Warning Agent (`VNstormgis`).

@@ -113,3 +113,7 @@ postgis_data/
 redis_data/
 *.rdb
 *.aof
+
+
+docs/
+
