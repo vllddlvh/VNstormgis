@@ -8,6 +8,7 @@
     "lint:root": "prettier --check \"**/*.{json,yml,yaml,md}\"",
     "format:root": "prettier --write \"**/*.{json,yml,yaml,md}\"",
     "docker:verify": "bash scripts/verify-local-stack.sh",
+    "smoke:e2e": "bash scripts/verify-e2e-smoke.sh",
     "backend:format": "cd backend && ./gradlew spotlessApply",
     "frontend:lint": "cd frontend && npm run lint",
     "frontend:format": "cd frontend && npx prettier --write \"src/**/*.{ts,tsx,css}\""
