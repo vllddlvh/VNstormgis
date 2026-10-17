@@ -7,7 +7,12 @@
  * @version 1.0.0
  */
 
-import { CoordinateTuple, GeoJsonCoordinate } from "@/types/map";
+import {
+  CoordinateTuple,
+  GeoJsonCoordinate,
+  MapViewportConfig,
+  TileLayerOption,
+} from "@/types/map";
 
 /**
  * Bounding Box bao trùm toàn bộ không phận, hải phận, vùng đất liền và hai quần đảo Hoàng Sa, Trường Sa của Việt Nam.
@@ -22,15 +27,69 @@ export const VIETNAM_BOUNDING_BOX = {
 } as const;
 
 /**
+ * Giới hạn dịch chuyển khung nhìn bản đồ (Max Bounds) khóa phạm vi chủ quyền Việt Nam và Biển Đông.
+ * Tây Nam: [6.0°N, 100.0°E] (vùng biển Cà Mau & Vịnh Thái Lan)
+ * Đông Bắc: [24.5°N, 118.5°E] (Biên giới phía Bắc & Quần đảo Hoàng Sa, Trường Sa)
+ */
+export const VIETNAM_MAX_BOUNDS: [CoordinateTuple, CoordinateTuple] = [
+  [6.0, 100.0],
+  [24.5, 118.5],
+];
+
+/**
  * Tọa độ trung tâm trắc địa của lãnh thổ Việt Nam (khu vực thành phố Đà Nẵng).
  * Chuẩn hiển thị Leaflet: [Latitude, Longitude]
  */
-export const VIETNAM_DEFAULT_CENTER: CoordinateTuple = [16.047079, 108.20623];
+export const VIETNAM_DEFAULT_CENTER: CoordinateTuple = [16.047072, 108.20623];
 
 /**
  * Mức thu phóng (Zoom Level) mặc định bao quát toàn cảnh lãnh thổ Việt Nam.
  */
 export const VIETNAM_DEFAULT_ZOOM = 6;
+
+/**
+ * Cấu hình khung nhìn tiêu chuẩn khởi tạo bản đồ số WebGIS.
+ */
+export const DEFAULT_VIEWPORT_CONFIG: MapViewportConfig = {
+  center: VIETNAM_DEFAULT_CENTER,
+  zoom: VIETNAM_DEFAULT_ZOOM,
+  minZoom: 5,
+  maxZoom: 18,
+  maxBounds: VIETNAM_MAX_BOUNDS,
+  maxBoundsViscosity: 0.8,
+};
+
+/**
+ * Danh mục các nhà cung cấp bản đồ nền (TileLayer Providers) hỗ trợ trong hệ thống.
+ */
+export const TILE_PROVIDERS: Record<string, TileLayerOption> = {
+  voyager: {
+    id: "voyager",
+    name: "CartoDB Voyager (Tác Chiến)",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 19,
+  },
+  dark: {
+    id: "dark",
+    name: "CartoDB Dark Matter (Ban Đêm)",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 19,
+  },
+  osm: {
+    id: "osm",
+    name: "OpenStreetMap Standard (Dự Phòng)",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+  },
+};
 
 /**
  * Chuyển đổi mảng tọa độ GeoJSON RFC 7946 [Longitude, Latitude] sang tọa độ hiển thị Leaflet [Latitude, Longitude].

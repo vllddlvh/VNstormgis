@@ -45,6 +45,7 @@ export interface StationMarkerData {
   rainfallMm?: number;
   windSpeedKmh?: number;
   windDirection?: string;
+  elevationM?: number;
   lastUpdated?: string;
 }
 
@@ -70,4 +71,47 @@ export interface TileLayerOption {
   attribution: string;
   subdomains?: string | string[];
   maxZoom?: number;
+}
+
+/**
+ * Trạng thái bật/tắt các lớp dữ liệu không gian trên bản đồ.
+ */
+export interface LayerVisibilityState {
+  stations: boolean;
+  radar: boolean;
+  wind: boolean;
+  clouds: boolean;
+  cyclones: boolean;
+}
+
+/**
+ * Cấu trúc thông tin bản tin cảnh báo thiên tai thời gian thực (hiển thị trên AlertTickerBar).
+ */
+export interface WeatherAlertItem {
+  id: string;
+  code: string;
+  title: string;
+  stationName: string;
+  region: string;
+  severity: WeatherSeverityLevel;
+  coordinates: CoordinateTuple;
+  headline: string;
+  detail: string;
+  rainfallMm?: number;
+  windSpeedKmh?: number;
+  time: string;
+}
+
+/**
+ * Cấu trúc thông tin cơn bão / áp thấp nhiệt đới đang hoạt động trên biển Đông.
+ */
+export interface ActiveCycloneData {
+  id: string;
+  name: string;
+  category: number;
+  coordinates: CoordinateTuple;
+  pressureHpa: number;
+  windSpeedKmh: number;
+  forecastTrack: CoordinateTuple[];
+  lastUpdated: string;
 }
