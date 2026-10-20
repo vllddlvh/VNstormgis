@@ -1,9 +1,0 @@
-{
-  "backend/src/**/*.java": ["bash -c 'cd backend && ./gradlew spotlessApply'"],
-  "frontend/src/**/*.{ts,tsx}": [
-    "npx --prefix frontend eslint --fix",
-    "prettier --write"
-  ],
-  "frontend/src/**/*.{css,scss}": ["prettier --write"],
-  "**/*.{json,yml,yaml,md}": ["prettier --write"]
-}

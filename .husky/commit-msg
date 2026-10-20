@@ -1,2 +1,0 @@
-echo "🔍 Đang kiểm tra định dạng thông điệp commit theo Conventional Commits..."
-npx --no -- commitlint --edit "$1"

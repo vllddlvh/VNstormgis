@@ -125,3 +125,12 @@ AGENTS.md
 Decisions.md 
 PROGRESS.md
 node_modules
+
+.editorconfig
+.lintstagedrc.json
+.prettierignore
+commitlint.config.js
+.husky
+package-lock.json
+package.json
+scripts
