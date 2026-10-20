@@ -31,7 +31,7 @@ export const MapNavigationControls: React.FC<MapNavigationControlsProps> = ({
   onToggleFullscreen,
 }) => {
   return (
-    <div className="absolute top-4 right-4 z-[1000] flex flex-col space-y-1 font-mono select-none">
+    <div className="absolute top-1/2 -translate-y-1/2 left-4 z-[1000] flex flex-col space-y-1 font-mono select-none">
       {/* Nút Phóng to (+) */}
       <button
         id="btn-nav-zoom-in"

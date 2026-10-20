@@ -32,8 +32,9 @@
 > [!IMPORTANT]
 > **Kế Hoạch Bù Tiến Độ (Schedule Recovery):** Do dự án bị trễ 1 tuần từ giai đoạn trước, Sprint 1 Tuần 2 mới được thiết lập theo cơ chế Fast-Track gộp toàn bộ phạm vi Tuần 2 cũ (Ingestion Engine) và Tuần 3 cũ (REST API GeoJSON & Leaflet Rainfall/Wind Layers) thành 11 tasks (33 SP / 68h). Kế hoạch chi tiết từng ngày xem tại [`docs/week2/README.md`](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week2/README.md).
 
-- [x] W2-01: Flyway V4 - DDL Bảng `weather_records`, `storms`, `storm_tracks` & Chỉ mục GiST (`V4__create_weather_and_storm_tables.sql`)
-- [x] W2-02: Flyway V5 - DDL Bảng `alert_thresholds`, `alerts`, `chat_*`, `sync_logs` (`V5__create_alert_chat_and_log_tables.sql`)
+- [x] W2-01 (V4): Flyway V4 - DDL Bảng `weather_records`, `storms`, `storm_tracks` & Chỉ mục GiST (`V4__create_weather_and_storm_tables.sql`)
+- [x] W2-01 (V5): Flyway V5 - DDL Bảng `alert_thresholds`, `alerts`, `chat_*`, `sync_logs` (`V5__create_alert_chat_and_log_tables.sql`)
+- [x] W2-02: Nâng cấp `LayerControlDrawer.tsx` - Toggle Lớp Mưa (`rainfall` / SR-MAP-002), Telemetry Loading Bar, Huy hiệu Last Sync, ARIA switch 6 lớp & Tái định vị panel góc trên bên phải theo SRS
 - [ ] W2-03: Xây dựng OpenWeatherMap Client & Scheduled Ingestion Worker nạp 68 trạm khí tượng (15 phút/lần)
 - [ ] W2-04: Xây dựng GDACS Ingestion Client & GeoJSON Parser nạp dữ liệu bão Tây Bắc TBD (30 phút/lần)
 - [ ] W2-05: Hiện thực Quy Tắc Nghiệp Vụ `SYS-RULE-001` (Active Storm Classification)

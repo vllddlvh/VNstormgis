@@ -2,11 +2,12 @@
  * @file LayerControlDrawer.tsx
  * @description Bảng điều khiển lớp dữ liệu nổi (Floating Layer Control Panel) chuẩn thiết kế San Rita.
  * Cho phép kỹ sư vận hành chuyển đổi linh hoạt nguồn bản đồ nền (Voyager / Dark / OSM),
- * bật/tắt các lớp chuyên đề thời tiết (Trạm quan trắc, Radar mưa, Gió, Mây vệ tinh, Tâm bão)
- * và tinh chỉnh độ trong suốt Opacity của lớp.
+ * bật/tắt các lớp chuyên đề thời tiết (Trạm quan trắc, Lượng mưa, Radar mưa, Gió, Mây vệ tinh, Tâm bão),
+ * tinh chỉnh độ trong suốt Opacity của lớp và theo dõi trạng thái đồng bộ dữ liệu
+ * (Telemetry Loading Bar + huy hiệu Last Sync).
  *
  * @author VNstormgis Team - Frontend & GIS Specialist
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 import React, { useState } from "react";
@@ -45,6 +46,10 @@ export interface LayerControlDrawerProps {
   selectedRegion?: string;
   /** Callback khi người dùng thay đổi vùng miền lọc */
   onRegionChange?: (region: string) => void;
+  /** Thời điểm đồng bộ dữ liệu cuối cùng thành công (ISO 8601). null = chưa từng đồng bộ. */
+  lastSyncedAt?: string | null;
+  /** true khi đang trong chu trình fetch (hiển thị Telemetry Loading Bar). */
+  isSyncing?: boolean;
 }
 
 export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
@@ -58,14 +63,24 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   totalStationCount = 68,
   selectedRegion = "ALL",
   onRegionChange,
+  lastSyncedAt = null,
+  isSyncing = false,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(true);
 
   // Đếm tổng số lớp dữ liệu đang kích hoạt
   const activeLayerCount = Object.values(layerVisibility).filter(Boolean).length;
 
+  // Kích hoạt toggle bằng bàn phím (Enter/Space) theo NFR-USA-002
+  const handleToggleKeyDown = (e: React.KeyboardEvent, layerKey: keyof LayerVisibilityState) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onToggleLayer(layerKey);
+    }
+  };
+
   return (
-    <div className="absolute top-4 left-4 z-[1000] font-mono select-none">
+    <div className="absolute top-4 right-4 z-[1000] font-mono select-none">
       {/* Nút Toggle mở/đóng nhanh khi panel thu gọn */}
       {!isOpen ? (
         <button
@@ -157,10 +172,46 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                 [02 // CÁC LỚP CHUYÊN ĐỀ KHÔNG GIAN]
               </div>
 
+              {/* Lớp Lượng Mưa (SR-MAP-002) — nguồn dữ liệu W2-08 */}
+              <div
+                id="layer-toggle-rainfall"
+                role="switch"
+                aria-checked={layerVisibility.rainfall}
+                tabIndex={0}
+                onClick={() => onToggleLayer("rainfall")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "rainfall")}
+                className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
+                  layerVisibility.rainfall
+                    ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
+                    : "border-[#2d3329]/50 bg-[#161b13] text-[#84907f]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <CloudRain
+                    className={`w-3.5 h-3.5 ${layerVisibility.rainfall ? "text-[#68d391]" : "text-[#84907f]"}`}
+                  />
+                  <div>
+                    <div className="text-xs font-bold leading-tight">LƯỢNG MƯA QUAN TRẮC</div>
+                    <div className="text-[9px] text-[#84907f]">
+                      BONG BÓNG PHÂN CẤP 0 → &gt;50 MM
+                    </div>
+                  </div>
+                </div>
+                {layerVisibility.rainfall ? (
+                  <Eye className="w-3.5 h-3.5 text-[#e2ffcc]" />
+                ) : (
+                  <EyeOff className="w-3.5 h-3.5 text-[#84907f]" />
+                )}
+              </div>
+
               {/* Lớp Trạm quan trắc */}
               <div
                 id="layer-toggle-stations"
+                role="switch"
+                aria-checked={layerVisibility.stations}
+                tabIndex={0}
                 onClick={() => onToggleLayer("stations")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "stations")}
                 className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
                   layerVisibility.stations
                     ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
@@ -190,7 +241,11 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
               {/* Lớp Cơn bão & Áp thấp */}
               <div
                 id="layer-toggle-cyclones"
+                role="switch"
+                aria-checked={layerVisibility.cyclones}
+                tabIndex={0}
                 onClick={() => onToggleLayer("cyclones")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "cyclones")}
                 className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
                   layerVisibility.cyclones
                     ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
@@ -218,7 +273,11 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
               {/* Lớp Vùng mưa Radar */}
               <div
                 id="layer-toggle-radar"
+                role="switch"
+                aria-checked={layerVisibility.radar}
+                tabIndex={0}
                 onClick={() => onToggleLayer("radar")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "radar")}
                 className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
                   layerVisibility.radar
                     ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
@@ -244,7 +303,11 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
               {/* Lớp Vector Gió */}
               <div
                 id="layer-toggle-wind"
+                role="switch"
+                aria-checked={layerVisibility.wind}
+                tabIndex={0}
                 onClick={() => onToggleLayer("wind")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "wind")}
                 className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
                   layerVisibility.wind
                     ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
@@ -270,7 +333,11 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
               {/* Lớp Mây vệ tinh */}
               <div
                 id="layer-toggle-clouds"
+                role="switch"
+                aria-checked={layerVisibility.clouds}
+                tabIndex={0}
                 onClick={() => onToggleLayer("clouds")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "clouds")}
                 className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
                   layerVisibility.clouds
                     ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
@@ -371,6 +438,55 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className="w-full h-1 bg-[#2d3329] appearance-none cursor-pointer accent-[#e2ffcc]"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* 5. TRẠNG THÁI ĐỒNG BỘ DỮ LIỆU (TELEMETRY SYNC STATUS) */}
+            <div className="space-y-1.5 pt-2 border-t border-[#2d3329]">
+              <div className="text-[10px] uppercase font-bold text-[#84907f]">
+                [05 // TRẠNG THÁI ĐỒNG BỘ]
+              </div>
+
+              {/* Telemetry Loading Bar — indeterminate, mỏng 2px, không bo góc, không bóng */}
+              <div className="h-0.5 w-full bg-[#2d3329] overflow-hidden">
+                {isSyncing && (
+                  <div
+                    id="telemetry-loading-bar"
+                    className="h-full w-1/3 bg-[#e2ffcc] animate-pulse"
+                  />
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-[9px]">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className={`w-1.5 h-1.5 inline-block ${
+                      isSyncing
+                        ? "bg-[#e2ffcc] animate-ping"
+                        : lastSyncedAt
+                          ? "bg-[#68d391]"
+                          : "bg-[#dc2626]"
+                    }`}
+                  />
+                  {isSyncing ? (
+                    <span className="text-[#e2ffcc]">ĐANG ĐỒNG BỘ DỮ LIỆU...</span>
+                  ) : lastSyncedAt ? (
+                    <span className="text-[#84907f]">KÊNH DỮ LIỆU HOẠT ĐỘNG</span>
+                  ) : (
+                    <span className="text-[#dc2626]">CHƯA ĐỒNG BỘ / MẤT KẾT NỐI</span>
+                  )}
+                </span>
+                <span className="text-[#dde2e4] font-bold" data-testid="last-sync-badge">
+                  LAST SYNC:{" "}
+                  {lastSyncedAt
+                    ? new Date(lastSyncedAt).toLocaleTimeString("vi-VN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: false,
+                      })
+                    : "--:--:--"}
+                </span>
               </div>
             </div>
           </div>

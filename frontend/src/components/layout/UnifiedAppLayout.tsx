@@ -59,11 +59,15 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
   // 5. Quản lý Trạng thái các lớp chuyên đề
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibilityState>({
     stations: true,
-    radar: true,
+    rainfall: true,
+    radar: false,
     wind: true,
     clouds: false,
     cyclones: true,
   });
+
+  // Thời điểm đồng bộ dữ liệu thành công gần nhất (ISO 8601) — hiển thị trên huy hiệu Last Sync
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const [layerOpacity, setLayerOpacity] = useState<{ [key: string]: number }>({
     radar: 0.65,
@@ -96,6 +100,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
       const locations = await locationService.getAllLocations();
       setStationCount(locations.length);
       setBackendStatus("online");
+      setLastSyncedAt(new Date().toISOString());
 
       // Nếu API trả về dữ liệu trạm thực tế (68 trạm), chuyển đổi sang StationMarkerData
       if (locations.length > 0) {
@@ -136,6 +141,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
       }
     } catch {
       // Khi Backend chưa online, kích hoạt Banner cảnh báo lỗi kết nối San Rita
+      // Không xóa lastSyncedAt: giữ mốc sync cuối để vận hành viên biết dữ liệu bản đồ cũ đến đâu
       setBackendStatus("error");
       setStationCount(INITIAL_MOCK_STATIONS.length);
       setStations(INITIAL_MOCK_STATIONS);
@@ -263,7 +269,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
           {isRefreshing && (
             <div
               id="scanline-indicator"
-              className="absolute top-3 right-16 z-[1050] bg-[#161b13] border border-[#e2ffcc] px-2.5 py-1 text-[10px] text-[#e2ffcc] flex items-center gap-2 shadow-flat font-mono animate-pulse"
+              className="absolute top-3 left-4 z-[1050] bg-[#161b13] border border-[#e2ffcc] px-2.5 py-1 text-[10px] text-[#e2ffcc] flex items-center gap-2 shadow-flat font-mono animate-pulse"
             >
               <span className="w-2 h-2 bg-[#e2ffcc] animate-ping inline-block" />
               <span>[ĐANG QUÉT DỮ LIỆU RADAR TRẮC ĐỊA...]</span>
@@ -298,7 +304,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
             className="w-full h-full"
           />
 
-          {/* Bảng Điều Khiển Lớp Nổi (Floating Layer Control, Top Left, z-1000) */}
+          {/* Bảng Điều Khiển Lớp Nổi (Floating Layer Control, Top Right, z-1000) */}
           <LayerControlDrawer
             activeTileId={activeTileId}
             onTileChange={setActiveTileId}
@@ -310,9 +316,11 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
             totalStationCount={stations.length}
             selectedRegion={selectedRegion}
             onRegionChange={setSelectedRegion}
+            lastSyncedAt={lastSyncedAt}
+            isSyncing={isRefreshing}
           />
 
-          {/* Cụm Phím Thu Phóng Nổi (Floating Navigation Controls, Top Right, z-1000) */}
+          {/* Cụm Phím Thu Phóng Nổi (Floating Navigation Controls, Right Edge Centered, z-1000) */}
           <MapNavigationControls
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}

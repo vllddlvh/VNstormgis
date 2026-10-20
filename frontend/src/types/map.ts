@@ -78,6 +78,8 @@ export interface TileLayerOption {
  */
 export interface LayerVisibilityState {
   stations: boolean;
+  /** Lớp Mưa (SR-MAP-002) — CircleMarker phân cấp màu theo lượng mưa, render bởi RainfallLayer (W2-08). */
+  rainfall: boolean;
   radar: boolean;
   wind: boolean;
   clouds: boolean;

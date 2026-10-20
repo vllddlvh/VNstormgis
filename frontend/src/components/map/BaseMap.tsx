@@ -146,6 +146,7 @@ export interface BaseMapProps {
 
 const DEFAULT_LAYER_VISIBILITY: LayerVisibilityState = {
   stations: true,
+  rainfall: true,
   radar: false,
   wind: false,
   clouds: false,
