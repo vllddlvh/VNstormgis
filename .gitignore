@@ -116,4 +116,12 @@ redis_data/
 
 
 docs/
+.husky
+.vscode
+.qoder
+.qoderian
 
+AGENTS.md 
+Decisions.md 
+PROGRESS.md
+node_modules
