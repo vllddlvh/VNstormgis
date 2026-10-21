@@ -21,21 +21,22 @@ import vn.weathergis.automation.client.exception.OpenWeatherMapRateLimitExceptio
 public class OpenWeatherMapClient {
 
     private static final Logger log = LoggerFactory.getLogger(OpenWeatherMapClient.class);
-    private static final long[] BACKOFF_MS = {
-        500, 1000, 2000
-    }; // Exponential backoff README Mục 3.2
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
+    // Exponential backoff README Mục 3.2 — injectable để W2-04 chạy test không phải ngủ thật
+    private final long[] backoffMs;
 
     public OpenWeatherMapClient(
             RestClient openWeatherMapRestClient,
             ObjectMapper objectMapper,
-            @Value("${weathergis.external.owm.api-key:}") String apiKey) {
+            @Value("${weathergis.external.owm.api-key:}") String apiKey,
+            @Value("${weathergis.external.owm.backoff-ms:500,1000,2000}") long[] backoffMs) {
         this.restClient = openWeatherMapRestClient;
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
+        this.backoffMs = backoffMs;
     }
 
     /** Kết quả một lượt gọi: payload đã bóc tách kèm JSON gốc phục vụ cột raw_data JSONB. */
@@ -47,15 +48,15 @@ public class OpenWeatherMapClient {
      */
     public OpenWeatherMapResponse fetchCurrentWeather(double lat, double lon) {
         OpenWeatherMapClientException lastError = null;
-        for (int attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+        for (int attempt = 0; attempt <= backoffMs.length; attempt++) {
             if (attempt > 0) {
                 log.debug(
                         "OWM retry lần {} cho ({}, {}) sau {}ms",
                         attempt,
                         lat,
                         lon,
-                        BACKOFF_MS[attempt - 1]);
-                sleepQuietly(BACKOFF_MS[attempt - 1]);
+                        backoffMs[attempt - 1]);
+                sleepQuietly(backoffMs[attempt - 1]);
             }
             try {
                 return fetchOnce(lat, lon);

@@ -125,5 +125,6 @@ weathergis:
       connect-timeout-ms: 3000
       read-timeout-ms: 5000
       api-key: ${OPENWEATHERMAP_API_KEY:} # Rỗng = chưa cấu hình; Worker ghi WARN và FAILED log, KHÔNG crash
+      # backoff-ms: 500,1000,2000 # Mặc định retry backoff OWM (theo @Value); ghi đè khi cần
   internal:
     sync-secret: ${INTERNAL_SYNC_SECRET:} # Bắt buộc cấp qua môi trường; rỗng = endpoint từ chối mọi request (fail-closed)
