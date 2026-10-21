@@ -109,3 +109,21 @@ management:
   info:
     env:
       enabled: true
+
+# ------------------------------------------------------------------------------
+# 7. CẤU HÌNH INGESTION ENGINE & TÍCH HỢP NGOÀI VI (TASK W2-03)
+# ------------------------------------------------------------------------------
+weathergis:
+  sync:
+    enabled: true # Công tắc tổng: tắt để vô hiệu hóa @Scheduled trong môi trường test
+    weather-rate-ms: 900000 # 15 phút — đúng chỉ tiêu README Mục 3.2
+    weather-initial-delay-ms: 20000 # Trễ 20s sau khi khởi động để chờ Flyway + Hikari sẵn sàng
+    throttle-ms: 100 # Nghỉ 100ms giữa 2 lượt gọi trạm (phòng ngừa RSK-W2-01)
+  external:
+    owm:
+      base-url: ${OWM_BASE_URL:https://api.openweathermap.org}
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+      api-key: ${OPENWEATHERMAP_API_KEY:} # Rỗng = chưa cấu hình; Worker ghi WARN và FAILED log, KHÔNG crash
+  internal:
+    sync-secret: ${INTERNAL_SYNC_SECRET:} # Bắt buộc cấp qua môi trường; rỗng = endpoint từ chối mọi request (fail-closed)

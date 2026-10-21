@@ -103,6 +103,36 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
 
+    @ExceptionHandler(SyncUnauthorizedException.class)
+    public ResponseEntity<ProblemDetail> handleSyncUnauthorizedException(
+            SyncUnauthorizedException ex, WebRequest request) {
+        log.warn("Internal sync endpoint unauthorized access attempt");
+        ErrorCode ec = ex.getErrorCode();
+
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(ec.getHttpStatus(), ex.getMessage());
+        problemDetail.setType(URI.create(ERROR_BASE_URI + "unauthorized"));
+        problemDetail.setTitle("Xác thực nội bộ thất bại");
+        enrichProblemDetail(problemDetail, ec.getCode(), request);
+
+        return ResponseEntity.status(ec.getHttpStatus()).body(problemDetail);
+    }
+
+    @ExceptionHandler(SyncInProgressException.class)
+    public ResponseEntity<ProblemDetail> handleSyncInProgressException(
+            SyncInProgressException ex, WebRequest request) {
+        log.info("Internal sync rejected — tiến trình đồng bộ đang chạy");
+        ErrorCode ec = ex.getErrorCode();
+
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(ec.getHttpStatus(), ex.getMessage());
+        problemDetail.setType(URI.create(ERROR_BASE_URI + "conflict"));
+        problemDetail.setTitle("Tiến trình đồng bộ đang chạy");
+        enrichProblemDetail(problemDetail, ec.getCode(), request);
+
+        return ResponseEntity.status(ec.getHttpStatus()).body(problemDetail);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGlobalException(Exception ex, WebRequest request) {
         log.error("Unhandled internal server error: {}", ex.getMessage(), ex);

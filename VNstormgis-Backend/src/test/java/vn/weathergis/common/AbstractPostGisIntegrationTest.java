@@ -35,5 +35,7 @@ public abstract class AbstractPostGisIntegrationTest {
         registry.add("spring.datasource.driver-class-name", POSTGIS_CONTAINER::getDriverClassName);
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
+        // Tắt @Scheduled Ingestion trong suite test — cấm phát request mạng thật ra OWM (Mục 7.6)
+        registry.add("weathergis.sync.enabled", () -> "false");
     }
 }

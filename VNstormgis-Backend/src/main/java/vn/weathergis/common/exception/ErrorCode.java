@@ -27,7 +27,17 @@ public enum ErrorCode {
     SPATIAL_QUERY_FAILED(
             "LOC_400_SPATIAL_ERROR",
             "Lỗi thực thi toán học không gian địa lý",
-            HttpStatus.BAD_REQUEST);
+            HttpStatus.BAD_REQUEST),
+
+    // Automation / Sync Domain errors (SYN_xxx)
+    SYNC_UNAUTHORIZED(
+            "SYN_401_INVALID_SECRET",
+            "Tham số bí mật nội bộ không hợp lệ",
+            HttpStatus.UNAUTHORIZED),
+    SYNC_IN_PROGRESS(
+            "SYN_409_SYNC_IN_PROGRESS",
+            "Tiến trình đồng bộ đang chạy, vui lòng thử lại sau",
+            HttpStatus.CONFLICT);
 
     private final String code;
     private final String defaultMessage;
