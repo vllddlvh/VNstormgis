@@ -111,7 +111,7 @@ management:
       enabled: true
 
 # ------------------------------------------------------------------------------
-# 7. CẤU HÌNH INGESTION ENGINE & TÍCH HỢP NGOÀI VI (TASK W2-03)
+# 7. CẤU HÌNH INGESTION ENGINE & TÍCH HỢP NGOÀI VI (TASK W2-03 / W2-05)
 # ------------------------------------------------------------------------------
 weathergis:
   sync:
@@ -119,6 +119,9 @@ weathergis:
     weather-rate-ms: 900000 # 15 phút — đúng chỉ tiêu README Mục 3.2
     weather-initial-delay-ms: 20000 # Trễ 20s sau khi khởi động để chờ Flyway + Hikari sẵn sàng
     throttle-ms: 100 # Nghỉ 100ms giữa 2 lượt gọi trạm (phòng ngừa RSK-W2-01)
+    storm-rate-ms: 1800000 # 30 phút — đúng chỉ tiêu README Mục 3.3
+    storm-initial-delay-ms: 60000 # Trễ 60s: lệch pha với weather (20s) — 2 worker không bắn đồng thời
+    storm-dissipate-wind-ms: 17.2 # Ngưỡng bão nhiệt đới ~33 knot (quyết định #4, Mục 2 Task W2-05)
   external:
     owm:
       base-url: ${OWM_BASE_URL:https://api.openweathermap.org}
@@ -126,5 +129,12 @@ weathergis:
       read-timeout-ms: 5000
       api-key: ${OPENWEATHERMAP_API_KEY:} # Rỗng = chưa cấu hình; Worker ghi WARN và FAILED log, KHÔNG crash
       # backoff-ms: 500,1000,2000 # Mặc định retry backoff OWM (theo @Value); ghi đè khi cần
+    gdacs:
+      base-url: ${GDACS_BASE_URL:https://www.gdacs.org}
+      search-path: /gdacsapi/api/Events/geteventlist/search # Tầng 1: danh sách sự kiện (eventlist=TC)
+      track-path: /gdacsapi/api/polygons/getgeometry # Tầng 2: quỹ đạo theo sự kiện (url.geometry của chính payload GDACS)
+      connect-timeout-ms: 3000
+      read-timeout-ms: 10000 # Payload quỹ đạo lớn hơn OWM → read timeout 10s (quyết định #8)
+      # backoff-ms: 500,1000,2000 # Mặc định retry backoff GDACS (theo @Value); ghi đè khi cần
   internal:
     sync-secret: ${INTERNAL_SYNC_SECRET:} # Bắt buộc cấp qua môi trường; rỗng = endpoint từ chối mọi request (fail-closed)

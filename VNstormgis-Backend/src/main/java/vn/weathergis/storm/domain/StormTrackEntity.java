@@ -35,13 +35,13 @@ public class StormTrackEntity {
     @Column(name = "geom", nullable = false, columnDefinition = "geometry(Point, 4326)")
     private Point geom;
 
-    @Column(name = "wind_speed", nullable = false)
+    @Column(name = "wind_speed")
     private Double windSpeed;
 
-    @Column(name = "wind_gust", nullable = false)
+    @Column(name = "wind_gust")
     private Double windGust = 0.0;
 
-    @Column(name = "pressure", nullable = false)
+    @Column(name = "pressure")
     private Double pressure;
 
     @Column(name = "category", nullable = false, length = 64)

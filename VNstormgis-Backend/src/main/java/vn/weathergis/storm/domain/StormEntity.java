@@ -33,7 +33,7 @@ public class StormEntity {
     @Column(name = "max_wind_speed", nullable = false)
     private Double maxWindSpeed;
 
-    @Column(name = "min_pressure", nullable = false)
+    @Column(name = "min_pressure")
     private Double minPressure;
 
     @Column(name = "status", nullable = false, length = 32)
