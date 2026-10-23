@@ -1,0 +1,328 @@
+{
+  "type": "FeatureCollection",
+  "fixture_note": "Fixture tổng hợp mô phỏng cấu trúc GDACS geometry API thật — quỹ đạo YAGI 2024 (12 đoạn historical 6h nối v0→v12 + 2 đoạn forecast; mọi đoạn dùng chung polygondate như payload thật).",
+  "features": [
+    {
+      "type": "Feature",
+      "bbox": [115.2, 18.4, 116.5, 18.6],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [116.5, 18.4],
+          [115.2, 18.6]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [114.0, 18.6, 115.2, 18.7],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [115.2, 18.6],
+          [114.0, 18.7]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [113.0, 18.7, 114.0, 18.9],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [114.0, 18.7],
+          [113.0, 18.9]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [112.2, 18.9, 113.0, 19.0],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [113.0, 18.9],
+          [112.2, 19.0]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [111.5, 19.0, 112.2, 19.2],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [112.2, 19.0],
+          [111.5, 19.2]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [110.8, 19.2, 111.5, 19.4],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [111.5, 19.2],
+          [110.8, 19.4]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [110.2, 19.4, 110.8, 19.6],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [110.8, 19.4],
+          [110.2, 19.6]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [109.6, 19.6, 110.2, 19.8],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [110.2, 19.6],
+          [109.6, 19.8]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [108.6, 19.8, 109.6, 20.1],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [109.6, 19.8],
+          [108.6, 20.1]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [107.8, 20.1, 108.6, 20.4],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [108.6, 20.1],
+          [107.8, 20.4]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [107.5, 20.4, 107.8, 20.6],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [107.8, 20.4],
+          [107.5, 20.6]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [107.2, 20.6, 107.5, 20.7],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [107.5, 20.6],
+          [107.2, 20.7]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "HU",
+        "forecast": false
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [106.3, 20.7, 107.2, 20.9],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [107.2, 20.7],
+          [106.3, 20.9]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "TS",
+        "forecast": true
+      }
+    },
+    {
+      "type": "Feature",
+      "bbox": [105.3, 20.9, 106.3, 21.1],
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [106.3, 20.9],
+          [105.3, 21.1]
+        ]
+      },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "name": "Tropical Cyclone YAGI-24",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "polygondate": "2024-09-07T06:00:00",
+        "polygonlabel": "TS",
+        "forecast": true
+      }
+    }
+  ]
+}

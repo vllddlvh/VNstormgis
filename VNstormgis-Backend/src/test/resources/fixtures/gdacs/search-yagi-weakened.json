@@ -1,0 +1,53 @@
+{
+  "type": "FeatureCollection",
+  "fixture_note": "Fixture tổng hợp — YAGI 2024 suy yếu còn 60 km/h = 16.667 m/s (< ngưỡng 17.2 m/s), tâm bão tại v14 [105.3, 21.1] (nhánh B').",
+  "features": [
+    {
+      "type": "Feature",
+      "bbox": [105.3, 21.1, 105.3, 21.1],
+      "geometry": { "type": "Point", "coordinates": [105.3, 21.1] },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "glide": "TC-2024-000145-VNM",
+        "name": "Tropical Cyclone YAGI-24",
+        "description": "Tropical Cyclone YAGI-24",
+        "htmldescription": "Red Tropical Cyclone YAGI-24 in Viet Nam, China from: 04 Sep 2024 to: 07 Sep 2024.",
+        "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+        "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Red/TC.png",
+        "url": {
+          "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001209&episodeid=1",
+          "report": "https://www.gdacs.org/report.aspx?eventid=1001209&episodeid=1&eventtype=TC",
+          "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001209"
+        },
+        "alertlevel": "Red",
+        "alertscore": 3,
+        "episodealertlevel": "Red",
+        "episodealertscore": 3.0,
+        "istemporary": "false",
+        "iscurrent": "true",
+        "country": "Viet Nam, China",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "datemodified": "2024-09-07T14:00:00",
+        "iso3": "VNM",
+        "source": "JTWC",
+        "sourceid": "",
+        "polygonlabel": "Centroid",
+        "Class": "Point_Centroid",
+        "countryonland": "Viet Nam",
+        "affectedcountries": [
+          { "iso2": "VN", "iso3": "VNM", "countryname": "Viet Nam" },
+          { "iso2": "CN", "iso3": "CHN", "countryname": "China" }
+        ],
+        "severitydata": {
+          "severity": 60.0,
+          "severitytext": "Tropical Storm 39-73 mph (maximum wind speed of 60 km/h)",
+          "severityunit": "km/h"
+        }
+      }
+    }
+  ]
+}

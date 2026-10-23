@@ -1,0 +1,53 @@
+{
+  "type": "FeatureCollection",
+  "fixture_note": "Fixture tổng hợp — lượt cron sau của YAGI 2024: tâm bão dịch chuyển tới v13 [106.3, 20.9], gió giảm còn 220 km/h (nhánh B).",
+  "features": [
+    {
+      "type": "Feature",
+      "bbox": [106.3, 20.9, 106.3, 20.9],
+      "geometry": { "type": "Point", "coordinates": [106.3, 20.9] },
+      "properties": {
+        "eventtype": "TC",
+        "eventid": 1001209,
+        "episodeid": 1,
+        "eventname": "YAGI-24",
+        "glide": "TC-2024-000145-VNM",
+        "name": "Tropical Cyclone YAGI-24",
+        "description": "Tropical Cyclone YAGI-24",
+        "htmldescription": "Red Tropical Cyclone YAGI-24 in Viet Nam, China from: 04 Sep 2024 to: 07 Sep 2024.",
+        "icon": "https://www.gdacs.org/images/gdacs_icons/maps/Green/TC.png",
+        "iconoverall": "https://www.gdacs.org/images/gdacs_icons/maps/Red/TC.png",
+        "url": {
+          "geometry": "https://www.gdacs.org/gdacsapi/api/polygons/getgeometry?eventtype=TC&eventid=1001209&episodeid=1",
+          "report": "https://www.gdacs.org/report.aspx?eventid=1001209&episodeid=1&eventtype=TC",
+          "details": "https://www.gdacs.org/gdacsapi/api/events/geteventdata?eventtype=TC&eventid=1001209"
+        },
+        "alertlevel": "Red",
+        "alertscore": 3,
+        "episodealertlevel": "Red",
+        "episodealertscore": 3.0,
+        "istemporary": "false",
+        "iscurrent": "true",
+        "country": "Viet Nam, China",
+        "fromdate": "2024-09-04T00:00:00",
+        "todate": "2024-09-07T00:00:00",
+        "datemodified": "2024-09-07T08:00:00",
+        "iso3": "VNM",
+        "source": "JTWC",
+        "sourceid": "",
+        "polygonlabel": "Centroid",
+        "Class": "Point_Centroid",
+        "countryonland": "Viet Nam",
+        "affectedcountries": [
+          { "iso2": "VN", "iso3": "VNM", "countryname": "Viet Nam" },
+          { "iso2": "CN", "iso3": "CHN", "countryname": "China" }
+        ],
+        "severitydata": {
+          "severity": 220.0,
+          "severitytext": "Hurricane/Typhoon > 74 mph (maximum wind speed of 220 km/h)",
+          "severityunit": "km/h"
+        }
+      }
+    }
+  ]
+}
