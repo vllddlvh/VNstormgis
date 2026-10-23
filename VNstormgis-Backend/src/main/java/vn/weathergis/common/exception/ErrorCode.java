@@ -37,7 +37,13 @@ public enum ErrorCode {
     SYNC_IN_PROGRESS(
             "SYN_409_SYNC_IN_PROGRESS",
             "Tiến trình đồng bộ đang chạy, vui lòng thử lại sau",
-            HttpStatus.CONFLICT);
+            HttpStatus.CONFLICT),
+
+    // Weather Domain errors (WTH_xxx)
+    WEATHER_NOT_FOUND(
+            "WTH_404_NOT_FOUND",
+            "Không tìm thấy trạm quan trắc với mã yêu cầu",
+            HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String defaultMessage;
