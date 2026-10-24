@@ -6,6 +6,8 @@
  * @version 1.0.0
  */
 
+import type { WeatherProperties } from "@/types/weather";
+
 /**
  * Kiểu tọa độ trắc địa hiển thị của Leaflet: [Vĩ độ (Latitude), Kinh độ (Longitude)]
  * Phạm vi hợp lệ tại Việt Nam: Lat [8.0, 24.5], Lng [100.0, 118.0]
@@ -47,6 +49,11 @@ export interface StationMarkerData {
   windDirection?: string;
   elevationM?: number;
   lastUpdated?: string;
+  /**
+   * Bản ghi thời tiết mới nhất của trạm (từ /api/v1/weather/current, W2-08).
+   * undefined = trạm chưa có dữ liệu thời tiết (popup hiển thị "--", không vẽ vòng tròn mưa).
+   */
+  weather?: WeatherProperties;
 }
 
 /**

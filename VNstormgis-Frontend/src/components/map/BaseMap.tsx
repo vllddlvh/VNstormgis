@@ -24,6 +24,7 @@ import "leaflet/dist/leaflet.css";
 
 import { initLeafletIcons } from "./leafletConfig";
 import { createWeatherStationIcon, createStormVortexIcon, SEVERITY_CONFIG } from "./markerFactory";
+import { RainfallLayer } from "./RainfallLayer";
 import {
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
@@ -358,6 +359,10 @@ export const BaseMap: React.FC<BaseMapProps> = ({
           </>
         )}
 
+        {/* LỚP 04B: LƯỢNG MƯA THỜI GIAN THỰC (RAINFALL BUBBLES — SR-MAP-002, W2-08)
+            Render TRƯỚC khối marker trạm để icon trạm + popup luôn nhận click (RSK-W2-04). */}
+        {layerVisibility.rainfall && <RainfallLayer stations={stations} />}
+
         {/* LỚP 05: DANH MỤC TRẠM QUAN TRẮC KHÍ TƯỢNG THỦY VĂN (STATION MARKERS) */}
         {layerVisibility.stations &&
           stations.map((station) => {
@@ -409,42 +414,135 @@ export const BaseMap: React.FC<BaseMapProps> = ({
                       </span>
                     </div>
 
-                    {/* Thông số đo đạc khí tượng thủy văn (4 Telemetry Metrics) */}
-                    <div className="grid grid-cols-2 gap-1.5 text-[10px]">
-                      <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
-                        <span className="text-[8px] text-[#84907f] block uppercase">NHIỆT ĐỘ</span>
-                        <span className="font-bold text-[#dde2e4]">
-                          {station.temperatureC !== undefined ? `${station.temperatureC}°C` : "--"}
-                        </span>
-                      </div>
-                      <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
-                        <span className="text-[8px] text-[#84907f] block uppercase">LƯỢNG MƯA</span>
-                        <span
-                          className={`font-bold ${
-                            (station.rainfallMm || 0) > 50 ? "text-[#ea580c]" : "text-[#dde2e4]"
-                          }`}
-                        >
-                          {station.rainfallMm !== undefined ? `${station.rainfallMm} mm` : "--"}
-                        </span>
-                      </div>
-                      <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
-                        <span className="text-[8px] text-[#84907f] block uppercase">
-                          TỐC ĐỘ GIÓ
-                        </span>
-                        <span className="font-bold text-[#dde2e4]">
-                          {station.windSpeedKmh !== undefined ? `${station.windSpeedKmh}` : "--"}{" "}
-                          <span className="text-[8px] font-normal text-[#84907f]">km/h</span>
-                        </span>
-                      </div>
-                      <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
-                        <span className="text-[8px] text-[#84907f] block uppercase">
-                          ĐỘ CAO ĐỊA HÌNH
-                        </span>
-                        <span className="font-bold text-[#dde2e4]">
-                          {station.elevationM !== undefined ? `${station.elevationM} m` : "--"}
-                        </span>
-                      </div>
-                    </div>
+                    {/* Thông số đo đạc khí tượng thủy văn TỪ API /weather/current (W2-08) */}
+                    {station.weather ? (
+                      <>
+                        <div className="text-[9px] text-[#84907f] uppercase pb-1">
+                          {station.weather.weather_description}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              NHIỆT ĐỘ
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.weather.temperature !== null
+                                ? `${station.weather.temperature}°C`
+                                : "--"}
+                              {station.weather.feels_like !== null && (
+                                <span className="text-[8px] font-normal text-[#84907f]">
+                                  {" "}
+                                  (cảm nhận {station.weather.feels_like}°C)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              MƯA 1H / 3H
+                            </span>
+                            <span
+                              className={`font-bold ${
+                                (station.weather.rain_1h ?? 0) >= 50
+                                  ? "text-[#e53e3e]"
+                                  : "text-[#dde2e4]"
+                              }`}
+                            >
+                              {station.weather.rain_1h !== null
+                                ? `${station.weather.rain_1h} mm`
+                                : "--"}
+                              {" / "}
+                              {station.weather.rain_3h !== null
+                                ? `${station.weather.rain_3h} mm`
+                                : "--"}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              GIÓ / GIẬT
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.weather.wind_speed !== null
+                                ? `${station.weather.wind_speed} m/s`
+                                : "--"}
+                              {station.weather.wind_gust !== null && (
+                                <span className="text-[8px] font-normal text-[#84907f]">
+                                  {" "}
+                                  (giật {station.weather.wind_gust} m/s)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              HƯỚNG GIÓ
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.weather.wind_direction !== null
+                                ? `${station.weather.wind_direction}°`
+                                : "--"}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              ĐỘ ẨM
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.weather.humidity !== null
+                                ? `${station.weather.humidity}%`
+                                : "--"}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              ÁP SUẤT
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.weather.pressure !== null
+                                ? `${station.weather.pressure} hPa`
+                                : "--"}
+                            </span>
+                          </div>
+                          <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
+                            <span className="text-[8px] text-[#84907f] block uppercase">
+                              ĐỘ CAO ĐỊA HÌNH
+                            </span>
+                            <span className="font-bold text-[#dde2e4]">
+                              {station.elevationM !== undefined ? `${station.elevationM} m` : "--"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Thời điểm đo + nguồn cấp dữ liệu (BR-RULE-006) */}
+                        <div className="pt-1.5 border-t border-[#2d3329] flex justify-between text-[9px] text-[#84907f]">
+                          <span>
+                            ĐO LƯỜNG:{" "}
+                            <strong className="text-[#e2ffcc]">
+                              {new Date(station.weather.recorded_at).toLocaleTimeString("vi-VN", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              })}
+                            </strong>
+                          </span>
+                          <span>
+                            NGUỒN: <strong className="text-[#dde2e4]">OpenWeatherMap</strong>
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-[10px] text-[#84907f] border border-[#2d3329] bg-[#1a2117] p-1.5">
+                          [CHƯA CÓ BẢN GHI THỜI TIẾT] — trạm chờ chu kỳ nạp OWM kế tiếp.
+                        </div>
+                        <div className="pt-1.5 border-t border-[#2d3329] flex items-center justify-between text-[9px] text-[#84907f]">
+                          <span>ĐỘ CAO ĐỊA HÌNH:</span>
+                          <span className="text-[#dde2e4]">
+                            {station.elevationM !== undefined ? `${station.elevationM} m` : "--"}
+                          </span>
+                        </div>
+                      </>
+                    )}
 
                     {/* Tọa độ trắc địa chuẩn WGS84 */}
                     <div className="pt-1.5 border-t border-[#2d3329] flex items-center justify-between text-[9px] text-[#84907f]">

@@ -22,12 +22,23 @@ import {
   CoordinateTuple,
   LayerVisibilityState,
   WeatherAlertItem,
+  WeatherSeverityLevel,
   StationMarkerData,
 } from "@/types/map";
+import { RainSeverityLevel } from "@/types/weather";
 import { StatusType } from "@/components/common/StatusBadge";
 import { VIETNAM_DEFAULT_CENTER, VIETNAM_DEFAULT_ZOOM } from "@/lib/geoUtils";
 import { locationService } from "@/services/locationService";
+import { weatherService } from "@/services/weatherService";
 import { INITIAL_MOCK_STATIONS, SAMPLE_WEATHER_ALERTS } from "@/data/mockMapData";
+
+/** Cầu nối thang 4 bậc mưa (backend) → thang 6 bậc icon trạm (markerFactory). */
+const RAIN_SEVERITY_TO_MARKER: Record<RainSeverityLevel, WeatherSeverityLevel> = {
+  NONE: "SAFE",
+  MODERATE: "ADVISORY",
+  WARNING: "WARNING",
+  DANGER: "SEVERE",
+};
 
 export interface UnifiedAppLayoutProps {
   /** Component con hiển thị khi chuyển sang tab Kiểm Định (Diagnostics) */
@@ -97,48 +108,48 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
     setIsRefreshing(true);
     try {
       await locationService.checkBackendHealth();
-      const locations = await locationService.getAllLocations();
+      // Fail-fast: pipeline OWM → PostGIS → API chưa lành thì không báo "online" (W2-08 mục 3.4)
+      const [locations, weatherGeoJson] = await Promise.all([
+        locationService.getAllLocations(),
+        weatherService.getCurrentWeatherGeoJson(),
+      ]);
       setStationCount(locations.length);
       setBackendStatus("online");
-      setLastSyncedAt(new Date().toISOString());
 
-      // Nếu API trả về dữ liệu trạm thực tế (68 trạm), chuyển đổi sang StationMarkerData
-      if (locations.length > 0) {
-        const mappedStations: StationMarkerData[] = locations.map((loc) => ({
+      // Chỉ mục tra cứu theo MÃ TRẠM (khóa thân thiện, UNIQUE — W2-07 quyết định #3)
+      const weatherByCode = new Map(
+        weatherGeoJson.features.map((feature) => [feature.properties.code, feature.properties]),
+      );
+
+      const mappedStations: StationMarkerData[] = locations.map((loc) => {
+        const weather = weatherByCode.get(loc.code);
+        return {
           id: String(loc.id),
           code: loc.code,
           name: loc.name,
           region: loc.region,
           coordinates: [loc.latitude, loc.longitude],
-          severity:
-            loc.region === "Biển Đông"
-              ? "CATASTROPHIC"
-              : loc.region.includes("Trung Bộ")
-                ? "WARNING"
-                : "SAFE",
+          severity: weather ? RAIN_SEVERITY_TO_MARKER[weather.severity_rain] : "SAFE",
           isActive: loc.isActive,
-          elevationM:
-            loc.elevation ??
-            (loc.region === "Tây Nguyên"
-              ? 500
-              : loc.region === "Bắc Bộ"
-                ? 35
-                : loc.region.includes("Trung Bộ")
-                  ? 18
-                  : 10),
-          temperatureC:
-            loc.code === "HAN"
-              ? 28.0
-              : loc.code === "SGN"
-                ? 31.0
-                : loc.code === "DNG"
-                  ? 27.5
-                  : 29.0,
-          rainfallMm: loc.region.includes("Trung Bộ") ? 85.0 : loc.code === "SGN" ? 45.0 : 12.0,
-          windSpeedKmh: loc.region === "Biển Đông" ? 95.0 : 18.0,
-        }));
-        setStations(mappedStations);
+          elevationM: loc.elevation,
+          weather,
+        };
+      });
+      setStations(mappedStations);
+
+      // Last Sync = thời điểm ĐO ĐẠC thật mới nhất (W2-02 quyết định #6)
+      let latestRecordedAt: string | null = null;
+      let latestTimestamp = Number.NEGATIVE_INFINITY;
+      for (const feature of weatherGeoJson.features) {
+        const recordedAt = feature.properties.recorded_at;
+        const timestamp = Date.parse(recordedAt);
+        if (!Number.isNaN(timestamp) && timestamp > latestTimestamp) {
+          latestTimestamp = timestamp;
+          latestRecordedAt = recordedAt;
+        }
       }
+      // GeoJSON rỗng (chưa từng sync) — bám mốc fetch để badge không rỗng
+      setLastSyncedAt(latestRecordedAt ?? new Date().toISOString());
     } catch {
       // Khi Backend chưa online, kích hoạt Banner cảnh báo lỗi kết nối San Rita
       // Không xóa lastSyncedAt: giữ mốc sync cuối để vận hành viên biết dữ liệu bản đồ cũ đến đâu

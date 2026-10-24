@@ -102,6 +102,20 @@
   background: transparent !important;
 }
 
+/* 3b. Tooltip lượng mưa (RainfallLayer — SR-MAP-002) theo San Rita: phẳng, viền 1px, không bóng */
+.san-rita-tooltip {
+  background-color: var(--color-carbon-ink) !important;
+  border: 1px solid var(--color-forest-charcoal) !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+  color: var(--color-topo-gray) !important;
+  padding: 2px 6px !important;
+}
+
+.san-rita-tooltip::before {
+  border-top-color: var(--color-forest-charcoal) !important;
+}
+
 /* 4. Tinh chỉnh Thanh Điều Khiển Thu Phóng (Zoom Control) */
 .leaflet-bar {
   border: 1px solid var(--color-forest-charcoal) !important;
