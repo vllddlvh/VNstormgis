@@ -116,6 +116,15 @@
   border-top-color: var(--color-forest-charcoal) !important;
 }
 
+/* 3c. Mũi tên gió / chấm tròn hướng khuyết (WindLayer — SR-MAP-003):
+   gỡ nền trắng + viền mặc định của .leaflet-div-icon, giữ San Rita phẳng. */
+.wind-arrow-marker,
+.wind-calm-marker {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* 4. Tinh chỉnh Thanh Điều Khiển Thu Phóng (Zoom Control) */
 .leaflet-bar {
   border: 1px solid var(--color-forest-charcoal) !important;

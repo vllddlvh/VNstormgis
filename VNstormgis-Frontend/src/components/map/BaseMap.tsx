@@ -25,6 +25,7 @@ import "leaflet/dist/leaflet.css";
 import { initLeafletIcons } from "./leafletConfig";
 import { createWeatherStationIcon, createStormVortexIcon, SEVERITY_CONFIG } from "./markerFactory";
 import { RainfallLayer } from "./RainfallLayer";
+import { WindLayer } from "./WindLayer";
 import {
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
@@ -270,24 +271,6 @@ export const BaseMap: React.FC<BaseMapProps> = ({
           />
         )}
 
-        {/* LỚP 03: VECTOR GIÓ BỀ MẶT (WIND VECTOR STREAM) */}
-        {layerVisibility.wind && (
-          <Polyline
-            positions={[
-              [14.0, 114.0],
-              [15.5, 112.0],
-              [16.8, 110.0],
-              [18.0, 108.0],
-            ]}
-            pathOptions={{
-              color: "#e2ffcc",
-              weight: 2,
-              opacity: layerOpacity.wind || 0.7,
-              dashArray: "8, 8",
-            }}
-          />
-        )}
-
         {/* LỚP 04: CƠN BÃO NHIỆT ĐỚI ĐANG HOẠT ĐỘNG TRÊN BIỂN ĐÔNG (ACTIVE CYCLONE) */}
         {layerVisibility.cyclones && activeCyclone && (
           <>
@@ -362,6 +345,14 @@ export const BaseMap: React.FC<BaseMapProps> = ({
         {/* LỚP 04B: LƯỢNG MƯA THỜI GIAN THỰC (RAINFALL BUBBLES — SR-MAP-002, W2-08)
             Render TRƯỚC khối marker trạm để icon trạm + popup luôn nhận click (RSK-W2-04). */}
         {layerVisibility.rainfall && <RainfallLayer stations={stations} />}
+
+        {/* LỚP 04C: TRƯỜNG VECTOR GIÓ THỜI GIAN THỰC (WIND VECTORS — SR-MAP-003, W2-09)
+            Mũi tên SVG xoay theo chiều dòng gió (FROM + 180°), mã màu Beaufort 4 bậc.
+            Render sau RainfallLayer để nằm trên vòng tròn mưa; WindLayer tự nâng z-index
+            để đầu mũi tên không bị icon trạm che, trong khi thân icon trạm vẫn nhận click. */}
+        {layerVisibility.wind && (
+          <WindLayer stations={stations} opacity={layerOpacity.wind ?? 0.7} />
+        )}
 
         {/* LỚP 05: DANH MỤC TRẠM QUAN TRẮC KHÍ TƯỢNG THỦY VĂN (STATION MARKERS) */}
         {layerVisibility.stations &&
