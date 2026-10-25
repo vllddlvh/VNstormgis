@@ -133,4 +133,5 @@ commitlint.config.js
 .husky
 package-lock.json
 package.json
-scripts
+scripts/*
+!scripts/verify-week2-pipeline.sh
