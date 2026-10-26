@@ -13,4 +13,10 @@ public interface StormRepository extends JpaRepository<StormEntity, String> {
      * Danh sách bão theo trạng thái — đầu vào nhánh dissipated SYS-RULE-001 và lớp bản đồ Tuần 3.
      */
     List<StormEntity> findByStatusIgnoreCase(String status);
+
+    /** Danh sách bão theo trạng thái, mới cập nhật nhất trước — phục vụ GET /storms (W3-01). */
+    List<StormEntity> findByStatusIgnoreCaseOrderByUpdatedAtDesc(String status);
+
+    /** Toàn bộ bão không phân biệt trạng thái, mới cập nhật nhất trước — status=all (W3-01). */
+    List<StormEntity> findAllByOrderByUpdatedAtDesc();
 }

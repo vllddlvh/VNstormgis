@@ -43,7 +43,17 @@ public enum ErrorCode {
     WEATHER_NOT_FOUND(
             "WTH_404_NOT_FOUND",
             "Không tìm thấy trạm quan trắc với mã yêu cầu",
-            HttpStatus.NOT_FOUND);
+            HttpStatus.NOT_FOUND),
+
+    // Storm Domain errors (STM_xxx)
+    STORM_NOT_FOUND(
+            "STM_404_NOT_FOUND",
+            "Không tìm thấy cơn bão với mã sự kiện yêu cầu",
+            HttpStatus.NOT_FOUND),
+    STORM_INVALID_STATUS(
+            "STM_400_INVALID_STATUS",
+            "Giá trị tham số status không hợp lệ (chấp nhận: active, dissipated, all)",
+            HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String defaultMessage;

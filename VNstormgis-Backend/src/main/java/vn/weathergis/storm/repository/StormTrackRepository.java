@@ -45,4 +45,11 @@ public interface StormTrackRepository extends JpaRepository<StormTrackEntity, Lo
             @Param("pressure") Double pressure,
             @Param("category") String category,
             @Param("radiusKm") double radiusKm);
+
+    /**
+     * Tổng số mốc quỹ đạo của một bão (historical + forecast) — total_track_points của
+     * /storms/{id}.
+     */
+    @Query("SELECT count(t) FROM StormTrackEntity t WHERE t.storm.id = :stormId")
+    long countByStormId(@Param("stormId") String stormId);
 }
