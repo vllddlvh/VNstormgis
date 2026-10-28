@@ -46,11 +46,17 @@ dependencies {
     // 5. API Documentation (SpringDoc OpenAPI 3)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
 
-    // 6. Developer Productivity Tools
+    // 6. Distributed Cache — Redis 7.2 qua Lettuce (Task W3-03)
+    //    Lettuce là driver mặc định của Spring Boot 3.3.4 BOM — KHÔNG khai báo phiên bản.
+    //    KHÔNG thêm spring-boot-starter-cache / @EnableCaching: tầng cache là programmatic
+    //    (quyết định #2/#14) — RedisCacheManager dùng trực tiếp qua GeoJsonCacheService.
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // 7. Developer Productivity Tools
     compileOnly 'org.projectlombok:lombok:1.18.32'
     annotationProcessor 'org.projectlombok:lombok:1.18.32'
 
-    // 7. Testing & Integration Test Suite
+    // 8. Testing & Integration Test Suite
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.testcontainers:postgresql:1.20.4'
     testImplementation 'org.testcontainers:junit-jupiter:1.20.4'

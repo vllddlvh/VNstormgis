@@ -1,16 +1,21 @@
 package vn.weathergis.weather.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -24,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.weathergis.common.api.GeoJsonFeature;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.common.config.CorsConfig;
 import vn.weathergis.common.config.JacksonConfig;
 import vn.weathergis.common.exception.ErrorCode;
@@ -44,9 +50,28 @@ class WeatherControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
+    @Autowired private ObjectMapper objectMapper;
+
     @MockBean private WeatherService weatherService;
 
+    @MockBean private GeoJsonCacheService geoJsonCacheService;
+
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    /**
+     * W3-03 (mục 7.2): slice {@code @WebMvcTest} không nạp bean {@code @Component} ngoài controller
+     * nên helper cache phải được mock. Pass-through render đúng chuỗi JSON mà production gửi đi —
+     * toàn bộ assert hợp đồng W2-07 giữ nguyên, chỉ khác body controller giờ là String đã render
+     * sẵn.
+     */
+    @BeforeEach
+    void stubGeoJsonCachePassThrough() {
+        when(geoJsonCacheService.getOrLoad(anyString(), any(), any()))
+                .thenAnswer(
+                        invocation ->
+                                objectMapper.writeValueAsString(
+                                        ((Supplier<?>) invocation.getArgument(2)).get()));
+    }
 
     @Test
     @DisplayName("TC-04: mặc định trả GeoJSON FeatureCollection thô (không envelope ApiResponse)")

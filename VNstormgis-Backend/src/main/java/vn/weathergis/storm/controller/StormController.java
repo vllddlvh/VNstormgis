@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.CacheRegions;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.common.exception.ErrorCode;
 import vn.weathergis.common.exception.InvalidParameterException;
 import vn.weathergis.storm.dto.StormDetailResponse;
@@ -40,9 +42,11 @@ public class StormController {
     private static final Set<String> VALID_STATUS = Set.of("active", "dissipated", "all");
 
     private final StormService stormService;
+    private final GeoJsonCacheService geoJsonCacheService;
 
-    public StormController(StormService stormService) {
+    public StormController(StormService stormService, GeoJsonCacheService geoJsonCacheService) {
         this.stormService = stormService;
+        this.geoJsonCacheService = geoJsonCacheService;
     }
 
     @Operation(
@@ -113,6 +117,18 @@ public class StormController {
                             : "Lấy danh sách bão thành công";
             return ResponseEntity.ok(vn.weathergis.common.api.ApiResponse.ok(storms, message));
         }
+        if ("active".equals(normalized)) {
+            // W3-03: chỉ bão active (lớp khẩn cấp SR-STM-002) được đệm — TTL 30m khớp chu kỳ sync
+            // GDACS. Content-type khai báo tường minh cho body String (quyết định #10).
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(
+                            geoJsonCacheService.getOrLoad(
+                                    CacheRegions.ACTIVE_STORMS,
+                                    "geojson:active",
+                                    () -> stormService.getStormsAsGeoJson(normalized)));
+        }
+        // dissipated/all: phục vụ thẳng PostGIS — không cache ngoài 3 vùng chuẩn (quyết định #3).
         return ResponseEntity.ok(stormService.getStormsAsGeoJson(normalized));
     }
 

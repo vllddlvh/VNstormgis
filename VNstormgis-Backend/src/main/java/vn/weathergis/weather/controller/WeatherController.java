@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.CacheRegions;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.common.exception.ErrorCode;
 import vn.weathergis.common.exception.InvalidParameterException;
 import vn.weathergis.weather.dto.WeatherHistoryResponse;
@@ -33,9 +35,12 @@ import vn.weathergis.weather.service.WeatherService;
 public class WeatherController {
 
     private final WeatherService weatherService;
+    private final GeoJsonCacheService geoJsonCacheService;
 
-    public WeatherController(WeatherService weatherService) {
+    public WeatherController(
+            WeatherService weatherService, GeoJsonCacheService geoJsonCacheService) {
         this.weatherService = weatherService;
+        this.geoJsonCacheService = geoJsonCacheService;
     }
 
     @Operation(
@@ -83,7 +88,15 @@ public class WeatherController {
                             weatherService.getCurrentWeather(),
                             "Lấy dữ liệu thời tiết hiện tại thành công"));
         }
-        return ResponseEntity.ok(weatherService.getCurrentWeatherAsGeoJson());
+        // W3-03: chuỗi GeoJSON đã render được đệm 15 phút (khớp chu kỳ sync OWM). Content-type khai
+        // báo tường minh để body kiểu String không rơi về text/plain (quyết định #10).
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(
+                        geoJsonCacheService.getOrLoad(
+                                CacheRegions.WEATHER_CURRENT,
+                                "geojson",
+                                weatherService::getCurrentWeatherAsGeoJson));
     }
 
     @Operation(

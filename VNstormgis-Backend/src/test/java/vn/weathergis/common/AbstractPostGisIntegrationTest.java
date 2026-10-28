@@ -18,6 +18,17 @@ public abstract class AbstractPostGisIntegrationTest {
 
     protected static final PostgreSQLContainer<?> POSTGIS_CONTAINER;
 
+    /**
+     * W3-03 quyết định #11: toàn bộ suite IT chạy mà không có Redis nên cache mặc định <b>TẮT</b> —
+     * mọi truy vấn đi thẳng PostGIS, hợp đồng W2-07/W3-01/W3-02 giữ nguyên. Supplier của
+     * {@code @DynamicPropertySource} chỉ được đọc khi context khởi tạo, nên {@code RedisCacheIT}
+     * (IT duy nhất có Testcontainers Redis) bật lại qua {@link #setRedisCacheEnabled(boolean)}
+     * trong {@code @BeforeAll} — so sánh với giá trị hằng {@code "false"}: đăng ký lại cùng khóa ở
+     * subclass không thắng được, vì Spring gọi method theo trật tự subclass trước, superclass sau
+     * và {@code DynamicPropertiesContextCustomizer} ghi đè theo khóa (last write wins).
+     */
+    private static volatile boolean redisCacheEnabled = false;
+
     static {
         POSTGIS_CONTAINER =
                 new PostgreSQLContainer<>(POSTGIS_IMAGE)
@@ -25,6 +36,10 @@ public abstract class AbstractPostGisIntegrationTest {
                         .withUsername("test_gis_user")
                         .withPassword("test_gis_password");
         POSTGIS_CONTAINER.start();
+    }
+
+    protected static void setRedisCacheEnabled(boolean enabled) {
+        redisCacheEnabled = enabled;
     }
 
     @DynamicPropertySource
@@ -37,5 +52,6 @@ public abstract class AbstractPostGisIntegrationTest {
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "none");
         // Tắt @Scheduled Ingestion trong suite test — cấm phát request mạng thật ra OWM (Mục 7.6)
         registry.add("weathergis.sync.enabled", () -> "false");
+        registry.add("weathergis.cache.enabled", () -> String.valueOf(redisCacheEnabled));
     }
 }

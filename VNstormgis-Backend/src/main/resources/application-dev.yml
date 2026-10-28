@@ -58,6 +58,16 @@ spring:
         order_inserts: true
         order_updates: true
 
+  # ----------------------------------------------------------------------------
+  # 8. KẾT NỐI REDIS 7.2 DISTRIBUTED CACHE (TASK W3-03 — Spring Data Redis / Lettuce)
+  # ----------------------------------------------------------------------------
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379} # Trùng biến môi trường mà docker-compose đã dùng cho service redis
+      connect-timeout: 1s # RSK-W3-04: Redis chậm không được kéo sập luồng request
+      timeout: 500ms # Command timeout Lettuce áp cho mọi lệnh GET/SET của tầng cache
+
 # ------------------------------------------------------------------------------
 # 4. CẤU HÌNH TÀI LIỆU HÓA SPRINGDOC OPENAPI 3 & SWAGGER UI
 # ------------------------------------------------------------------------------
@@ -138,3 +148,9 @@ weathergis:
       # backoff-ms: 500,1000,2000 # Mặc định retry backoff GDACS (theo @Value); ghi đè khi cần
   internal:
     sync-secret: ${INTERNAL_SYNC_SECRET:} # Bắt buộc cấp qua môi trường; rỗng = endpoint từ chối mọi request (fail-closed)
+
+  # ----------------------------------------------------------------------------
+  # 9. CẤU HÌNH DISTRIBUTED CACHE LAYER (TASK W3-03)
+  # ----------------------------------------------------------------------------
+  cache:
+    enabled: ${REDIS_CACHE_ENABLED:true} # Công tắc tổng: tắt khi sự cố/kiểm thử — API chạy thẳng PostGIS

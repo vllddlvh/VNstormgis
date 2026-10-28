@@ -2,6 +2,7 @@ package vn.weathergis.storm.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,6 +21,8 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +37,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.weathergis.common.api.GeoJsonFeature;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.common.config.CorsConfig;
 import vn.weathergis.common.config.JacksonConfig;
 import vn.weathergis.common.exception.ErrorCode;
@@ -57,10 +61,29 @@ class StormControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
+    @Autowired private ObjectMapper cacheObjectMapper;
+
     @MockBean private StormService stormService;
+
+    @MockBean private GeoJsonCacheService geoJsonCacheService;
 
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * W3-03 (mục 7.2): slice {@code @WebMvcTest} không nạp bean {@code @Component} ngoài controller
+     * nên helper cache phải được mock. Pass-through render bằng chính mapper của slice (đã có
+     * JtsModule + NullNode như production) — hợp đồng W3-01/W3-02 giữ nguyên, chỉ khác body
+     * controller là String đã render sẵn thay vì object.
+     */
+    @BeforeEach
+    void stubGeoJsonCachePassThrough() {
+        when(geoJsonCacheService.getOrLoad(anyString(), any(), any()))
+                .thenAnswer(
+                        invocation ->
+                                cacheObjectMapper.writeValueAsString(
+                                        ((Supplier<?>) invocation.getArgument(2)).get()));
+    }
 
     // ------------------------------------------------------------------
     // TC-04 / TC-11: GeoJSON mặc định, không envelope

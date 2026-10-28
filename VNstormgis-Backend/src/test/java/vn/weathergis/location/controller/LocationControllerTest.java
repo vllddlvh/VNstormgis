@@ -1,13 +1,17 @@
 package vn.weathergis.location.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
@@ -22,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import vn.weathergis.common.api.GeoJsonFeature;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.common.config.CorsConfig;
 import vn.weathergis.common.config.JacksonConfig;
 import vn.weathergis.common.exception.ErrorCode;
@@ -37,9 +42,26 @@ class LocationControllerTest {
 
     @Autowired private MockMvc mockMvc;
 
+    @Autowired private ObjectMapper cacheObjectMapper;
+
     @MockBean private LocationService locationService;
 
+    @MockBean private GeoJsonCacheService geoJsonCacheService;
+
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    /**
+     * W3-03 (mục 7.2): helper cache là bean ngoài slice nên phải mock. Pass-through render chuỗi
+     * JSON bằng mapper của slice — các assert GeoJSON RFC 7946 cũ giữ nguyên giá trị.
+     */
+    @BeforeEach
+    void stubGeoJsonCachePassThrough() {
+        when(geoJsonCacheService.getOrLoad(anyString(), any(), any()))
+                .thenAnswer(
+                        invocation ->
+                                cacheObjectMapper.writeValueAsString(
+                                        ((Supplier<?>) invocation.getArgument(2)).get()));
+    }
 
     @Test
     @DisplayName("TC-02: Lấy danh sách trạm quan trắc định dạng JSON Envelope chuẩn")

@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
+import vn.weathergis.common.cache.CacheRegions;
+import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.location.dto.LocationNearbyResponse;
 import vn.weathergis.location.dto.LocationResponse;
 import vn.weathergis.location.service.LocationService;
@@ -33,9 +35,12 @@ import vn.weathergis.location.service.LocationService;
 public class LocationController {
 
     private final LocationService locationService;
+    private final GeoJsonCacheService geoJsonCacheService;
 
-    public LocationController(LocationService locationService) {
+    public LocationController(
+            LocationService locationService, GeoJsonCacheService geoJsonCacheService) {
         this.locationService = locationService;
+        this.geoJsonCacheService = geoJsonCacheService;
     }
 
     /** Lấy danh sách điểm quan trắc hỗ trợ kép định dạng JSON hoặc GeoJSON. */
@@ -93,9 +98,23 @@ public class LocationController {
                     String search) {
 
         if ("geojson".equalsIgnoreCase(format)) {
-            GeoJsonFeatureCollection geoJson =
-                    locationService.getAllLocationsAsGeoJson(region, isActive, search);
-            return ResponseEntity.ok(geoJson);
+            // W3-03: bộ lọc nằm trong URL nên khóa đệm ghép đủ 3 tham số — hai truy vấn khác
+            // filter không được dùng chung một mục tử Redis (TTL 24h cho danh bạ gần như tĩnh).
+            // Content-type khai báo tường minh vì body là String đã render sẵn (quyết định #10).
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(
+                            geoJsonCacheService.getOrLoad(
+                                    CacheRegions.LOCATIONS,
+                                    "geojson|"
+                                            + nullToEmpty(region)
+                                            + "|"
+                                            + isActive
+                                            + "|"
+                                            + nullToEmpty(search),
+                                    () ->
+                                            locationService.getAllLocationsAsGeoJson(
+                                                    region, isActive, search)));
         }
 
         List<LocationResponse> locations =
@@ -103,6 +122,10 @@ public class LocationController {
         return ResponseEntity.ok(
                 vn.weathergis.common.api.ApiResponse.ok(
                         locations, "Lấy danh sách trạm quan trắc thành công"));
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value.trim();
     }
 
     /** Lấy chi tiết trạm quan trắc theo khóa định danh UUID. */
