@@ -30,7 +30,8 @@ import vn.weathergis.storm.service.StormService;
         name = "3. Theo Dõi Bão Nhiệt Đới (Storms)",
         description =
                 "Danh mục bão nhiệt đới từ GDACS: danh sách theo trạng thái SYS-RULE-001 (mặc định "
-                        + "chỉ bão active) dạng GeoJSON RFC 7946 và chi tiết từng cơn bão. Dữ liệu do "
+                        + "chỉ bão active) dạng GeoJSON RFC 7946, chi tiết từng cơn bão và quỹ đạo "
+                        + "(LineString lịch sử + dự báo, Point từng mốc, vùng ảnh hưởng). Dữ liệu do "
                         + "Ingestion Engine GDACS nạp mỗi 30 phút (W2-05).")
 @RestController
 @RequestMapping("/api/v1/storms")
@@ -154,5 +155,48 @@ public class StormController {
         return ResponseEntity.ok(
                 vn.weathergis.common.api.ApiResponse.ok(
                         stormService.getStormDetail(id), "Lấy chi tiết bão thành công"));
+    }
+
+    @Operation(
+            summary = "Lấy quỹ đạo bão (lịch sử + dự báo) và vùng ảnh hưởng (GeoJSON RFC 7946)",
+            description =
+                    "FeatureCollection gồm tối đa 4 loại feature theo trật tự cố định: LineString quỹ đạo"
+                            + " lịch sử (các mốc track_type=historical theo forecast_time tăng dần),"
+                            + " LineString đoạn dự báo (mốc track_type=forecast, có đỉnh nối từ vị trí mới"
+                            + " nhất), Point cho từng mốc kèm thông số gió/giật/áp suất tại mốc, và Polygon"
+                            + " vùng ảnh hưởng — CHỈ khi cơ sở dữ liệu có impact_polygon thật. Tọa độ [lng,"
+                            + " lat] WGS84, gió/giật/áp suất NULL trên nguồn GDACS in ra null (SYS-RULE-004)."
+                            + " Nạp trực tiếp vào L.geoJSON() của StormTrackLayer (W3-06), phân nhánh render"
+                            + " theo properties.kind ∈ {history, forecast, impact}; mốc Point không có khóa"
+                            + " kind, nhận diện qua geometry.type = Point.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description =
+                        "Truy vấn thành công (collection có thể rỗng khi bão chưa có mốc quỹ đạo; feature"
+                                + " vùng ảnh hưởng có thể vắng khi nguồn không cung cấp polygon)",
+                content =
+                        @Content(
+                                mediaType = "application/geo+json",
+                                schema = @Schema(implementation = GeoJsonFeatureCollection.class))),
+        @ApiResponse(
+                responseCode = "404",
+                description = "Không tìm thấy mã sự kiện bão (RFC 7807 STM_404_NOT_FOUND)",
+                content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+        @ApiResponse(
+                responseCode = "500",
+                description = "Lỗi xử lý nội bộ (RFC 7807)",
+                content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @GetMapping("/{id}/track")
+    public ResponseEntity<GeoJsonFeatureCollection> getStormTrack(
+            @Parameter(
+                            description = "Mã sự kiện bão GDACS (khóa chính trong bảng storms)",
+                            example = "1001209",
+                            required = true)
+                    @PathVariable(name = "id")
+                    String id) {
+
+        return ResponseEntity.ok(stormService.getStormTrack(id));
     }
 }

@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.ArgumentCaptor;
 import org.n52.jackson.datatype.jts.JtsModule;
@@ -37,6 +38,7 @@ import vn.weathergis.common.api.GeoJsonFeatureCollection;
 import vn.weathergis.common.exception.ErrorCode;
 import vn.weathergis.common.exception.ResourceNotFoundException;
 import vn.weathergis.storm.domain.StormEntity;
+import vn.weathergis.storm.domain.StormTrackEntity;
 import vn.weathergis.storm.dto.StormDetailResponse;
 import vn.weathergis.storm.dto.StormSummaryResponse;
 import vn.weathergis.storm.repository.StormRepository;
@@ -67,6 +69,19 @@ class StormServiceImplTest {
                     "start_date",
                     "end_date",
                     "updated_at");
+
+    /** Hợp đồng 9 khóa của mỗi Point mốc quỹ đạo — W3-02 quyết định #7. */
+    private static final List<String> POINT_CONTRACT_KEYS =
+            List.of(
+                    "track_id",
+                    "storm_id",
+                    "track_type",
+                    "forecast_time",
+                    "wind_speed",
+                    "wind_gust",
+                    "pressure",
+                    "category",
+                    "impact_radius_km");
 
     private static final OffsetDateTime NOW =
             OffsetDateTime.of(2026, 10, 26, 9, 0, 0, 0, ZoneOffset.UTC);
@@ -404,6 +419,305 @@ class StormServiceImplTest {
     }
 
     // ------------------------------------------------------------------
+    // TC-15: assembly quỹ đạo (W3-02)
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("TC-15: getStormTrack — 4 loại feature, đỉnh nối, polygon trung thực, 2 truy vấn")
+    class TrackAssemblyTests {
+
+        @Test
+        @DisplayName(
+                "TC-04: trật tự cố định track-history → track-forecast → impact-zone → Point từng mốc")
+        void shouldEmitFourFeatureKindsInFixedOrder() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(threeHistoricalTwoForecastWithPolygon());
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+            JsonNode features = root.get("features");
+
+            assertThat(root.get("type").asText()).isEqualTo("FeatureCollection");
+            assertThat(root.has("success")).as("GeoJSON trả thô, không envelope").isFalse();
+            assertThat(idsOf(features))
+                    .containsExactly(
+                            "track-history",
+                            "track-forecast",
+                            "impact-zone",
+                            "track-point-1",
+                            "track-point-2",
+                            "track-point-3",
+                            "track-point-4",
+                            "track-point-5");
+            assertThat(features.get(0).get("geometry").get("type").asText())
+                    .isEqualTo("LineString");
+            assertThat(features.get(1).get("geometry").get("type").asText())
+                    .isEqualTo("LineString");
+            assertThat(features.get(2).get("geometry").get("type").asText()).isEqualTo("Polygon");
+            for (int i = 3; i < features.size(); i++) {
+                assertThat(features.get(i).get("geometry").get("type").asText()).isEqualTo("Point");
+            }
+            assertThat(keysOf(features.get(0).get("properties")))
+                    .containsExactly("kind", "storm_id", "points");
+            assertThat(features.get(0).get("properties").get("kind").asText()).isEqualTo("history");
+            assertThat(features.get(1).get("properties").get("kind").asText())
+                    .isEqualTo("forecast");
+            assertThat(features.get(2).get("properties").get("kind").asText()).isEqualTo("impact");
+        }
+
+        @Test
+        @DisplayName("TC-05: lịch sử 3 mốc nối theo forecast_time ASC — [lng, lat] không hoán đổi")
+        void shouldBuildHistoryLineInTimeOrder() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(threeHistoricalTwoForecastWithPolygon());
+
+            JsonNode coordinates =
+                    jsonOf(service.getStormTrack(ACTIVE_ID))
+                            .get("features")
+                            .get(0)
+                            .get("geometry")
+                            .get("coordinates");
+
+            assertThat(coordinates).hasSize(3);
+            assertThat(coordinates.get(0).get(0).asDouble()).isEqualTo(116.0); // KINH ĐỘ
+            assertThat(coordinates.get(0).get(1).asDouble()).isEqualTo(18.0); // VĨ ĐỘ
+            assertThat(coordinates.get(1).get(0).asDouble()).isEqualTo(114.0);
+            assertThat(coordinates.get(2).get(0).asDouble()).isEqualTo(112.0);
+            assertThat(coordinates.get(0).get(0).asDouble())
+                    .as("Đảo lat/lng đưa quỹ đạo sang nửa bán cầu khác")
+                    .isGreaterThan(coordinates.get(0).get(1).asDouble());
+        }
+
+        @Test
+        @DisplayName(
+                "TC-04/quyết định #4: đỉnh nối = mốc historical cuối, points chỉ đếm mốc forecast")
+        void shouldPrependJunctionWithoutCountingItInPoints() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(threeHistoricalTwoForecastWithPolygon());
+
+            JsonNode forecast = jsonOf(service.getStormTrack(ACTIVE_ID)).get("features").get(1);
+
+            assertThat(forecast.get("geometry").get("coordinates")).hasSize(3);
+            assertThat(forecast.get("geometry").get("coordinates").get(0).get(0).asDouble())
+                    .as("đỉnh nối lấy từ mốc historical cuối (112.0), không phải geom_current")
+                    .isEqualTo(112.0);
+            assertThat(forecast.get("geometry").get("coordinates").get(1).get(0).asDouble())
+                    .isEqualTo(110.0);
+            assertThat(forecast.get("geometry").get("coordinates").get(2).get(0).asDouble())
+                    .isEqualTo(108.0);
+            assertThat(forecast.get("properties").get("points").asInt())
+                    .as("Đỉnh nối là chi tiết render — không tính vào số mốc")
+                    .isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("quyết định #4: không có mốc historical → đỉnh nối fallback geom_current")
+        void shouldFallBackToStormCenterForJunction() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(
+                            List.of(
+                                    track(4, "forecast", NOW.plusHours(6), 110.0, 20.5),
+                                    track(5, "forecast", NOW.plusHours(12), 108.0, 21.0)));
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+
+            assertThat(idsOf(root.get("features")))
+                    .as("chỉ nhánh forecast nên LineString lịch sử vắng mặt")
+                    .containsExactly("track-forecast", "track-point-4", "track-point-5");
+            JsonNode coordinates = root.get("features").get(0).get("geometry").get("coordinates");
+            assertThat(coordinates.get(0).get(0).asDouble())
+                    .as("đỉnh nối = tâm bão hiện tại 116.4 từ storms.geom_current")
+                    .isEqualTo(116.4);
+            assertThat(coordinates.get(0).get(1).asDouble()).isEqualTo(18.2);
+        }
+
+        @Test
+        @DisplayName("TC-11 / quyết định #14: 1 mốc duy nhất → không LineString, vẫn đủ Point")
+        void shouldSkipLineStringWhenOnlyOneTrackOfKind() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(List.of(track(1, "historical", NOW, 116.0, 18.0)));
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+
+            assertThat(idsOf(root.get("features")))
+                    .as("JTS LineString yêu cầu ≥ 2 đỉnh — không vá bằng đỉnh giả")
+                    .containsExactly("track-point-1");
+        }
+
+        @Test
+        @DisplayName("TC-10 / quyết định #13: bão tồn tại 0 mốc → collection rỗng, không ngoại lệ")
+        void shouldReturnEmptyCollectionWhenStormHasNoTrack() {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(List.of());
+
+            GeoJsonFeatureCollection collection = service.getStormTrack(ACTIVE_ID);
+
+            assertThat(collection.getType()).isEqualTo("FeatureCollection");
+            assertThat(collection.getFeatures()).isEmpty();
+        }
+
+        @Test
+        @DisplayName(
+                "TC-09: id không tồn tại → 404 STM_404_NOT_FOUND, không chạm repository quỹ đạo")
+        void shouldThrowStormNotFoundBeforeTouchingTrackRepository() {
+            when(stormRepository.findById("khong-ton-tai-999")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> service.getStormTrack("khong-ton-tai-999"))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessage("Không tìm thấy bão: khong-ton-tai-999")
+                    .satisfies(
+                            throwable ->
+                                    assertThat(
+                                                    ((ResourceNotFoundException) throwable)
+                                                            .getErrorCode()
+                                                            .getCode())
+                                            .isEqualTo("STM_404_NOT_FOUND"));
+
+            verifyNoInteractions(stormTrackRepository);
+        }
+
+        @Test
+        @DisplayName("TC-08 / quyết định #9: không mốc nào có polygon → không feature impact-zone")
+        void shouldOmitImpactFeatureWhenNoPolygonExists() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(
+                            List.of(
+                                    track(1, "historical", NOW, 116.0, 18.0),
+                                    track(2, "historical", NOW.plusHours(6), 114.0, 19.0)));
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+
+            assertThat(idsOf(root.get("features")))
+                    .as("Tuyệt đối không bịa vùng ảnh hưởng từ bán kính default")
+                    .doesNotContain("impact-zone");
+        }
+
+        @Test
+        @DisplayName("quyết định #11: nhiều mốc có polygon → chỉ mốc forecast_time lớn nhất thắng")
+        void shouldPickImpactPolygonOfLatestForecastTime() throws Exception {
+            StormTrackEntity older = track(1, "historical", NOW.minusHours(6), 116.0, 18.0);
+            older.setImpactPolygon(envelope(115.0, 17.0, 117.0, 19.0));
+            older.setImpactRadiusKm(80.0);
+            StormTrackEntity newer = track(2, "historical", NOW, 114.0, 19.0);
+            newer.setImpactPolygon(envelope(113.0, 18.0, 115.0, 20.0));
+            newer.setImpactRadiusKm(150.0);
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(List.of(older, newer));
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+            List<String> ids = idsOf(root.get("features"));
+
+            assertThat(ids).filteredOn("impact-zone"::equals).hasSize(1);
+            JsonNode impact = root.get("features").get(ids.indexOf("impact-zone"));
+            assertThat(impact.get("geometry").get("coordinates").get(0).get(0).get(0).asDouble())
+                    .as("vùng nguy hiểm là polygon tại thời điểm mới nhất, không phải mốc cũ")
+                    .isEqualTo(113.0);
+            assertThat(impact.get("properties").get("radius_km").asDouble())
+                    .as("radius_km đọc từ chính mốc thắng, không phải hằng số")
+                    .isEqualTo(150.0);
+        }
+
+        @Test
+        @DisplayName(
+                "TC-07 / SYS-RULE-004 + D-1: wind/gust/pressure NULL → khóa hiện diện giá trị null")
+        void shouldKeepNullWindFieldsOnWireAsExplicitNull() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(
+                            List.of(
+                                    track(1, "historical", NOW, 116.0, 18.0),
+                                    track(2, "historical", NOW.plusHours(6), 114.0, 19.0)));
+
+            List<JsonNode> points = pointFeatures(jsonOf(service.getStormTrack(ACTIVE_ID)));
+            assertThat(points).hasSize(2);
+
+            for (JsonNode props : points.stream().map(f -> f.get("properties")).toList()) {
+                assertThat(keysOf(props)).containsExactlyElementsOf(POINT_CONTRACT_KEYS);
+                for (String nullableKey : List.of("wind_speed", "wind_gust", "pressure")) {
+                    assertThat(props.has(nullableKey))
+                            .as(
+                                    "%s phải hiện diện nhờ NullNode, không bị non_null nuốt",
+                                    nullableKey)
+                            .isTrue();
+                    assertThat(props.get(nullableKey).isNull())
+                            .as(
+                                    "%s phải null, không phải số bịa: %s",
+                                    nullableKey, props.get(nullableKey))
+                            .isTrue();
+                }
+                assertThat(props.get("category").isNull()).as("category NOT NULL").isFalse();
+                assertThat(props.get("impact_radius_km").isNull())
+                        .as("impact_radius_km NOT NULL")
+                        .isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("TC-06: Point historical trước, forecast sau, mỗi mốc đúng 1 lần")
+        void shouldEmitEachTrackOnceHistoricalThenForecast() throws Exception {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(threeHistoricalTwoForecastWithPolygon());
+
+            JsonNode root = jsonOf(service.getStormTrack(ACTIVE_ID));
+            List<String> trackTypes = new ArrayList<>();
+            root.get("features")
+                    .forEach(
+                            f -> {
+                                JsonNode type = f.get("properties").get("track_type");
+                                if (type != null) {
+                                    trackTypes.add(type.asText());
+                                }
+                            });
+
+            assertThat(trackTypes)
+                    .containsExactly(
+                            "historical", "historical", "historical", "forecast", "forecast");
+            assertThat(idsOf(root.get("features")))
+                    .filteredOn(id -> id.startsWith("track-point-"))
+                    .hasSize(5);
+        }
+
+        @Test
+        @DisplayName(
+                "quyết định #16 / anti-pattern #5: 2 truy vấn chặt, không chạm proxy LAZY storm")
+        void shouldQueryExactlyTwiceAndNeverTouchLazyStorm() {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(threeHistoricalTwoForecastWithPolygon());
+
+            // storm == null trên mọi track: chạm track.getStorm() sẽ NPE tại đây
+            service.getStormTrack(ACTIVE_ID);
+
+            verify(stormRepository, times(1)).findById(ACTIVE_ID);
+            verify(stormTrackRepository, times(1)).findByStormIdOrderByForecastTimeAsc(ACTIVE_ID);
+            verifyNoMoreInteractions(stormRepository, stormTrackRepository);
+        }
+
+        @Test
+        @DisplayName("quyết định #16: id bão truyền xuống truy vấn quỹ đạo nguyên văn, không count")
+        void shouldPassStormIdToTrackQuery() {
+            when(stormRepository.findById(ACTIVE_ID)).thenReturn(Optional.of(activeStorm()));
+            when(stormTrackRepository.findByStormIdOrderByForecastTimeAsc(ACTIVE_ID))
+                    .thenReturn(List.of());
+
+            service.getStormTrack(ACTIVE_ID);
+
+            ArgumentCaptor<String> id = ArgumentCaptor.forClass(String.class);
+            verify(stormTrackRepository).findByStormIdOrderByForecastTimeAsc(id.capture());
+            assertThat(id.getValue()).isEqualTo(ACTIVE_ID);
+            verify(stormTrackRepository, never()).countByStormId(ACTIVE_ID);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
@@ -415,6 +729,63 @@ class StormServiceImplTest {
         List<String> keys = new ArrayList<>();
         properties.fieldNames().forEachRemaining(keys::add);
         return keys;
+    }
+
+    private static List<String> idsOf(JsonNode features) {
+        List<String> ids = new ArrayList<>();
+        features.forEach(f -> ids.add(f.get("id").asText()));
+        return ids;
+    }
+
+    /** Chỉ các feature Point mốc quỹ đạo — LineString/Polygon cũng là feature hợp lệ. */
+    private static List<JsonNode> pointFeatures(JsonNode root) {
+        List<JsonNode> points = new ArrayList<>();
+        root.get("features")
+                .forEach(
+                        f -> {
+                            if (f.get("id").asText().startsWith("track-point-")) {
+                                points.add(f);
+                            }
+                        });
+        return points;
+    }
+
+    /** Mốc quỹ đạo thuần: storm == null để phát hiện mọi nỗ lực chạm proxy LAZY. */
+    private StormTrackEntity track(
+            long id, String trackType, OffsetDateTime at, double lng, double lat) {
+        StormTrackEntity t = new StormTrackEntity();
+        t.setId(id);
+        t.setTrackType(trackType);
+        t.setForecastTime(at);
+        t.setGeom(point(lng, lat));
+        t.setWindSpeed(null); // V6 — GDACS không công bố theo mốc
+        t.setWindGust(null);
+        t.setPressure(null);
+        t.setCategory("HU");
+        t.setImpactRadiusKm(100.0);
+        return t;
+    }
+
+    /** 3 mốc historical + 2 mốc forecast, polygon chỉ gắn ở mốc historical cuối. */
+    private List<StormTrackEntity> threeHistoricalTwoForecastWithPolygon() {
+        StormTrackEntity h1 = track(1, "historical", NOW.minusHours(12), 116.0, 18.0);
+        StormTrackEntity h2 = track(2, "historical", NOW.minusHours(6), 114.0, 19.0);
+        StormTrackEntity h3 = track(3, "historical", NOW, 112.0, 20.0);
+        h3.setImpactPolygon(envelope(110.0, 18.0, 114.0, 22.0));
+        StormTrackEntity f1 = track(4, "forecast", NOW.plusHours(6), 110.0, 20.5);
+        StormTrackEntity f2 = track(5, "forecast", NOW.plusHours(12), 108.0, 21.0);
+        return List.of(h1, h2, h3, f1, f2);
+    }
+
+    private Polygon envelope(double minLng, double minLat, double maxLng, double maxLat) {
+        return geometryFactory.createPolygon(
+                new Coordinate[] {
+                    new Coordinate(minLng, minLat),
+                    new Coordinate(maxLng, minLat),
+                    new Coordinate(maxLng, maxLat),
+                    new Coordinate(minLng, maxLat),
+                    new Coordinate(minLng, minLat),
+                });
     }
 
     private StormEntity activeStorm() {

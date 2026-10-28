@@ -14,12 +14,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.NullNode;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -49,6 +51,7 @@ class StormControllerTest {
 
     private static final String STORMS_URL = "/api/v1/storms";
     private static final String TEST_STORM_ID = "teststorm01";
+    private static final String TRACK_URL = STORMS_URL + "/" + TEST_STORM_ID + "/track";
     private static final OffsetDateTime UPDATED_AT =
             OffsetDateTime.of(2026, 10, 26, 9, 0, 0, 0, ZoneOffset.UTC);
 
@@ -329,6 +332,154 @@ class StormControllerTest {
     }
 
     // ------------------------------------------------------------------
+    // W3-02: GET /storms/{id}/track
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("W3-02 GET /storms/{id}/track — GeoJSON quỹ đạo thô, RFC 7807 & CORS")
+    class TrackEndpointTests {
+
+        @Test
+        @DisplayName("TC-04: FeatureCollection thô không envelope, đủ 4 loại geometry")
+        void shouldReturnBareTrackFeatureCollection() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID)).thenReturn(trackCollection());
+
+            mockMvc.perform(get(TRACK_URL).accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.type").value("FeatureCollection"))
+                    .andExpect(jsonPath("$.success").doesNotExist())
+                    .andExpect(jsonPath("$.message").doesNotExist())
+                    .andExpect(jsonPath("$.data").doesNotExist())
+                    .andExpect(jsonPath("$.features.length()").value(4))
+                    .andExpect(jsonPath("$.features[0].id").value("track-history"))
+                    .andExpect(jsonPath("$.features[0].geometry.type").value("LineString"))
+                    .andExpect(jsonPath("$.features[0].properties.kind").value("history"))
+                    .andExpect(jsonPath("$.features[1].id").value("track-forecast"))
+                    .andExpect(jsonPath("$.features[2].id").value("impact-zone"))
+                    .andExpect(jsonPath("$.features[2].geometry.type").value("Polygon"))
+                    .andExpect(jsonPath("$.features[2].properties.kind").value("impact"))
+                    .andExpect(jsonPath("$.features[3].id").value("track-point-1"))
+                    .andExpect(jsonPath("$.features[3].geometry.type").value("Point"))
+                    .andExpect(jsonPath("$.features[3].properties.raw_metadata").doesNotExist());
+
+            verify(stormService).getStormTrack(TEST_STORM_ID);
+        }
+
+        @Test
+        @DisplayName("TC-12: LineString serialize [lng, lat] — vertex[0]=kinh độ, vertex[1]=vĩ độ")
+        void shouldSerializeTrackLineAsLngLat() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID)).thenReturn(trackCollection());
+
+            mockMvc.perform(get(TRACK_URL).accept(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.features[0].geometry.coordinates[0][0]").value(116.4))
+                    .andExpect(jsonPath("$.features[0].geometry.coordinates[0][1]").value(18.2))
+                    .andExpect(jsonPath("$.features[0].geometry.coordinates[1][0]").value(112.0))
+                    .andExpect(
+                            jsonPath(
+                                    "$.features[0].geometry.coordinates[0][0]", greaterThan(18.2)));
+        }
+
+        @Test
+        @DisplayName("TC-13: bão hợp lệ chưa có mốc → 200 + features: [] (không 404/500)")
+        void shouldReturnEmptyTrackCollection() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID))
+                    .thenReturn(new GeoJsonFeatureCollection());
+
+            mockMvc.perform(get(TRACK_URL).accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.type").value("FeatureCollection"))
+                    .andExpect(jsonPath("$.features.length()").value(0));
+        }
+
+        @Test
+        @DisplayName(
+                "TC-09: id không tồn tại → 404 RFC 7807 qua GlobalExceptionHandler, errorCode STM_404_NOT_FOUND")
+        void shouldReturnProblemDetailForUnknownStormTrackId() throws Exception {
+            when(stormService.getStormTrack("khong-ton-tai-999"))
+                    .thenThrow(
+                            new ResourceNotFoundException(
+                                    ErrorCode.STORM_NOT_FOUND,
+                                    "Không tìm thấy bão: khong-ton-tai-999"));
+
+            mockMvc.perform(
+                            get(STORMS_URL + "/khong-ton-tai-999/track")
+                                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value(404))
+                    .andExpect(jsonPath("$.title").value("Tài nguyên không tồn tại"))
+                    .andExpect(jsonPath("$.detail").value("Không tìm thấy bão: khong-ton-tai-999"))
+                    .andExpect(jsonPath("$.errorCode").value("STM_404_NOT_FOUND"))
+                    .andExpect(
+                            jsonPath("$.instance").value("/api/v1/storms/khong-ton-tai-999/track"))
+                    .andExpect(jsonPath("$.timestamp").exists());
+        }
+
+        @Test
+        @DisplayName("TC-09: null theo mốc serialize ra JSON null, không bị non_null nuốt khóa")
+        void shouldKeepNullWindValuesOnTrackWireFormat() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID)).thenReturn(trackCollection());
+
+            JsonNode props =
+                    objectMapper
+                            .readTree(
+                                    mockMvc.perform(
+                                                    get(TRACK_URL)
+                                                            .accept(MediaType.APPLICATION_JSON))
+                                            .andExpect(status().isOk())
+                                            .andReturn()
+                                            .getResponse()
+                                            .getContentAsString())
+                            .get("features")
+                            .get(3)
+                            .get("properties");
+
+            assertThat(props.has("wind_speed")).isTrue();
+            assertThat(props.get("wind_speed").isNull()).isTrue();
+            assertThat(props.has("wind_gust")).isTrue();
+            assertThat(props.get("wind_gust").isNull()).isTrue();
+            assertThat(props.has("pressure")).isTrue();
+            assertThat(props.get("pressure").isNull()).isTrue();
+        }
+
+        @Test
+        @DisplayName("TC-15: CORS cho frontend :5173 trên endpoint track")
+        void shouldExposeCorsHeaderOnTrack() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID))
+                    .thenReturn(new GeoJsonFeatureCollection());
+
+            mockMvc.perform(
+                            get(TRACK_URL)
+                                    .header("Origin", "http://localhost:5173")
+                                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(
+                            header().string(
+                                            "Access-Control-Allow-Origin",
+                                            "http://localhost:5173"));
+        }
+
+        @Test
+        @DisplayName("Routing: /{id}/track không đè /{id} — detail vẫn đi đường riêng")
+        void shouldNotShadowStormDetail() throws Exception {
+            when(stormService.getStormTrack(TEST_STORM_ID))
+                    .thenReturn(new GeoJsonFeatureCollection());
+            when(stormService.getStormDetail(TEST_STORM_ID)).thenReturn(detail());
+
+            mockMvc.perform(get(TRACK_URL).accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.type").value("FeatureCollection"));
+            mockMvc.perform(
+                            get(STORMS_URL + "/" + TEST_STORM_ID)
+                                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(stormService).getStormTrack(TEST_STORM_ID);
+            verify(stormService).getStormDetail(TEST_STORM_ID);
+        }
+    }
+
+    // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
@@ -365,6 +516,74 @@ class StormControllerTest {
                         geometryFactory.createPoint(new Coordinate(116.4, 18.2)),
                         stormProperties());
         return new GeoJsonFeatureCollection(List.of(feature));
+    }
+
+    /**
+     * FeatureCollection mô phỏng hợp đồng /track (W3-02): LineString lịch sử → LineString dự báo →
+     * Polygon vùng ảnh hưởng → Point mốc. Ba khóa gió dùng {@code NullNode.instance} đúng như
+     * StormServiceImpl phát ra — khóa Java null thuần sẽ bị {@code non_null} nuốt (D-1).
+     */
+    private GeoJsonFeatureCollection trackCollection() {
+        GeoJsonFeatureCollection collection = new GeoJsonFeatureCollection();
+        collection.addFeature(
+                new GeoJsonFeature(
+                        "track-history",
+                        line(new double[][] {{116.4, 18.2}, {112.0, 19.0}}),
+                        trackLineProperties("history", 2)));
+        collection.addFeature(
+                new GeoJsonFeature(
+                        "track-forecast",
+                        line(new double[][] {{112.0, 19.0}, {110.0, 19.5}}),
+                        trackLineProperties("forecast", 1)));
+        Map<String, Object> impactProps = new LinkedHashMap<>();
+        impactProps.put("kind", "impact");
+        impactProps.put("storm_id", TEST_STORM_ID);
+        impactProps.put("radius_km", 150.0);
+        collection.addFeature(
+                new GeoJsonFeature(
+                        "impact-zone",
+                        geometryFactory.createPolygon(
+                                new Coordinate[] {
+                                    new Coordinate(110.0, 18.0),
+                                    new Coordinate(114.0, 18.0),
+                                    new Coordinate(114.0, 22.0),
+                                    new Coordinate(110.0, 22.0),
+                                    new Coordinate(110.0, 18.0),
+                                }),
+                        impactProps));
+
+        Map<String, Object> pointProps = new LinkedHashMap<>();
+        pointProps.put("track_id", 1L);
+        pointProps.put("storm_id", TEST_STORM_ID);
+        pointProps.put("track_type", "historical");
+        pointProps.put("forecast_time", UPDATED_AT);
+        pointProps.put("wind_speed", NullNode.instance);
+        pointProps.put("wind_gust", NullNode.instance);
+        pointProps.put("pressure", NullNode.instance);
+        pointProps.put("category", "Typhoon");
+        pointProps.put("impact_radius_km", 150.0);
+        collection.addFeature(
+                new GeoJsonFeature(
+                        "track-point-1",
+                        geometryFactory.createPoint(new Coordinate(116.4, 18.2)),
+                        pointProps));
+        return collection;
+    }
+
+    private Map<String, Object> trackLineProperties(String kind, int points) {
+        Map<String, Object> props = new LinkedHashMap<>();
+        props.put("kind", kind);
+        props.put("storm_id", TEST_STORM_ID);
+        props.put("points", points);
+        return props;
+    }
+
+    private org.locationtech.jts.geom.LineString line(double[][] lngLat) {
+        Coordinate[] coords = new Coordinate[lngLat.length];
+        for (int i = 0; i < lngLat.length; i++) {
+            coords[i] = new Coordinate(lngLat[i][0], lngLat[i][1]);
+        }
+        return geometryFactory.createLineString(coords);
     }
 
     private StormSummaryResponse summary() {

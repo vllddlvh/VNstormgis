@@ -1,6 +1,7 @@
 package vn.weathergis.storm.repository;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -52,4 +53,15 @@ public interface StormTrackRepository extends JpaRepository<StormTrackEntity, Lo
      */
     @Query("SELECT count(t) FROM StormTrackEntity t WHERE t.storm.id = :stormId")
     long countByStormId(@Param("stormId") String stormId);
+
+    /**
+     * Toàn bộ mốc quỹ đạo của một bão theo trật tự thời gian tăng dần — phục vụ {@code GET
+     * /storms/{id}/track} (W3-02). Quét chỉ mục {@code idx_storm_tracks_time (storm_id,
+     * forecast_time ASC)} dựng sẵn từ V4; service phân tách historical/forecast trong bộ nhớ để giữ
+     * đúng 1 truy vấn cho mọi kích thước quỹ đạo.
+     */
+    @Query(
+            "SELECT t FROM StormTrackEntity t WHERE t.storm.id = :stormId"
+                    + " ORDER BY t.forecastTime ASC")
+    List<StormTrackEntity> findByStormIdOrderByForecastTimeAsc(@Param("stormId") String stormId);
 }
