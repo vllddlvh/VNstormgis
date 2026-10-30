@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -22,6 +23,9 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import vn.weathergis.automation.client.OpenWeatherMapClient;
 import vn.weathergis.automation.client.dto.OpenWeatherMapCurrentWeather;
 import vn.weathergis.automation.client.exception.OpenWeatherMapClientException;
@@ -30,6 +34,7 @@ import vn.weathergis.automation.domain.DataSyncLogEntity;
 import vn.weathergis.automation.dto.WeatherSyncResult;
 import vn.weathergis.automation.repository.DataSyncLogRepository;
 import vn.weathergis.automation.repository.WeatherRecordRepository;
+import vn.weathergis.common.cache.CacheRegions;
 import vn.weathergis.common.exception.SyncInProgressException;
 import vn.weathergis.location.domain.LocationEntity;
 import vn.weathergis.location.repository.LocationRepository;
@@ -50,6 +55,9 @@ class WeatherSyncServiceTest {
     @Mock private LocationRepository locationRepository;
     @Mock private WeatherRecordRepository weatherRecordRepository;
     @Mock private DataSyncLogRepository dataSyncLogRepository;
+    @Mock private ObjectProvider<CacheManager> cacheManagerProvider;
+    @Mock private CacheManager cacheManager;
+    @Mock private Cache weatherCurrentCache;
 
     /** Trạm giả lập — JTS Point: X = KINH ĐỘ, Y = VĨ ĐỘ (AGENTS.md mục 1). */
     private LocationEntity station(String code) {
@@ -66,6 +74,7 @@ class WeatherSyncServiceTest {
                 locationRepository,
                 weatherRecordRepository,
                 dataSyncLogRepository,
+                cacheManagerProvider,
                 0L /* throttle-ms = 0 — không ngủ */,
                 apiKey);
     }
@@ -167,12 +176,31 @@ class WeatherSyncServiceTest {
                 .thenReturn(List.of(station("HAN"), station("DAD")));
         when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+        when(cacheManagerProvider.getIfAvailable()).thenReturn(cacheManager);
+        when(cacheManager.getCache(CacheRegions.WEATHER_CURRENT)).thenReturn(weatherCurrentCache);
 
         WeatherSyncResult result = newService("test-key").triggerWeatherSync();
 
         assertThat(result.status()).isEqualTo("SUCCESS");
         assertThat(result.recordsProcessed()).isEqualTo(2);
         assertThat(result.errorMessage()).isNull();
+        verify(weatherCurrentCache).clear();
+    }
+
+    @Test
+    @DisplayName("W3-04: Redis lỗi khi evict không làm chu kỳ sync thành công bị FAILED")
+    void shouldKeepSuccessfulSyncWhenCacheEvictionFails() {
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+        when(cacheManagerProvider.getIfAvailable()).thenReturn(cacheManager);
+        when(cacheManager.getCache(CacheRegions.WEATHER_CURRENT)).thenReturn(weatherCurrentCache);
+        doThrow(new IllegalStateException("Redis down")).when(weatherCurrentCache).clear();
+
+        WeatherSyncResult result = newService("test-key").triggerWeatherSync();
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(result.recordsProcessed()).isEqualTo(1);
     }
 
     @Test
@@ -184,7 +212,8 @@ class WeatherSyncServiceTest {
 
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).contains("chưa được cấu hình");
-        verifyNoInteractions(client, locationRepository, weatherRecordRepository);
+        verifyNoInteractions(
+                client, locationRepository, weatherRecordRepository, cacheManagerProvider);
     }
 
     @Test

@@ -3,12 +3,19 @@ package vn.weathergis.common.cache;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.PortBinding;
+import com.github.dockerjava.api.model.Ports;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -20,13 +27,17 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisCallback;
@@ -38,10 +49,14 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
+import vn.weathergis.automation.client.GdacsStormClient;
+import vn.weathergis.automation.dto.StormSyncResult;
+import vn.weathergis.automation.service.StormSyncService;
 import vn.weathergis.common.AbstractPostGisIntegrationTest;
 import vn.weathergis.storm.domain.StormEntity;
 import vn.weathergis.storm.repository.StormRepository;
 import vn.weathergis.storm.service.StormService;
+import vn.weathergis.weather.service.WeatherService;
 
 /**
  * Integration Test tầng Redis cache (Task W3-03, TC-15) chạy trên <b>Redis 7.2-alpine thật</b> đặt
@@ -68,6 +83,7 @@ import vn.weathergis.storm.service.StormService;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension.class)
 @DisplayName(
         "RedisCacheIT — cache Redis 7.2 thật: hit byte-identical, TTL 3 vùng, phạm vi cache (W3-03)")
 class RedisCacheIT extends AbstractPostGisIntegrationTest {
@@ -84,9 +100,17 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
     private static final String LOCATIONS_NORTH_KEY =
             "weathergis:cache:locations::geojson|Bắc Bộ|true|";
 
+    private static final int REDIS_HOST_PORT = findAvailablePort();
     private static final GenericContainer<?> REDIS =
             new GenericContainer<>(DockerImageName.parse("redis:7.2-alpine"))
-                    .withExposedPorts(6379);
+                    .withExposedPorts(6379)
+                    .withCreateContainerCmdModifier(
+                            command ->
+                                    command.getHostConfig()
+                                            .withPortBindings(
+                                                    new PortBinding(
+                                                            Ports.Binding.bindPort(REDIS_HOST_PORT),
+                                                            ExposedPort.tcp(6379))));
 
     @Autowired private MockMvc mockMvc;
     @Autowired private JdbcTemplate jdbcTemplate;
@@ -94,11 +118,17 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
     @Autowired private StringRedisTemplate redisTemplate;
     @Autowired private RedisConnectionFactory connectionFactory;
     @Autowired private GeoJsonCacheService geoJsonCacheService;
+    @Autowired private MeterRegistry meterRegistry;
+    @Autowired private StormSyncService stormSyncService;
+
+    @MockBean private GdacsStormClient gdacsStormClient;
 
     /**
      * Spy để chứng minh cache-hit không phát truy vấn bão lần thứ hai (mục 3.10: service bất biến).
      */
     @SpyBean private StormService stormService;
+
+    @SpyBean private WeatherService weatherService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
@@ -126,6 +156,8 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
     static void redisProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getFirstMappedPort());
+        registry.add("spring.data.redis.timeout", () -> "500ms");
+        registry.add("spring.data.redis.connect-timeout", () -> "1s");
     }
 
     @BeforeEach
@@ -180,6 +212,7 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
                 .isEqualTo(miss);
         assertThat(readTree(miss).get("type").asText()).isEqualTo("FeatureCollection");
         assertTtl(WEATHER_KEY, 840L, 900L);
+        verify(weatherService, times(1)).getCurrentWeatherAsGeoJson();
         assertNoFallback();
     }
 
@@ -292,6 +325,72 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
         assertNoFallback();
     }
 
+    @Test
+    @DisplayName("W3-04: TTL hết hạn tự invalidate và request kế tiếp nạp lại từ PostGIS")
+    void shouldReloadWeatherAfterTtlExpiry() throws Exception {
+        geoJson(get(WEATHER_URL));
+        assertThat(redisTemplate.expire(WEATHER_KEY, 1, TimeUnit.SECONDS)).isTrue();
+
+        waitForKeyExpiration(WEATHER_KEY);
+        geoJson(get(WEATHER_URL));
+
+        verify(weatherService, times(2)).getCurrentWeatherAsGeoJson();
+        assertThat(redisTemplate.hasKey(WEATHER_KEY)).isTrue();
+        assertTtl(WEATHER_KEY, 840L, 900L);
+    }
+
+    @Test
+    @DisplayName(
+            "W3-04: stop Redis → 3 API GeoJSON vẫn 200 + WARN/metric fallback; restart → cache hồi phục")
+    void shouldFallBackDuringRedisOutageAndRecoverAfterRestart(CapturedOutput output)
+            throws Exception {
+        double fallbackMetricBefore =
+                meterRegistry.get("weathergis.cache.fallback").counter().count();
+        String containerId = REDIS.getContainerId();
+
+        try {
+            REDIS.getDockerClient().stopContainerCmd(containerId).exec();
+
+            mockMvc.perform(get(WEATHER_URL)).andExpect(status().isOk());
+            mockMvc.perform(get(STORMS_URL)).andExpect(status().isOk());
+            mockMvc.perform(get(LOCATIONS_URL).param("format", "geojson"))
+                    .andExpect(status().isOk());
+
+            assertThat(meterRegistry.get("weathergis.cache.fallback").counter().count())
+                    .isEqualTo(fallbackMetricBefore + 3.0);
+            assertThat(output).contains("[CACHE-FALLBACK#");
+        } finally {
+            REDIS.getDockerClient().startContainerCmd(containerId).exec();
+            waitForRedis();
+        }
+
+        geoJson(get(WEATHER_URL));
+
+        assertThat(redisTemplate.hasKey(WEATHER_KEY)).isTrue();
+        assertThat(meterRegistry.get("weathergis.cache.fallback").counter().count())
+                .as("request sau recovery phải dùng Redis, không tiếp tục fallback")
+                .isEqualTo(fallbackMetricBefore + 3.0);
+    }
+
+    @Test
+    @DisplayName("W3-04: GDACS sync SUCCESS xóa active_storms và request kế tiếp thấy dữ liệu mới")
+    void shouldEvictActiveStormsAfterSuccessfulSync() throws Exception {
+        geoJson(get(STORMS_URL));
+        assertThat(redisTemplate.hasKey(STORMS_KEY)).isTrue();
+        when(gdacsStormClient.fetchActiveTropicalCyclones())
+                .thenReturn(new GdacsStormClient.GdacsEventFeed(List.of(), List.of()));
+
+        StormSyncResult result = stormSyncService.triggerStormSync();
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(redisTemplate.hasKey(STORMS_KEY)).isFalse();
+
+        String reloaded = geoJson(get(STORMS_URL));
+
+        assertThat(readTree(reloaded).get("features")).isEmpty();
+        verify(stormService, times(2)).getStormsAsGeoJson("active");
+    }
+
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
@@ -310,6 +409,42 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
 
     private JsonNode readTree(String json) throws Exception {
         return objectMapper.readTree(json);
+    }
+
+    private static int findAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
+    }
+
+    private void waitForRedis() throws InterruptedException {
+        boolean available = false;
+        RuntimeException lastError = null;
+        for (int attempt = 0; attempt < 50 && !available; attempt++) {
+            try {
+                String pong =
+                        redisTemplate.execute(
+                                (RedisCallback<String>) connection -> connection.ping());
+                available = "PONG".equals(pong);
+            } catch (RuntimeException ex) {
+                lastError = ex;
+            }
+            if (!available) {
+                Thread.sleep(100);
+            }
+        }
+        assertThat(available)
+                .withFailMessage("Lettuce chưa phục hồi sau restart; lỗi cuối: %s", lastError)
+                .isTrue();
+    }
+
+    private void waitForKeyExpiration(String key) throws InterruptedException {
+        for (int attempt = 0; attempt < 30 && redisTemplate.hasKey(key); attempt++) {
+            Thread.sleep(100);
+        }
+        assertThat(redisTemplate.hasKey(key)).as("key %s phải hết hạn", key).isFalse();
     }
 
     private void assertTtl(String key, long lowerExclusive, long upperInclusive) {

@@ -9,7 +9,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import vn.weathergis.automation.client.OpenWeatherMapClient;
 import vn.weathergis.automation.client.dto.OpenWeatherMapCurrentWeather;
@@ -18,6 +21,7 @@ import vn.weathergis.automation.domain.DataSyncLogEntity;
 import vn.weathergis.automation.dto.WeatherSyncResult;
 import vn.weathergis.automation.repository.DataSyncLogRepository;
 import vn.weathergis.automation.repository.WeatherRecordRepository;
+import vn.weathergis.common.cache.CacheRegions;
 import vn.weathergis.common.exception.SyncInProgressException;
 import vn.weathergis.location.domain.LocationEntity;
 import vn.weathergis.location.repository.LocationRepository;
@@ -37,6 +41,7 @@ public class WeatherSyncService {
     private final LocationRepository locationRepository;
     private final WeatherRecordRepository weatherRecordRepository;
     private final DataSyncLogRepository dataSyncLogRepository;
+    private final ObjectProvider<CacheManager> cacheManagerProvider;
     private final long throttleMs;
     private final String apiKey;
 
@@ -48,12 +53,14 @@ public class WeatherSyncService {
             LocationRepository locationRepository,
             WeatherRecordRepository weatherRecordRepository,
             DataSyncLogRepository dataSyncLogRepository,
+            ObjectProvider<CacheManager> cacheManagerProvider,
             @Value("${weathergis.sync.throttle-ms:100}") long throttleMs,
             @Value("${weathergis.external.owm.api-key:}") String apiKey) {
         this.client = client;
         this.locationRepository = locationRepository;
         this.weatherRecordRepository = weatherRecordRepository;
         this.dataSyncLogRepository = dataSyncLogRepository;
+        this.cacheManagerProvider = cacheManagerProvider;
         this.throttleMs = throttleMs;
         this.apiKey = apiKey;
     }
@@ -64,9 +71,28 @@ public class WeatherSyncService {
             throw new SyncInProgressException();
         }
         try {
-            return runCycle();
+            WeatherSyncResult result = runCycle();
+            if ("SUCCESS".equals(result.status())) {
+                evictWeatherCurrentCache();
+            }
+            return result;
         } finally {
             running.set(false);
+        }
+    }
+
+    private void evictWeatherCurrentCache() {
+        try {
+            CacheManager cacheManager = cacheManagerProvider.getIfAvailable();
+            if (cacheManager == null) {
+                return;
+            }
+            Cache cache = cacheManager.getCache(CacheRegions.WEATHER_CURRENT);
+            if (cache != null) {
+                cache.clear();
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Không xóa được cache weather_current sau sync: {}", ex.getMessage());
         }
     }
 

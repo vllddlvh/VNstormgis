@@ -16,6 +16,8 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ class GeoJsonCacheServiceTest {
     private CacheManager cacheManager;
     private Cache cache;
     private ObjectProvider<CacheManager> cacheManagerProvider;
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -64,6 +67,7 @@ class GeoJsonCacheServiceTest {
         cacheManager = mock(CacheManager.class);
         cache = mock(Cache.class);
         cacheManagerProvider = mock(ObjectProvider.class);
+        meterRegistry = new SimpleMeterRegistry();
     }
 
     @Test
@@ -223,6 +227,7 @@ class GeoJsonCacheServiceTest {
         service.getOrLoad(CacheRegions.WEATHER_CURRENT, KEY, this::stormCollection);
 
         assertThat(service.getFallbackCount()).isEqualTo(3L);
+        assertThat(meterRegistry.get("weathergis.cache.fallback").counter().count()).isEqualTo(3.0);
         verify(cache, times(3)).get(eq(KEY), any(Callable.class));
     }
 
@@ -231,7 +236,7 @@ class GeoJsonCacheServiceTest {
     // ------------------------------------------------------------------
 
     private GeoJsonCacheService service(boolean enabled) {
-        return new GeoJsonCacheService(cacheManagerProvider, objectMapper, enabled);
+        return new GeoJsonCacheService(cacheManagerProvider, objectMapper, meterRegistry, enabled);
     }
 
     /** Loader phải KHÔNG chạy trên đường cache-hit — chạy là fail test ngay. */

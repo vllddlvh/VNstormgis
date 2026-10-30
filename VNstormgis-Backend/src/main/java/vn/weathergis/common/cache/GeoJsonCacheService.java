@@ -2,7 +2,8 @@ package vn.weathergis.common.cache;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.atomic.AtomicLong;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,18 +34,16 @@ public class GeoJsonCacheService {
     private final ObjectMapper objectMapper;
     private final boolean cacheEnabled;
 
-    /**
-     * Bộ đếm fallback thô — W3-04 nâng cấp thành Micrometer counter (đối soát báo cáo hiệu năng);
-     * getter công khai là hợp đồng bàn giao W3-04 (quyết định #16).
-     */
-    private final AtomicLong fallbackCount = new AtomicLong();
+    private final Counter fallbackCount;
 
     public GeoJsonCacheService(
             ObjectProvider<CacheManager> cacheManagerProvider,
             ObjectMapper objectMapper,
+            MeterRegistry meterRegistry,
             @Value("${weathergis.cache.enabled:true}") boolean cacheEnabled) {
         this.cacheManagerProvider = cacheManagerProvider;
         this.objectMapper = objectMapper;
+        this.fallbackCount = meterRegistry.counter("weathergis.cache.fallback");
         this.cacheEnabled = cacheEnabled;
     }
 
@@ -66,7 +65,8 @@ public class GeoJsonCacheService {
                     try {
                         return cache.get(key, () -> render(loader.get()));
                     } catch (Exception ex) {
-                        long n = fallbackCount.incrementAndGet();
+                        fallbackCount.increment();
+                        long n = (long) fallbackCount.count();
                         log.warn(
                                 "[CACHE-FALLBACK#{}] Redis vùng '{}' không dùng được (key={}) — "
                                         + "truy vấn trực tiếp PostGIS: {}",
@@ -92,8 +92,8 @@ public class GeoJsonCacheService {
         }
     }
 
-    /** Số lượt fallback từ khi khởi động — W3-04 thay bằng Micrometer counter. */
+    /** Số lượt fallback từ khi khởi động. */
     public long getFallbackCount() {
-        return fallbackCount.get();
+        return (long) fallbackCount.count();
     }
 }

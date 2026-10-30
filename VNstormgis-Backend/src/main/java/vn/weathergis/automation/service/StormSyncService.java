@@ -13,13 +13,17 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import vn.weathergis.automation.client.GdacsStormClient;
 import vn.weathergis.automation.client.exception.GdacsClientException;
 import vn.weathergis.automation.domain.DataSyncLogEntity;
 import vn.weathergis.automation.dto.StormSyncResult;
 import vn.weathergis.automation.repository.DataSyncLogRepository;
+import vn.weathergis.common.cache.CacheRegions;
 import vn.weathergis.common.exception.SyncInProgressException;
 import vn.weathergis.storm.domain.StormEntity;
 import vn.weathergis.storm.repository.StormRepository;
@@ -52,6 +56,7 @@ public class StormSyncService {
     private final StormRepository stormRepository;
     private final StormTrackRepository stormTrackRepository;
     private final DataSyncLogRepository dataSyncLogRepository;
+    private final ObjectProvider<CacheManager> cacheManagerProvider;
     private final double dissipateWindThresholdMs;
 
     /**
@@ -65,12 +70,14 @@ public class StormSyncService {
             StormRepository stormRepository,
             StormTrackRepository stormTrackRepository,
             DataSyncLogRepository dataSyncLogRepository,
+            ObjectProvider<CacheManager> cacheManagerProvider,
             @Value("${weathergis.sync.storm-dissipate-wind-ms:17.2}")
                     double dissipateWindThresholdMs) {
         this.client = client;
         this.stormRepository = stormRepository;
         this.stormTrackRepository = stormTrackRepository;
         this.dataSyncLogRepository = dataSyncLogRepository;
+        this.cacheManagerProvider = cacheManagerProvider;
         this.dissipateWindThresholdMs = dissipateWindThresholdMs;
     }
 
@@ -80,9 +87,28 @@ public class StormSyncService {
             throw new SyncInProgressException();
         }
         try {
-            return runCycle();
+            StormSyncResult result = runCycle();
+            if ("SUCCESS".equals(result.status())) {
+                evictActiveStormsCache();
+            }
+            return result;
         } finally {
             running.set(false);
+        }
+    }
+
+    private void evictActiveStormsCache() {
+        try {
+            CacheManager cacheManager = cacheManagerProvider.getIfAvailable();
+            if (cacheManager == null) {
+                return;
+            }
+            Cache cache = cacheManager.getCache(CacheRegions.ACTIVE_STORMS);
+            if (cache != null) {
+                cache.clear();
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Không xóa được cache active_storms sau sync: {}", ex.getMessage());
         }
     }
 

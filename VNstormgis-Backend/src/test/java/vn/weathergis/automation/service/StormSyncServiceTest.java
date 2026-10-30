@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.OffsetDateTime;
@@ -21,11 +23,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import vn.weathergis.automation.client.GdacsStormClient;
 import vn.weathergis.automation.client.exception.GdacsClientException;
 import vn.weathergis.automation.domain.DataSyncLogEntity;
 import vn.weathergis.automation.dto.StormSyncResult;
 import vn.weathergis.automation.repository.DataSyncLogRepository;
+import vn.weathergis.common.cache.CacheRegions;
 import vn.weathergis.common.exception.SyncInProgressException;
 import vn.weathergis.storm.domain.StormEntity;
 import vn.weathergis.storm.repository.StormRepository;
@@ -47,10 +53,18 @@ class StormSyncServiceTest {
     @Mock private StormRepository stormRepository;
     @Mock private StormTrackRepository stormTrackRepository;
     @Mock private DataSyncLogRepository dataSyncLogRepository;
+    @Mock private ObjectProvider<CacheManager> cacheManagerProvider;
+    @Mock private CacheManager cacheManager;
+    @Mock private Cache activeStormsCache;
 
     private StormSyncService newService(double thresholdMs) {
         return new StormSyncService(
-                client, stormRepository, stormTrackRepository, dataSyncLogRepository, thresholdMs);
+                client,
+                stormRepository,
+                stormTrackRepository,
+                dataSyncLogRepository,
+                cacheManagerProvider,
+                thresholdMs);
     }
 
     private GdacsStormClient.GdacsEvent event(String id, String name, double windMs) {
@@ -249,12 +263,32 @@ class StormSyncServiceTest {
                 .thenReturn(new GdacsStormClient.GdacsEventFeed(List.of(), List.of()));
         when(stormRepository.findByStatusIgnoreCase("active")).thenReturn(List.of());
         stubAuditSaves();
+        when(cacheManagerProvider.getIfAvailable()).thenReturn(cacheManager);
+        when(cacheManager.getCache(CacheRegions.ACTIVE_STORMS)).thenReturn(activeStormsCache);
 
         StormSyncResult result = newService(THRESHOLD_MS).triggerStormSync();
 
         assertThat(result.status()).isEqualTo("SUCCESS");
         assertThat(result.stormsProcessed()).isZero();
         assertThat(result.errorMessage()).isNull();
+        verify(activeStormsCache).clear();
+    }
+
+    @Test
+    @DisplayName("W3-04: Redis lỗi khi evict không làm chu kỳ GDACS thành công bị FAILED")
+    void shouldKeepSuccessfulSyncWhenCacheEvictionFails() {
+        when(client.fetchActiveTropicalCyclones())
+                .thenReturn(new GdacsStormClient.GdacsEventFeed(List.of(), List.of()));
+        when(stormRepository.findByStatusIgnoreCase("active")).thenReturn(List.of());
+        stubAuditSaves();
+        when(cacheManagerProvider.getIfAvailable()).thenReturn(cacheManager);
+        when(cacheManager.getCache(CacheRegions.ACTIVE_STORMS)).thenReturn(activeStormsCache);
+        doThrow(new IllegalStateException("Redis down")).when(activeStormsCache).clear();
+
+        StormSyncResult result = newService(THRESHOLD_MS).triggerStormSync();
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(result.stormsProcessed()).isZero();
     }
 
     @Test
@@ -271,6 +305,7 @@ class StormSyncServiceTest {
         assertThat(result.errorMessage()).contains("Không đọc được danh sách GDACS");
         verify(stormRepository, never()).findByStatusIgnoreCase(anyString()); // nhánh C bị chặn
         verify(stormRepository, never()).save(any());
+        verifyNoInteractions(cacheManagerProvider);
     }
 
     @Test
