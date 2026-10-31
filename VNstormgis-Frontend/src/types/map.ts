@@ -113,6 +113,9 @@ export interface WeatherAlertItem {
 
 /**
  * Cấu trúc thông tin cơn bão / áp thấp nhiệt đới đang hoạt động trên biển Đông.
+ *
+ * @deprecated Chỉ còn dùng cho tab Kiểm Định (di sản W1-11) qua `SAMPLE_ACTIVE_CYCLONE`.
+ * Lớp bão tác chiến dùng dữ liệu thật qua `StormCenter` + `ActiveStormLayer` (W3-05).
  */
 export interface ActiveCycloneData {
   id: string;

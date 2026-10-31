@@ -42,6 +42,10 @@ export interface LayerControlDrawerProps {
   stationCount?: number;
   /** Tổng số lượng trạm quan trắc trong hệ thống */
   totalStationCount?: number;
+  /** Số tâm bão active đã nạp; undefined = nhánh storm đang nạp (W3-05). */
+  stormCount?: number;
+  /** Mốc GDACS updated_at lớn nhất — dữ liệu bàn giao cho badge Last Sync 2 nhịp (W3-07). */
+  stormLastSyncedAt?: string | null;
   /** Vùng miền đang được lọc ('ALL', 'BẮC BỘ', 'TRUNG BỘ', 'TÂY NGUYÊN', 'NAM BỘ', 'BIỂN ĐẢO') */
   selectedRegion?: string;
   /** Callback khi người dùng thay đổi vùng miền lọc */
@@ -61,6 +65,8 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   onOpacityChange,
   stationCount = 68,
   totalStationCount = 68,
+  stormCount,
+  stormLastSyncedAt = null,
   selectedRegion = "ALL",
   onRegionChange,
   lastSyncedAt = null,
@@ -69,10 +75,14 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   const [isOpen, setIsOpen] = useState<boolean>(true);
 
   // Đếm tổng số lớp dữ liệu đang kích hoạt
-  const activeLayerCount = Object.values(layerVisibility).filter(Boolean).length;
+  const activeLayerCount =
+    Object.values(layerVisibility).filter(Boolean).length;
 
   // Kích hoạt toggle bằng bàn phím (Enter/Space) theo NFR-USA-002
-  const handleToggleKeyDown = (e: React.KeyboardEvent, layerKey: keyof LayerVisibilityState) => {
+  const handleToggleKeyDown = (
+    e: React.KeyboardEvent,
+    layerKey: keyof LayerVisibilityState,
+  ) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onToggleLayer(layerKey);
@@ -80,7 +90,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   };
 
   return (
-    <div className="absolute top-4 right-4 z-[1000] font-mono select-none">
+    <div
+      className="absolute top-4 right-4 z-[1000] font-mono select-none"
+      data-storm-last-sync={stormLastSyncedAt ?? ""}
+    >
       {/* Nút Toggle mở/đóng nhanh khi panel thu gọn */}
       {!isOpen ? (
         <button
@@ -90,7 +103,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
           title="Mở bảng điều khiển lớp bản đồ"
         >
           <Layers className="w-4 h-4 text-[#e2ffcc]" />
-          <span className="text-xs uppercase font-bold tracking-wider">LỚP BẢN ĐỒ</span>
+          <span className="text-xs uppercase font-bold tracking-wider">
+            LỚP BẢN ĐỒ
+          </span>
           <span className="text-[10px] px-1 py-0.2 bg-[#1a2117] border border-[#2d3329] text-[#e2ffcc]">
             {activeLayerCount}
           </span>
@@ -191,7 +206,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className={`w-3.5 h-3.5 ${layerVisibility.rainfall ? "text-[#68d391]" : "text-[#84907f]"}`}
                   />
                   <div>
-                    <div className="text-xs font-bold leading-tight">LƯỢNG MƯA QUAN TRẮC</div>
+                    <div className="text-xs font-bold leading-tight">
+                      LƯỢNG MƯA QUAN TRẮC
+                    </div>
                     <div className="text-[9px] text-[#84907f]">
                       BONG BÓNG PHÂN CẤP 0 → &gt;50 MM
                     </div>
@@ -223,7 +240,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className={`w-3.5 h-3.5 ${layerVisibility.stations ? "text-[#e2ffcc]" : "text-[#84907f]"}`}
                   />
                   <div>
-                    <div className="text-xs font-bold leading-tight">TRẠM QUAN TRẮC KTTV</div>
+                    <div className="text-xs font-bold leading-tight">
+                      TRẠM QUAN TRẮC KTTV
+                    </div>
                     <div className="text-[9px] text-[#84907f]">
                       {stationCount === totalStationCount
                         ? `${stationCount} ĐIỂM TRẠM TOÀN QUỐC`
@@ -260,7 +279,16 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     <div className="text-xs font-bold leading-tight">
                       BÃO &amp; ÁP THẤP NHIỆT ĐỚI
                     </div>
-                    <div className="text-[9px] text-[#84907f]">TÂM BÃO &amp; QUỸ ĐẠO DỰ BÁO</div>
+                    <div
+                      className="text-[9px] text-[#84907f]"
+                      data-testid="storm-layer-count"
+                    >
+                      {stormCount === undefined
+                        ? "ĐANG NẠP BÃO…"
+                        : stormCount === 0
+                          ? "0 BÃO ACTIVE"
+                          : `${stormCount} BÃO ACTIVE — TÂM & QUỸ ĐẠO`}
+                    </div>
                   </div>
                 </div>
                 {layerVisibility.cyclones ? (
@@ -289,8 +317,12 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className={`w-3.5 h-3.5 ${layerVisibility.radar ? "text-[#f59e0b]" : "text-[#84907f]"}`}
                   />
                   <div>
-                    <div className="text-xs font-bold leading-tight">RADAR PHẢN HỒI MƯA</div>
-                    <div className="text-[9px] text-[#84907f]">ĐỘ PHẢN HỒI REFLECTIVITY (dBZ)</div>
+                    <div className="text-xs font-bold leading-tight">
+                      RADAR PHẢN HỒI MƯA
+                    </div>
+                    <div className="text-[9px] text-[#84907f]">
+                      ĐỘ PHẢN HỒI REFLECTIVITY (dBZ)
+                    </div>
                   </div>
                 </div>
                 {layerVisibility.radar ? (
@@ -319,8 +351,12 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className={`w-3.5 h-3.5 ${layerVisibility.wind ? "text-[#e2ffcc]" : "text-[#84907f]"}`}
                   />
                   <div>
-                    <div className="text-xs font-bold leading-tight">VECTOR GIÓ BỀ MẶT</div>
-                    <div className="text-[9px] text-[#84907f]">HƯỚNG &amp; CƯỜNG ĐỘ DÒNG GIÓ</div>
+                    <div className="text-xs font-bold leading-tight">
+                      VECTOR GIÓ BỀ MẶT
+                    </div>
+                    <div className="text-[9px] text-[#84907f]">
+                      HƯỚNG &amp; CƯỜNG ĐỘ DÒNG GIÓ
+                    </div>
                   </div>
                 </div>
                 {layerVisibility.wind ? (
@@ -349,8 +385,12 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     className={`w-3.5 h-3.5 ${layerVisibility.clouds ? "text-[#dde2e4]" : "text-[#84907f]"}`}
                   />
                   <div>
-                    <div className="text-xs font-bold leading-tight">MÂY VỆ TINH HỒNG NGOẠI</div>
-                    <div className="text-[9px] text-[#84907f]">ẢNH VỆ TINH HIMAWARI-9</div>
+                    <div className="text-xs font-bold leading-tight">
+                      MÂY VỆ TINH HỒNG NGOẠI
+                    </div>
+                    <div className="text-[9px] text-[#84907f]">
+                      ẢNH VỆ TINH HIMAWARI-9
+                    </div>
                   </div>
                 </div>
                 {layerVisibility.clouds ? (
@@ -365,16 +405,30 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             <div className="space-y-1.5 pt-2 border-t border-[#2d3329]">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
                 <span>[03 // BỘ LỌC VÙNG MIỀN]</span>
-                <span className="text-[9px] text-[#e2ffcc]">{selectedRegion}</span>
+                <span className="text-[9px] text-[#e2ffcc]">
+                  {selectedRegion}
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {[
                   { id: "btn-filter-all", key: "ALL", label: "TẤT CẢ" },
                   { id: "btn-filter-north", key: "BẮC BỘ", label: "BẮC BỘ" },
-                  { id: "btn-filter-central", key: "TRUNG BỘ", label: "TRUNG BỘ" },
-                  { id: "btn-filter-highlands", key: "TÂY NGUYÊN", label: "TÂY NGUYÊN" },
+                  {
+                    id: "btn-filter-central",
+                    key: "TRUNG BỘ",
+                    label: "TRUNG BỘ",
+                  },
+                  {
+                    id: "btn-filter-highlands",
+                    key: "TÂY NGUYÊN",
+                    label: "TÂY NGUYÊN",
+                  },
                   { id: "btn-filter-south", key: "NAM BỘ", label: "NAM BỘ" },
-                  { id: "btn-filter-islands", key: "BIỂN ĐẢO", label: "BIỂN ĐẢO" },
+                  {
+                    id: "btn-filter-islands",
+                    key: "BIỂN ĐẢO",
+                    label: "BIỂN ĐẢO",
+                  },
                 ].map((item) => {
                   const isActive = selectedRegion === item.key;
                   return (
@@ -416,7 +470,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     max="1.0"
                     step="0.05"
                     value={layerOpacity.radar || 0.65}
-                    onChange={(e) => onOpacityChange("radar", parseFloat(e.target.value))}
+                    onChange={(e) =>
+                      onOpacityChange("radar", parseFloat(e.target.value))
+                    }
                     className="w-full h-1 bg-[#2d3329] appearance-none cursor-pointer accent-[#e2ffcc]"
                   />
                 </div>
@@ -434,7 +490,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     max="1.0"
                     step="0.05"
                     value={layerOpacity.clouds || 0.5}
-                    onChange={(e) => onOpacityChange("clouds", parseFloat(e.target.value))}
+                    onChange={(e) =>
+                      onOpacityChange("clouds", parseFloat(e.target.value))
+                    }
                     className="w-full h-1 bg-[#2d3329] appearance-none cursor-pointer accent-[#e2ffcc]"
                   />
                 </div>
@@ -469,14 +527,23 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     }`}
                   />
                   {isSyncing ? (
-                    <span className="text-[#e2ffcc]">ĐANG ĐỒNG BỘ DỮ LIỆU...</span>
+                    <span className="text-[#e2ffcc]">
+                      ĐANG ĐỒNG BỘ DỮ LIỆU...
+                    </span>
                   ) : lastSyncedAt ? (
-                    <span className="text-[#84907f]">KÊNH DỮ LIỆU HOẠT ĐỘNG</span>
+                    <span className="text-[#84907f]">
+                      KÊNH DỮ LIỆU HOẠT ĐỘNG
+                    </span>
                   ) : (
-                    <span className="text-[#dc2626]">CHƯA ĐỒNG BỘ / MẤT KẾT NỐI</span>
+                    <span className="text-[#dc2626]">
+                      CHƯA ĐỒNG BỘ / MẤT KẾT NỐI
+                    </span>
                   )}
                 </span>
-                <span className="text-[#dde2e4] font-bold" data-testid="last-sync-badge">
+                <span
+                  className="text-[#dde2e4] font-bold"
+                  data-testid="last-sync-badge"
+                >
                   LAST SYNC:{" "}
                   {lastSyncedAt
                     ? new Date(lastSyncedAt).toLocaleTimeString("vi-VN", {

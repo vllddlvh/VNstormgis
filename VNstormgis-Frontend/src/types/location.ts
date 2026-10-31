@@ -17,13 +17,22 @@ export interface LocationItem {
 
 /**
  * Chuẩn cấu trúc GeoJSON Feature (RFC 7946).
+ *
+ * Mặc định giữ nguyên Point + [lng, lat] cho 3 consumer hiện hành (locationService,
+ * weatherService, MarkerVerificationMap); quỹ đạo bão (W3-02) khai báo LineString/Polygon
+ * qua tham số generic thay vì nới lỏng kiểu của lớp nạp trạm.
  */
-export interface GeoJsonFeature<TProps = Record<string, unknown>> {
+export interface GeoJsonFeature<
+  TProps = Record<string, unknown>,
+  TGeomType extends string = "Point",
+  TCoords = [number, number],
+> {
   type: "Feature";
   id?: string;
   geometry: {
-    type: "Point";
-    coordinates: [number, number]; // [Kinh độ (Longitude), Vĩ độ (Latitude)]
+    type: TGeomType;
+    /** GeoJSON RFC 7946 luôn [KINH ĐỘ, VĨ ĐỘ] — AGENTS.md mục 1. */
+    coordinates: TCoords;
   };
   properties: TProps;
 }

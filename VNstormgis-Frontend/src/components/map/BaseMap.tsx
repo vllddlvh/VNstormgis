@@ -14,7 +14,6 @@ import {
   TileLayer,
   Marker,
   Popup,
-  Polyline,
   Circle,
   useMap,
   useMapEvents,
@@ -23,7 +22,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import { initLeafletIcons } from "./leafletConfig";
-import { createWeatherStationIcon, createStormVortexIcon, SEVERITY_CONFIG } from "./markerFactory";
+import { createWeatherStationIcon, SEVERITY_CONFIG } from "./markerFactory";
+import { ActiveStormLayer } from "./ActiveStormLayer";
 import { RainfallLayer } from "./RainfallLayer";
 import { WindLayer } from "./WindLayer";
 import {
@@ -37,9 +37,10 @@ import {
   CoordinateTuple,
   StationMarkerData,
   LayerVisibilityState,
-  ActiveCycloneData,
 } from "@/types/map";
-import { INITIAL_MOCK_STATIONS, SAMPLE_ACTIVE_CYCLONE } from "@/data/mockMapData";
+import { StormCenter } from "@/lib/stormUtils";
+import { STORM_EMPTY_MESSAGE } from "@/types/storm";
+import { INITIAL_MOCK_STATIONS } from "@/data/mockMapData";
 
 // Đảm bảo Leaflet Icon luôn được khởi tạo an toàn
 initLeafletIcons();
@@ -120,8 +121,12 @@ function MapViewportObserver({
 export interface BaseMapProps {
   /** Danh sách trạm quan trắc (nếu không truyền sẽ dùng INITIAL_MOCK_STATIONS) */
   stations?: StationMarkerData[];
-  /** Cơn bão nhiệt đới đang hoạt động trên biển Đông */
-  activeCyclone?: ActiveCycloneData;
+  /** Tâm bão active đã tách tọa độ — nguồn DUY NHẤT là GET /api/v1/storms (W3-05). */
+  stormCenters?: StormCenter[];
+  /** Trạng thái nhánh nạp storm độc lập: chỉ "ready" mới được phép hiện empty state. */
+  stormState?: "idle" | "loading" | "ready" | "error";
+  /** Callback chọn bão — bàn giao hook cho StormTrackLayer (W3-06). */
+  onStormSelect?: (storm: StormCenter) => void;
   /** ID của trạm đang được lựa chọn tâm điểm */
   selectedStationId?: string | null;
   /** Callback khi người dùng chọn trạm */
@@ -157,7 +162,9 @@ const DEFAULT_LAYER_VISIBILITY: LayerVisibilityState = {
 
 export const BaseMap: React.FC<BaseMapProps> = ({
   stations = INITIAL_MOCK_STATIONS,
-  activeCyclone = SAMPLE_ACTIVE_CYCLONE,
+  stormCenters = [],
+  stormState = "idle",
+  onStormSelect,
   selectedStationId,
   onStationSelect,
   activeTileId = "voyager",
@@ -188,7 +195,9 @@ export const BaseMap: React.FC<BaseMapProps> = ({
   };
 
   return (
-    <div className={`relative w-full h-full bg-[#161b13] overflow-hidden ${className}`}>
+    <div
+      className={`relative w-full h-full bg-[#161b13] overflow-hidden ${className}`}
+    >
       <MapContainer
         center={VIETNAM_DEFAULT_CENTER}
         zoom={VIETNAM_DEFAULT_ZOOM}
@@ -271,75 +280,13 @@ export const BaseMap: React.FC<BaseMapProps> = ({
           />
         )}
 
-        {/* LỚP 04: CƠN BÃO NHIỆT ĐỚI ĐANG HOẠT ĐỘNG TRÊN BIỂN ĐÔNG (ACTIVE CYCLONE) */}
-        {layerVisibility.cyclones && activeCyclone && (
-          <>
-            {/* Đường dự báo quỹ đạo di chuyển của tâm bão */}
-            <Polyline
-              positions={activeCyclone.forecastTrack}
-              pathOptions={{
-                color: "#dc2626",
-                weight: 2.5,
-                dashArray: "6, 8",
-                opacity: 0.9,
-              }}
-            />
-
-            {/* Vùng bán kính gió mạnh nguy hiểm (R30/R50) */}
-            <Circle
-              center={activeCyclone.coordinates}
-              radius={180000}
-              pathOptions={{
-                color: "#dc2626",
-                weight: 1,
-                fillColor: "#dc2626",
-                fillOpacity: 0.15,
-                dashArray: "4, 4",
-              }}
-            />
-
-            {/* Marker Tâm bão với hiệu ứng lốc xoáy San Rita */}
-            <Marker
-              position={activeCyclone.coordinates}
-              icon={createStormVortexIcon(activeCyclone.name, activeCyclone.category)}
-            >
-              <Popup className="san-rita-popup">
-                <div className="p-3 bg-[#161b13] text-[#dde2e4] space-y-2 select-none min-w-[220px]">
-                  <div className="flex items-center justify-between border-b border-[#2d3329] pb-1.5">
-                    <span className="text-[10px] text-[#dc2626] font-bold uppercase tracking-wider">
-                      [TÂM BÃO KHẨN CẤP]
-                    </span>
-                    <span className="text-[9px] px-1 py-0.5 border border-[#dc2626] text-[#e2ffcc] bg-[#1a2117]">
-                      CẤP {activeCyclone.category}
-                    </span>
-                  </div>
-                  <div className="font-display text-lg text-[#e2ffcc] tracking-wide uppercase">
-                    {activeCyclone.name}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="border border-[#2d3329] p-1.5 bg-[#1a2117]">
-                      <span className="text-[#84907f] block">KHÍ ÁP TÂM</span>
-                      <span className="font-bold text-[#dde2e4]">
-                        {activeCyclone.pressureHpa} hPa
-                      </span>
-                    </div>
-                    <div className="border border-[#2d3329] p-1.5 bg-[#1a2117]">
-                      <span className="text-[#84907f] block">SỨC GIÓ</span>
-                      <span className="font-bold text-[#ea580c]">
-                        {activeCyclone.windSpeedKmh} km/h
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-[#84907f] pt-1 border-t border-[#2d3329] flex justify-between">
-                    <span>TỌA ĐỘ TÂM:</span>
-                    <span className="text-[#dde2e4]">
-                      {formatCoordinate(activeCyclone.coordinates, 2)}
-                    </span>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          </>
+        {/* LỚP 03: BÃO ACTIVE (SR-STM-002 — W3-05). Render SAU radar/mây, TRƯỚC mưa-gió-station;
+            StormTrackLayer (W3-06) sẽ được chèn NGAY TRƯỚC khối này (polygon dưới, tâm trên). */}
+        {layerVisibility.cyclones && (
+          <ActiveStormLayer
+            storms={stormCenters}
+            onStormSelect={onStormSelect}
+          />
         )}
 
         {/* LỚP 04B: LƯỢNG MƯA THỜI GIAN THỰC (RAINFALL BUBBLES — SR-MAP-002, W2-08)
@@ -364,7 +311,11 @@ export const BaseMap: React.FC<BaseMapProps> = ({
               <Marker
                 key={station.id}
                 position={station.coordinates}
-                icon={createWeatherStationIcon(station.code, station.severity, isSelected)}
+                icon={createWeatherStationIcon(
+                  station.code,
+                  station.severity,
+                  isSelected,
+                )}
                 eventHandlers={{
                   click: () => {
                     if (onStationSelect) {
@@ -397,7 +348,10 @@ export const BaseMap: React.FC<BaseMapProps> = ({
                     {/* Vùng địa lý & Trạng thái trắc địa */}
                     <div className="flex items-center justify-between text-[10px] text-[#84907f]">
                       <span className="uppercase">
-                        VÙNG: <strong className="text-[#dde2e4]">{station.region}</strong>
+                        VÙNG:{" "}
+                        <strong className="text-[#dde2e4]">
+                          {station.region}
+                        </strong>
                       </span>
                       <span className="text-[#e2ffcc] flex items-center gap-1">
                         <span className="w-1.5 h-1.5 bg-[#e2ffcc] inline-block" />
@@ -499,7 +453,9 @@ export const BaseMap: React.FC<BaseMapProps> = ({
                               ĐỘ CAO ĐỊA HÌNH
                             </span>
                             <span className="font-bold text-[#dde2e4]">
-                              {station.elevationM !== undefined ? `${station.elevationM} m` : "--"}
+                              {station.elevationM !== undefined
+                                ? `${station.elevationM} m`
+                                : "--"}
                             </span>
                           </div>
                         </div>
@@ -509,7 +465,9 @@ export const BaseMap: React.FC<BaseMapProps> = ({
                           <span>
                             ĐO LƯỜNG:{" "}
                             <strong className="text-[#e2ffcc]">
-                              {new Date(station.weather.recorded_at).toLocaleTimeString("vi-VN", {
+                              {new Date(
+                                station.weather.recorded_at,
+                              ).toLocaleTimeString("vi-VN", {
                                 hour: "2-digit",
                                 minute: "2-digit",
                                 hour12: false,
@@ -517,19 +475,25 @@ export const BaseMap: React.FC<BaseMapProps> = ({
                             </strong>
                           </span>
                           <span>
-                            NGUỒN: <strong className="text-[#dde2e4]">OpenWeatherMap</strong>
+                            NGUỒN:{" "}
+                            <strong className="text-[#dde2e4]">
+                              OpenWeatherMap
+                            </strong>
                           </span>
                         </div>
                       </>
                     ) : (
                       <>
                         <div className="text-[10px] text-[#84907f] border border-[#2d3329] bg-[#1a2117] p-1.5">
-                          [CHƯA CÓ BẢN GHI THỜI TIẾT] — trạm chờ chu kỳ nạp OWM kế tiếp.
+                          [CHƯA CÓ BẢN GHI THỜI TIẾT] — trạm chờ chu kỳ nạp OWM
+                          kế tiếp.
                         </div>
                         <div className="pt-1.5 border-t border-[#2d3329] flex items-center justify-between text-[9px] text-[#84907f]">
                           <span>ĐỘ CAO ĐỊA HÌNH:</span>
                           <span className="text-[#dde2e4]">
-                            {station.elevationM !== undefined ? `${station.elevationM} m` : "--"}
+                            {station.elevationM !== undefined
+                              ? `${station.elevationM} m`
+                              : "--"}
                           </span>
                         </div>
                       </>
@@ -578,6 +542,21 @@ export const BaseMap: React.FC<BaseMapProps> = ({
             );
           })}
       </MapContainer>
+
+      {/* Empty state — chỉ khi API thành công mà payload rỗng (quyết định #8).
+          Overlay ngoài MapContainer để không can thiệp DOM do Leaflet quản lý. */}
+      {layerVisibility.cyclones &&
+        stormState === "ready" &&
+        stormCenters.length === 0 && (
+          <div
+            id="storm-empty-state"
+            className="absolute bottom-10 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none
+                     bg-[#161b13] border border-[#84907f] px-3 py-1.5 text-[10px] text-[#84907f]
+                     font-mono uppercase shadow-flat"
+          >
+            {STORM_EMPTY_MESSAGE}
+          </div>
+        )}
     </div>
   );
 };

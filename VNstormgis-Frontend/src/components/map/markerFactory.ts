@@ -10,6 +10,77 @@
 import L from "leaflet";
 import { WeatherSeverityLevel } from "@/types/map";
 
+/** Bậc màu tâm bão — ánh xạ chuỗi `category` GDACS thật, hex lấy từ `weather.*` của tailwind.config.js. */
+export type StormRiskLevel = "RED" | "ORANGE" | "GREEN" | "UNCLASSIFIED";
+
+export const STORM_RISK_CONFIG: Record<
+  StormRiskLevel,
+  { label: string; colorHex: string; spinSeconds: number }
+> = {
+  RED: { label: "CẢNH BÁO ĐỎ", colorHex: "#dc2626", spinSeconds: 4 },
+  ORANGE: { label: "CẢNH BÁO CAM", colorHex: "#f59e0b", spinSeconds: 7 },
+  GREEN: { label: "CẢNH BÁO XANH", colorHex: "#84907f", spinSeconds: 11 },
+  UNCLASSIFIED: { label: "CHƯA PHÂN CẤP", colorHex: "#e2ffcc", spinSeconds: 9 },
+};
+
+/** Chuỗi gốc từ backend -> bậc màu; so khớp KHÔNG phân biệt hoa/thường, trim; lạ -> UNCLASSIFIED (#3). */
+export function getStormRiskLevel(
+  category: string | null | undefined,
+): StormRiskLevel {
+  const normalized = (category ?? "").trim().toLowerCase();
+  if (normalized === "red") return "RED";
+  if (normalized === "orange") return "ORANGE";
+  if (normalized === "green") return "GREEN";
+  return "UNCLASSIFIED";
+}
+
+/** Nhãn/nhãn cấp đi vào chuỗi HTML của DivIcon — thoát ký tự để không nội suy markup từ nguồn ngoài. */
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        char
+      ] ?? char,
+  );
+}
+
+/**
+ * Icon tâm bão active (SR-STM-002) — xoáy SVG phẳng, góc vuông, viền 1px, quay theo nhịp cấp độ.
+ * Pattern W2-09: path nhẹ trong DivIcon (RSK-W3-05), animation bằng class CSS TÙY BIẾN
+ * (`storm-vortex-spin` + `--storm-spin-seconds`) để tôn trọng prefers-reduced-motion.
+ */
+export function createStormCenterIcon(
+  level: StormRiskLevel,
+  label: string,
+): L.DivIcon {
+  const { colorHex, spinSeconds } = STORM_RISK_CONFIG[level];
+  const safeLabel = escapeHtml(label);
+  const html = `
+    <div class="relative flex items-center justify-center select-none" title="${safeLabel}" style="width: 44px; height: 44px;">
+      <span class="absolute inset-0 border animate-ping-slow pointer-events-none"
+            style="border-color: ${colorHex}; opacity: .45;"></span>
+      <div class="w-full h-full bg-[#161b13] border flex flex-col items-center justify-center font-mono p-0.5"
+           style="border-color: ${colorHex}; border-radius: 0px; box-shadow: none;">
+        <svg class="storm-vortex-spin w-4 h-4" viewBox="0 0 24 24" fill="none" stroke-width="2.5"
+             style="color: ${colorHex}; --storm-spin-seconds: ${spinSeconds}s;"
+             xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="12" cy="12" r="2.5" />
+          <path d="M12 2.5c4.5 0 8 3.4 8 7.6 0 4.1-3.2 7.4-7.2 7.4" />
+          <path d="M12 21.5C7.5 21.5 4 18.1 4 13.9 4 9.8 7.2 6.5 11.2 6.5" />
+        </svg>
+        <span class="text-[8px] font-bold text-[#e2ffcc] uppercase leading-none mt-0.5">${safeLabel}</span>
+      </div>
+    </div>`;
+  return L.divIcon({
+    html,
+    className: "storm-center-marker-container",
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -24],
+  });
+}
+
 /**
  * Cấu hình bảng màu và nhãn hiển thị cho từng cấp độ rủi ro khí tượng.
  */
@@ -86,7 +157,9 @@ export function createWeatherStationIcon(
     ? `<span class="absolute inset-0 w-full h-full border opacity-75 ${config.pulseClass} pointer-events-none" style="border-color: ${config.bgHex};"></span>`
     : "";
 
-  const selectedBorder = isSelected ? "outline outline-2 outline-offset-2 outline-[#e2ffcc]" : "";
+  const selectedBorder = isSelected
+    ? "outline outline-2 outline-offset-2 outline-[#e2ffcc]"
+    : "";
 
   const html = `
     <div class="relative group flex items-center justify-center select-none ${selectedBorder}" style="width: 32px; height: 32px;">
@@ -121,11 +194,17 @@ export function createWeatherStationIcon(
 /**
  * Tạo biểu tượng mốc tâm bão (Storm Center Vortex Icon) với hiệu ứng xoay lốc xoáy.
  *
+ * @deprecated Chỉ dùng cho bản đồ kiểm định W1-11 (MarkerVerificationMap); dữ liệu thật
+ * dùng `createStormCenterIcon` theo cấp GDACS. Không xóa để giữ tab Kiểm Định đã nghiệm thu.
+ *
  * @param {string} stormName Tên cơn bão (ví dụ "YAGI")
  * @param {number} category Cấp bão Beaufort (ví dụ 11, 12, 16)
  * @returns {L.DivIcon} Biểu tượng lốc xoáy
  */
-export function createStormVortexIcon(stormName: string, category: number): L.DivIcon {
+export function createStormVortexIcon(
+  stormName: string,
+  category: number,
+): L.DivIcon {
   const html = `
     <div class="relative flex items-center justify-center select-none" title="${stormName}" style="width: 44px; height: 44px;">
       <span class="absolute inset-0 w-full h-full border-2 border-red-500 rounded-none animate-ping opacity-60"></span>

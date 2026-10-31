@@ -8,7 +8,13 @@
  * @version 1.0.0
  */
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import L from "leaflet";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { HeaderNavbar } from "./HeaderNavbar";
@@ -30,40 +36,61 @@ import { StatusType } from "@/components/common/StatusBadge";
 import { VIETNAM_DEFAULT_CENTER, VIETNAM_DEFAULT_ZOOM } from "@/lib/geoUtils";
 import { locationService } from "@/services/locationService";
 import { weatherService } from "@/services/weatherService";
-import { INITIAL_MOCK_STATIONS, SAMPLE_WEATHER_ALERTS } from "@/data/mockMapData";
+import { stormService } from "@/services/stormService";
+import {
+  StormCenter,
+  latestStormUpdatedAt,
+  toStormCenters,
+} from "@/lib/stormUtils";
+import { STORM_REFRESH_INTERVAL_MS } from "@/types/storm";
+import {
+  INITIAL_MOCK_STATIONS,
+  SAMPLE_WEATHER_ALERTS,
+} from "@/data/mockMapData";
 
 /** Cầu nối thang 4 bậc mưa (backend) → thang 6 bậc icon trạm (markerFactory). */
-const RAIN_SEVERITY_TO_MARKER: Record<RainSeverityLevel, WeatherSeverityLevel> = {
-  NONE: "SAFE",
-  MODERATE: "ADVISORY",
-  WARNING: "WARNING",
-  DANGER: "SEVERE",
-};
+const RAIN_SEVERITY_TO_MARKER: Record<RainSeverityLevel, WeatherSeverityLevel> =
+  {
+    NONE: "SAFE",
+    MODERATE: "ADVISORY",
+    WARNING: "WARNING",
+    DANGER: "SEVERE",
+  };
 
 export interface UnifiedAppLayoutProps {
   /** Component con hiển thị khi chuyển sang tab Kiểm Định (Diagnostics) */
   diagnosticsContent?: React.ReactNode;
 }
 
-export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsContent }) => {
+export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
+  diagnosticsContent,
+}) => {
   // 1. Quản lý Leaflet Map Instance
   const mapRef = useRef<L.Map | null>(null);
 
   // 2. Trạng thái kết nối Backend Spring Boot & Dữ liệu trạm PostGIS
   const [backendStatus, setBackendStatus] = useState<StatusType>("loading");
   const [stationCount, setStationCount] = useState<number | null>(null);
-  const [stations, setStations] = useState<StationMarkerData[]>(INITIAL_MOCK_STATIONS);
+  const [stations, setStations] = useState<StationMarkerData[]>(
+    INITIAL_MOCK_STATIONS,
+  );
   const [selectedRegion, setSelectedRegion] = useState<string>("ALL");
   const [aiPrompt, setAiPrompt] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // 3. Quản lý Telemetry tọa độ và mức zoom
-  const [mapCenter, setMapCenter] = useState<CoordinateTuple>(VIETNAM_DEFAULT_CENTER);
+  const [mapCenter, setMapCenter] = useState<CoordinateTuple>(
+    VIETNAM_DEFAULT_CENTER,
+  );
   const [mapZoom, setMapZoom] = useState<number>(VIETNAM_DEFAULT_ZOOM);
-  const [cursorCoords, setCursorCoords] = useState<CoordinateTuple | null>(null);
+  const [cursorCoords, setCursorCoords] = useState<CoordinateTuple | null>(
+    null,
+  );
 
   // 4. Quản lý Chế độ hiển thị & Nguồn bản đồ nền
-  const [activeTab, setActiveTab] = useState<"operations" | "diagnostics">("operations");
+  const [activeTab, setActiveTab] = useState<"operations" | "diagnostics">(
+    "operations",
+  );
   const [activeTileId, setActiveTileId] = useState<string>("voyager");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
@@ -80,31 +107,65 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
   // Thời điểm đồng bộ dữ liệu thành công gần nhất (ISO 8601) — hiển thị trên huy hiệu Last Sync
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
+  // 5b. Dữ liệu bão active (SR-STM-002 — W3-05) — nhánh độc lập, lỗi storm không đổi backendStatus.
+  const [stormCenters, setStormCenters] = useState<StormCenter[]>([]);
+  const [stormState, setStormState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [lastStormSyncedAt, setLastStormSyncedAt] = useState<string | null>(
+    null,
+  );
+
   const [layerOpacity, setLayerOpacity] = useState<{ [key: string]: number }>({
     radar: 0.65,
     wind: 0.7,
     clouds: 0.5,
   });
 
-  const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedStationId, setSelectedStationId] = useState<string | null>(
+    null,
+  );
 
   // Lọc danh sách trạm theo Vùng Miền lựa chọn
   const filteredStations = useMemo(() => {
     if (selectedRegion === "ALL") return stations;
-    if (selectedRegion === "BẮC BỘ") return stations.filter((s) => s.region === "Bắc Bộ");
+    if (selectedRegion === "BẮC BỘ")
+      return stations.filter((s) => s.region === "Bắc Bộ");
     if (selectedRegion === "TRUNG BỘ")
       return stations.filter(
         (s) =>
-          s.region === "Trung Bộ" || s.region === "Bắc Trung Bộ" || s.region === "Nam Trung Bộ",
+          s.region === "Trung Bộ" ||
+          s.region === "Bắc Trung Bộ" ||
+          s.region === "Nam Trung Bộ",
       );
-    if (selectedRegion === "TÂY NGUYÊN") return stations.filter((s) => s.region === "Tây Nguyên");
-    if (selectedRegion === "NAM BỘ") return stations.filter((s) => s.region === "Nam Bộ");
-    if (selectedRegion === "BIỂN ĐẢO") return stations.filter((s) => s.region.startsWith("Biển"));
+    if (selectedRegion === "TÂY NGUYÊN")
+      return stations.filter((s) => s.region === "Tây Nguyên");
+    if (selectedRegion === "NAM BỘ")
+      return stations.filter((s) => s.region === "Nam Bộ");
+    if (selectedRegion === "BIỂN ĐẢO")
+      return stations.filter((s) => s.region.startsWith("Biển"));
     return stations;
   }, [stations, selectedRegion]);
 
+  // Nhịp bão độc lập với pipeline lõi: lỗi storm chỉ đổi stormState, không đổi backendStatus.
+  const refreshStorms = useCallback(async () => {
+    setStormState("loading");
+    try {
+      const collection = await stormService.getActiveStormsGeoJson();
+      setStormCenters(toStormCenters(collection.features));
+      // Mốc ĐO thật = max(updated_at); rỗng → bám mốc fetch (badge không rỗng), đối xứng W2-08
+      setLastStormSyncedAt(
+        latestStormUpdatedAt(collection.features) ?? new Date().toISOString(),
+      );
+      setStormState("ready");
+    } catch {
+      // Lỗi ≠ không có bão: giữ frame cuối, KHÔNG bật empty state (quyết định #8)
+      setStormState("error");
+    }
+  }, []);
+
   // Kiểm tra kết nối Backend & Lấy dữ liệu trạm sống từ PostgreSQL/PostGIS
-  const checkHealthAndLoadData = useCallback(async () => {
+  const loadCoreData = useCallback(async (): Promise<boolean> => {
     setIsRefreshing(true);
     try {
       await locationService.checkBackendHealth();
@@ -118,7 +179,10 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
 
       // Chỉ mục tra cứu theo MÃ TRẠM (khóa thân thiện, UNIQUE — W2-07 quyết định #3)
       const weatherByCode = new Map(
-        weatherGeoJson.features.map((feature) => [feature.properties.code, feature.properties]),
+        weatherGeoJson.features.map((feature) => [
+          feature.properties.code,
+          feature.properties,
+        ]),
       );
 
       const mappedStations: StationMarkerData[] = locations.map((loc) => {
@@ -129,7 +193,9 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
           name: loc.name,
           region: loc.region,
           coordinates: [loc.latitude, loc.longitude],
-          severity: weather ? RAIN_SEVERITY_TO_MARKER[weather.severity_rain] : "SAFE",
+          severity: weather
+            ? RAIN_SEVERITY_TO_MARKER[weather.severity_rain]
+            : "SAFE",
           isActive: loc.isActive,
           elevationM: loc.elevation,
           weather,
@@ -150,20 +216,37 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
       }
       // GeoJSON rỗng (chưa từng sync) — bám mốc fetch để badge không rỗng
       setLastSyncedAt(latestRecordedAt ?? new Date().toISOString());
+      return true;
     } catch {
       // Khi Backend chưa online, kích hoạt Banner cảnh báo lỗi kết nối San Rita
       // Không xóa lastSyncedAt: giữ mốc sync cuối để vận hành viên biết dữ liệu bản đồ cũ đến đâu
       setBackendStatus("error");
       setStationCount(INITIAL_MOCK_STATIONS.length);
       setStations(INITIAL_MOCK_STATIONS);
+      return false;
     } finally {
       setIsRefreshing(false);
     }
   }, []);
 
+  // LÀM MỚI: nạp lõi thành công rồi mới kéo nhịp bão (Mục 3.7).
+  const checkHealthAndLoadData = useCallback(async () => {
+    const coreLoaded = await loadCoreData();
+    if (coreLoaded) void refreshStorms();
+  }, [loadCoreData, refreshStorms]);
+
   useEffect(() => {
-    checkHealthAndLoadData();
-  }, [checkHealthAndLoadData]);
+    void loadCoreData();
+  }, [loadCoreData]);
+
+  // Nhịp bão 30 phút khớp chu kỳ GDACS + TTL active_storms (W3-03); cleanup khi unmount.
+  useEffect(() => {
+    void refreshStorms();
+    const timer = setInterval(() => {
+      void refreshStorms();
+    }, STORM_REFRESH_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [refreshStorms]);
 
   // Điều phối chuyển động bay (FlyTo) của bản đồ Leaflet
   const handleFlyTo = (coords: CoordinateTuple, zoom = 11) => {
@@ -261,8 +344,8 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
             >
               <AlertTriangle className="w-4 h-4 text-[#dc2626] shrink-0" />
               <span>
-                <strong className="uppercase">[LỖI HỆ THỐNG]:</strong> Mất kết nối tới máy chủ
-                Spring Boot. Hãy kiểm tra container Docker!
+                <strong className="uppercase">[LỖI HỆ THỐNG]:</strong> Mất kết
+                nối tới máy chủ Spring Boot. Hãy kiểm tra container Docker!
               </span>
               <button
                 id="btn-retry-connection"
@@ -270,7 +353,9 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
                 disabled={isRefreshing}
                 className="px-2 py-0.5 border border-[#dc2626] hover:bg-[#dc2626] hover:text-[#161b13] bg-[#1a2117] text-[#dde2e4] text-[10px] uppercase font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
-                <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`}
+                />
                 LÀM MỚI KẾT NỐI
               </button>
             </div>
@@ -290,6 +375,8 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
           {/* Lớp Bản Đồ BaseMap.tsx Cốt Lõi */}
           <BaseMap
             stations={filteredStations}
+            stormCenters={stormCenters}
+            stormState={stormState}
             selectedStationId={selectedStationId}
             onStationSelect={(station) => {
               setSelectedStationId(station.id);
@@ -325,6 +412,12 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
             onOpacityChange={handleOpacityChange}
             stationCount={filteredStations.length}
             totalStationCount={stations.length}
+            stormCount={
+              stormState === "idle" || stormState === "loading"
+                ? undefined
+                : stormCenters.length
+            }
+            stormLastSyncedAt={lastStormSyncedAt}
             selectedRegion={selectedRegion}
             onRegionChange={setSelectedRegion}
             lastSyncedAt={lastSyncedAt}
@@ -341,22 +434,32 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({ diagnosticsC
           />
 
           {/* Thanh Cuộn Bản Tin Cảnh Báo Nổi (Floating Alert Ticker, Bottom Left-Center, z-1000) */}
-          <AlertTickerBar alerts={SAMPLE_WEATHER_ALERTS} onSelectAlert={handleSelectAlert} />
+          <AlertTickerBar
+            alerts={SAMPLE_WEATHER_ALERTS}
+            onSelectAlert={handleSelectAlert}
+          />
 
           {/* Trợ Lý AI Khí Tượng Nổi & Ngăn Kéo Đối Thoại (AiChatDrawer, Bottom Right, z-1000 / z-1200) */}
           <AiChatDrawer
-            onNavigateToLocation={(coords, zoom) => handleFlyTo(coords, zoom || 11)}
+            onNavigateToLocation={(coords, zoom) =>
+              handleFlyTo(coords, zoom || 11)
+            }
             externalPrompt={aiPrompt}
             onClearExternalPrompt={() => setAiPrompt(null)}
           />
         </main>
       ) : (
         /* CHẾ ĐỘ 02: BẢNG KIỂM ĐỊNH HẠ TẦNG & TRẮC ĐỊA (DIAGNOSTICS & VERIFICATION) */
-        <main className="flex-1 p-6 overflow-y-auto bg-[#161b13]">{diagnosticsContent}</main>
+        <main className="flex-1 p-6 overflow-y-auto bg-[#161b13]">
+          {diagnosticsContent}
+        </main>
       )}
 
       {/* 3. FOOTER CHROME (h-6, z-[1100]) */}
-      <DisclaimerFooter cursorCoords={cursorCoords} activeTileId={activeTileId} />
+      <DisclaimerFooter
+        cursorCoords={cursorCoords}
+        activeTileId={activeTileId}
+      />
     </div>
   );
 };

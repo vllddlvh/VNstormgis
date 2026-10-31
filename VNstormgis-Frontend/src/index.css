@@ -125,6 +125,31 @@
   box-shadow: none !important;
 }
 
+/* 3d. Tâm bão active (ActiveStormLayer — SR-STM-002, W3-05): gỡ nền trắng + viền
+   mặc định của .leaflet-div-icon, giữ San Rita phẳng; quay theo nhịp cấp độ. */
+.storm-center-marker-container {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+@keyframes stormSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.storm-vortex-spin {
+  animation: stormSpin var(--storm-spin-seconds, 8s) linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storm-vortex-spin {
+    animation: none;
+  }
+}
+
 /* 4. Tinh chỉnh Thanh Điều Khiển Thu Phóng (Zoom Control) */
 .leaflet-bar {
   border: 1px solid var(--color-forest-charcoal) !important;
