@@ -24,6 +24,7 @@ import "leaflet/dist/leaflet.css";
 import { initLeafletIcons } from "./leafletConfig";
 import { createWeatherStationIcon, SEVERITY_CONFIG } from "./markerFactory";
 import { ActiveStormLayer } from "./ActiveStormLayer";
+import { StormTrackLayer } from "./StormTrackLayer";
 import { RainfallLayer } from "./RainfallLayer";
 import { WindLayer } from "./WindLayer";
 import {
@@ -38,7 +39,7 @@ import {
   StationMarkerData,
   LayerVisibilityState,
 } from "@/types/map";
-import { StormCenter } from "@/lib/stormUtils";
+import { StormCenter, StormTrackData } from "@/lib/stormUtils";
 import { STORM_EMPTY_MESSAGE } from "@/types/storm";
 import { INITIAL_MOCK_STATIONS } from "@/data/mockMapData";
 
@@ -123,6 +124,8 @@ export interface BaseMapProps {
   stations?: StationMarkerData[];
   /** Tâm bão active đã tách tọa độ — nguồn DUY NHẤT là GET /api/v1/storms (W3-05). */
   stormCenters?: StormCenter[];
+  /** Quỹ đạo bão active đã parse theo storm id — nguồn GET /api/v1/storms/{id}/track (W3-06). */
+  stormTracks?: Record<string, StormTrackData>;
   /** Trạng thái nhánh nạp storm độc lập: chỉ "ready" mới được phép hiện empty state. */
   stormState?: "idle" | "loading" | "ready" | "error";
   /** Callback chọn bão — bàn giao hook cho StormTrackLayer (W3-06). */
@@ -163,6 +166,7 @@ const DEFAULT_LAYER_VISIBILITY: LayerVisibilityState = {
 export const BaseMap: React.FC<BaseMapProps> = ({
   stations = INITIAL_MOCK_STATIONS,
   stormCenters = [],
+  stormTracks = {},
   stormState = "idle",
   onStormSelect,
   selectedStationId,
@@ -280,13 +284,18 @@ export const BaseMap: React.FC<BaseMapProps> = ({
           />
         )}
 
-        {/* LỚP 03: BÃO ACTIVE (SR-STM-002 — W3-05). Render SAU radar/mây, TRƯỚC mưa-gió-station;
-            StormTrackLayer (W3-06) sẽ được chèn NGAY TRƯỚC khối này (polygon dưới, tâm trên). */}
+        {/* LỚP 03: BÃO ACTIVE (SR-STM-002 — W3-05) + QUỸ ĐẠO (SR-STM-003 — W3-06).
+            StormTrackLayer render TRƯỚC ActiveStormLayer: polygon/đường Ở DƯỚI, tâm bão Ở TRÊN
+            (quyết định #12 — đúng comment định vị sẵn từ W3-05).
+            MỘT công tắc cyclones điều khiển đồng thời tâm + quỹ đạo + vùng nguy hiểm (quyết định #1). */}
         {layerVisibility.cyclones && (
-          <ActiveStormLayer
-            storms={stormCenters}
-            onStormSelect={onStormSelect}
-          />
+          <>
+            <StormTrackLayer tracks={stormTracks} />
+            <ActiveStormLayer
+              storms={stormCenters}
+              onStormSelect={onStormSelect}
+            />
+          </>
         )}
 
         {/* LỚP 04B: LƯỢNG MƯA THỜI GIAN THỰC (RAINFALL BUBBLES — SR-MAP-002, W2-08)

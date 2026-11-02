@@ -18,6 +18,7 @@ import {
 import "leaflet/dist/leaflet.css";
 
 import { initLeafletIcons } from "./leafletConfig";
+import { StormTrackLayer } from "./StormTrackLayer";
 import {
   createWeatherStationIcon,
   createStormVortexIcon,
@@ -26,6 +27,7 @@ import {
   STORM_RISK_CONFIG,
   SEVERITY_CONFIG,
 } from "./markerFactory";
+import { StormTrackData } from "@/lib/stormUtils";
 import {
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
@@ -159,6 +161,88 @@ const STORM_LEVEL_FIXTURES: StormLevelFixture[] = [
     category: "Unknown",
   },
 ];
+
+/**
+ * Fixture quỹ đạo W3-06 — dẫn xuất nguyên văn từ hợp đồng W3-02 Mục 3.5 (fixture YAGI đã
+ * nghiệm thu W2-06/W3-02): 13 đỉnh historical [116.5,18.4] → [107.2,20.7], 3 đỉnh forecast
+ * gồm ĐỈNH NỐI backend gắn sẵn, và 1 polygon hộp ví dụ 105–110°E/18–22°N (live GDACS không
+ * bao giờ có impact_polygon). CHỈ sống ở tab Kiểm Định — cấm đưa vào tab Tác chiến
+ * (SYS-RULE-004; tiền lệ fixture W3-05).
+ */
+const VERIFY_HISTORY_MILESTONES: Array<{
+  latLng: [number, number];
+  forecastTime: string;
+}> = [
+  { latLng: [18.4, 116.5], forecastTime: "2024-09-04T00:00:00Z" },
+  { latLng: [18.6, 115.2], forecastTime: "2024-09-04T06:00:00Z" },
+  { latLng: [18.7, 114.0], forecastTime: "2024-09-04T12:00:00Z" },
+  { latLng: [18.9, 113.0], forecastTime: "2024-09-04T18:00:00Z" },
+  { latLng: [19.0, 112.2], forecastTime: "2024-09-05T00:00:00Z" },
+  { latLng: [19.2, 111.5], forecastTime: "2024-09-05T06:00:00Z" },
+  { latLng: [19.4, 110.8], forecastTime: "2024-09-05T12:00:00Z" },
+  { latLng: [19.6, 110.2], forecastTime: "2024-09-05T18:00:00Z" },
+  { latLng: [19.8, 109.6], forecastTime: "2024-09-06T00:00:00Z" },
+  { latLng: [20.1, 108.6], forecastTime: "2024-09-06T06:00:00Z" },
+  { latLng: [20.4, 107.8], forecastTime: "2024-09-06T12:00:00Z" },
+  { latLng: [20.6, 107.5], forecastTime: "2024-09-06T18:00:00Z" },
+  { latLng: [20.7, 107.2], forecastTime: "2024-09-07T00:00:00Z" },
+];
+
+const VERIFY_FORECAST_MILESTONES: Array<{
+  latLng: [number, number];
+  forecastTime: string;
+}> = [
+  { latLng: [20.9, 106.3], forecastTime: "2024-09-07T06:00:00Z" },
+  { latLng: [21.1, 105.3], forecastTime: "2024-09-07T12:00:00Z" },
+];
+
+const VERIFY_TRACK_FIXTURE: StormTrackData = {
+  stormId: "verify-fixture",
+  historyLatLngs: VERIFY_HISTORY_MILESTONES.map(
+    (milestone) => milestone.latLng,
+  ),
+  // Đỉnh đầu = mốc historical cuối — ĐỈNH NỐI backend gắn sẵn (W3-02 #4), client không ghép thêm.
+  forecastLatLngs: [
+    VERIFY_HISTORY_MILESTONES[VERIFY_HISTORY_MILESTONES.length - 1].latLng,
+    ...VERIFY_FORECAST_MILESTONES.map((milestone) => milestone.latLng),
+  ],
+  impactRings: [
+    [
+      [18.0, 105.0],
+      [18.0, 110.0],
+      [22.0, 110.0],
+      [22.0, 105.0],
+      [18.0, 105.0],
+    ],
+  ],
+  impactRadiusKm: 150,
+  points: [
+    ...VERIFY_HISTORY_MILESTONES.map((milestone, index) => ({
+      trackId: 9001 + index,
+      latLng: milestone.latLng,
+      trackType: "historical" as const,
+      forecastTime: milestone.forecastTime,
+      windSpeed: null,
+      windGust: null,
+      pressure: null,
+      category: null,
+    })),
+    ...VERIFY_FORECAST_MILESTONES.map((milestone, index) => ({
+      trackId: 9101 + index,
+      latLng: milestone.latLng,
+      trackType: "forecast" as const,
+      forecastTime: milestone.forecastTime,
+      windSpeed: null,
+      windGust: null,
+      pressure: null,
+      category: null,
+    })),
+  ],
+};
+
+const VERIFY_TRACK_TRACKS: Record<string, StormTrackData> = {
+  "verify-fixture": VERIFY_TRACK_FIXTURE,
+};
 
 export const MarkerVerificationMap: React.FC = () => {
   const [selectedStation, setSelectedStation] =
@@ -320,6 +404,10 @@ export const MarkerVerificationMap: React.FC = () => {
             );
           })}
 
+          {/* W3-06: mẫu quỹ đạo history/forecast/impact — kiểm định màu, dashArray và tooltip mốc,
+              KHÔNG phải luồng dữ liệu thật (tiền lệ fixture W3-05). */}
+          <StormTrackLayer tracks={VERIFY_TRACK_TRACKS} />
+
           {/* Render Các Trạm Khí Tượng Theo Cấp Độ Cảnh Báo */}
           {filteredStations.map((station) => {
             const isSelected = selectedStation?.id === station.id;
@@ -433,6 +521,26 @@ export const MarkerVerificationMap: React.FC = () => {
           Hiển thị {filteredStations.length}/{MOCK_STATIONS.length} trạm kiểm
           định
         </div>
+      </div>
+
+      {/* Chú giải W3-06: quỹ đạo bão */}
+      <div className="px-3 py-2 border-t border-[#2d3329] bg-[#161b13] flex flex-wrap items-center gap-4 text-[10px] font-mono text-[#84907f]">
+        <span className="uppercase">Quỹ đạo W3-06:</span>
+        <div className="flex items-center space-x-1">
+          <span className="w-6 h-0.5 bg-[#dde2e4]" />
+          <span className="text-[#dde2e4]">Lịch sử (liền)</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-6 h-0.5 bg-[#f59e0b]" />
+          <span className="text-[#f59e0b]">Dự báo (đứt nét)</span>
+        </div>
+        <div className="flex items-center space-x-1">
+          <span className="w-3 h-3 border border-[#dc2626] bg-[#dc2626]/15" />
+          <span className="text-[#dc2626]">Vùng nguy hiểm</span>
+        </div>
+        <span className="text-[#84907f]">
+          Zoom ≥ 8 hiện nhãn mốc thường trực (hover luôn có tooltip)
+        </span>
       </div>
     </div>
   );

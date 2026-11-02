@@ -39,8 +39,10 @@ import { weatherService } from "@/services/weatherService";
 import { stormService } from "@/services/stormService";
 import {
   StormCenter,
+  StormTrackData,
   latestStormUpdatedAt,
   toStormCenters,
+  toStormTrackData,
 } from "@/lib/stormUtils";
 import { STORM_REFRESH_INTERVAL_MS } from "@/types/storm";
 import {
@@ -116,6 +118,14 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     null,
   );
 
+  // 5c. Quỹ đạo bão active (SR-STM-003 — W3-06) — nạp EAGER cho mọi bão active trong cùng chu kỳ.
+  const [stormTracks, setStormTracks] = useState<
+    Record<string, StormTrackData>
+  >({});
+  // Chặn 2 lượt refresh chồng nhau (StrictMode double-mount / bấm LÀM MỚI giữa chu kỳ) —
+  // collection dedupe của service không dedupe được N request /track phát sinh sau đó.
+  const stormRefreshInFlight = useRef<boolean>(false);
+
   const [layerOpacity, setLayerOpacity] = useState<{ [key: string]: number }>({
     radar: 0.65,
     wind: 0.7,
@@ -149,18 +159,44 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
 
   // Nhịp bão độc lập với pipeline lõi: lỗi storm chỉ đổi stormState, không đổi backendStatus.
   const refreshStorms = useCallback(async () => {
+    if (stormRefreshInFlight.current) return;
+    stormRefreshInFlight.current = true;
     setStormState("loading");
     try {
       const collection = await stormService.getActiveStormsGeoJson();
-      setStormCenters(toStormCenters(collection.features));
+      const centers = toStormCenters(collection.features);
+      setStormCenters(centers);
       // Mốc ĐO thật = max(updated_at); rỗng → bám mốc fetch (badge không rỗng), đối xứng W2-08
       setLastStormSyncedAt(
         latestStormUpdatedAt(collection.features) ?? new Date().toISOString(),
       );
       setStormState("ready");
+      // W3-06: allSettled — 1 bão lỗi (404/timeout RFC 7807) KHÔNG kéo sập cả nhóm (quyết định #7).
+      // /track KHÔNG nằm trong vùng cache W3-03 → mỗi chu kỳ chạm PostGIS trực tiếp (p95 ~15ms) — chấp nhận ở nhịp 30 phút.
+      const results = await Promise.allSettled(
+        centers.map((center) => stormService.getStormTrack(center.id)),
+      );
+      const nextTracks: Record<string, StormTrackData> = {};
+      results.forEach((result, index) => {
+        const stormId = centers[index].id;
+        if (result.status === "fulfilled") {
+          const track = toStormTrackData(stormId, result.value);
+          // parse 0 feature → vắng entry (tâm bão vẫn render)
+          if (track) nextTracks[stormId] = track;
+        } else {
+          // 404/400/500 đều là RFC 7807 — interceptor đã log; suy giảm cục bộ trung thực (quyết định #11)
+          console.warn(
+            `[stormTrack] Không nạp được quỹ đạo bão ${stormId}:`,
+            result.reason,
+          );
+        }
+      });
+      setStormTracks(nextTracks);
     } catch {
-      // Lỗi ≠ không có bão: giữ frame cuối, KHÔNG bật empty state (quyết định #8)
+      // Lỗi COLLECTION ≠ lỗi từng track: giữ frame cuối cả tâm bão lẫn quỹ đạo (đối xứng W3-05 #8)
       setStormState("error");
+    } finally {
+      stormRefreshInFlight.current = false;
     }
   }, []);
 
@@ -376,6 +412,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
           <BaseMap
             stations={filteredStations}
             stormCenters={stormCenters}
+            stormTracks={stormTracks}
             stormState={stormState}
             selectedStationId={selectedStationId}
             onStationSelect={(station) => {
