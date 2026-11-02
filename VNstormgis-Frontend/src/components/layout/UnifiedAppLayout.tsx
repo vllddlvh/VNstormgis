@@ -33,7 +33,11 @@ import {
 } from "@/types/map";
 import { RainSeverityLevel } from "@/types/weather";
 import { StatusType } from "@/components/common/StatusBadge";
-import { VIETNAM_DEFAULT_CENTER, VIETNAM_DEFAULT_ZOOM } from "@/lib/geoUtils";
+import {
+  VIETNAM_DEFAULT_CENTER,
+  VIETNAM_DEFAULT_ZOOM,
+  VIETNAM_MAX_BOUNDS,
+} from "@/lib/geoUtils";
 import { locationService } from "@/services/locationService";
 import { weatherService } from "@/services/weatherService";
 import { stormService } from "@/services/stormService";
@@ -58,6 +62,9 @@ const RAIN_SEVERITY_TO_MARKER: Record<RainSeverityLevel, WeatherSeverityLevel> =
     WARNING: "WARNING",
     DANGER: "SEVERE",
   };
+
+/** Zoom khi bay tới tâm bão — đủ thấy quỹ đạo lân cận; người dùng tự zoom thêm để mở nhãn mốc (≥ 8). */
+const STORM_FOCUS_ZOOM = 7;
 
 export interface UnifiedAppLayoutProps {
   /** Component con hiển thị khi chuyển sang tab Kiểm Định (Diagnostics) */
@@ -117,6 +124,10 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   const [lastStormSyncedAt, setLastStormSyncedAt] = useState<string | null>(
     null,
   );
+
+  // 5d. Chế độ tác nghiệp bão (W3-07 quyết định #7) — thả VIETNAM_MAX_BOUNDS tạm thời khi bay tới bão,
+  // khôi phục duy nhất tại VỀ TOÀN CẢNH. Lộ trạng thái qua data-storm-ops-mode để kiểm thử.
+  const [stormOpsMode, setStormOpsMode] = useState<boolean>(false);
 
   // 5c. Quỹ đạo bão active (SR-STM-003 — W3-06) — nạp EAGER cho mọi bão active trong cùng chu kỳ.
   const [stormTracks, setStormTracks] = useState<
@@ -293,14 +304,28 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     }
   };
 
-  // Đưa bản đồ về trung tâm toàn cảnh Việt Nam
+  // Đưa bản đồ về trung tâm toàn cảnh Việt Nam — đồng thời là lối ra duy nhất của chế độ bão.
   const handleResetCenter = () => {
     if (mapRef.current) {
+      // Khôi phục bounds TRƯỚC khi bay — set sau flyTo sẽ bị bỏ qua/ghi đè giữa chuyến (Runbook 7.5).
+      mapRef.current.setMaxBounds(VIETNAM_MAX_BOUNDS);
+      setStormOpsMode(false);
       mapRef.current.flyTo(VIETNAM_DEFAULT_CENTER, VIETNAM_DEFAULT_ZOOM, {
         duration: 1.5,
       });
     }
   };
+
+  // STORM_OPS_BOUNDS: thả ràng buộc pan để đưa bão ngoài hộp vào tâm (W3-05 #10, quyết định #7).
+  // KHÔNG khôi phục sau moveend — race làm Leaflet kẹp giữa chuyến bay (bài học đối xứng D-5).
+  const handleStormSelect = useCallback((storm: StormCenter) => {
+    const map = mapRef.current;
+    if (!map) return;
+    // Leaflet coi bounds rỗng là null và gỡ luôn listener kẹp pan — đúng ngữ nghĩa "thả ràng buộc".
+    map.setMaxBounds(undefined);
+    setStormOpsMode(true);
+    map.flyTo(storm.latLng, STORM_FOCUS_ZOOM, { duration: 1.5 });
+  }, []);
 
   // Zoom In / Zoom Out
   const handleZoomIn = () => {
@@ -371,7 +396,10 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
       {/* 2. KHU VỰC THÂN TRUNG TÂM */}
       {activeTab === "operations" ? (
         /* CHẾ ĐỘ 01: BẢN ĐỒ TÁC CHIẾN TRÀN VIỀN (FULL-BLEED SPATIAL CANVAS) */
-        <main className="flex-1 relative w-full h-[calc(100vh-56px-24px)] overflow-hidden">
+        <main
+          data-storm-ops-mode={stormOpsMode ? "on" : "off"}
+          className="flex-1 relative w-full h-[calc(100vh-56px-24px)] overflow-hidden"
+        >
           {/* Banner Cảnh Báo Mất Kết Nối Backend Spring Boot (San Rita Alert Banner) */}
           {backendStatus === "error" && (
             <div
@@ -415,6 +443,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             stormTracks={stormTracks}
             stormState={stormState}
             selectedStationId={selectedStationId}
+            onStormSelect={handleStormSelect}
             onStationSelect={(station) => {
               setSelectedStationId(station.id);
               handleFlyTo(station.coordinates, 12);
@@ -454,6 +483,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
                 ? undefined
                 : stormCenters.length
             }
+            stormState={stormState}
             stormLastSyncedAt={lastStormSyncedAt}
             selectedRegion={selectedRegion}
             onRegionChange={setSelectedRegion}

@@ -24,6 +24,19 @@ import {
   Sliders,
 } from "lucide-react";
 import { LayerVisibilityState } from "@/types/map";
+import {
+  STORM_RISK_CONFIG,
+  StormRiskLevel,
+} from "@/components/map/markerFactory";
+import {
+  TRACK_FORECAST_COLOR,
+  TRACK_FORECAST_DASH_ARRAY,
+  TRACK_HISTORY_COLOR,
+  TRACK_IMPACT_COLOR,
+  TRACK_IMPACT_FILL_OPACITY,
+  TRACK_TOOLTIP_ZOOM_THRESHOLD,
+  formatSyncTime,
+} from "@/lib/stormUtils";
 
 export interface LayerControlDrawerProps {
   /** Nguồn bản đồ nền hiện tại */
@@ -44,6 +57,8 @@ export interface LayerControlDrawerProps {
   totalStationCount?: number;
   /** Số tâm bão active đã nạp; undefined = nhánh storm đang nạp (W3-05). */
   stormCount?: number;
+  /** Trạng thái nhánh nạp storm — phân nhánh nhãn số bão, thay vì suy từ stormCount (W3-05 D-8). */
+  stormState?: "idle" | "loading" | "ready" | "error";
   /** Mốc GDACS updated_at lớn nhất — dữ liệu bàn giao cho badge Last Sync 2 nhịp (W3-07). */
   stormLastSyncedAt?: string | null;
   /** Vùng miền đang được lọc ('ALL', 'BẮC BỘ', 'TRUNG BỘ', 'TÂY NGUYÊN', 'NAM BỘ', 'BIỂN ĐẢO') */
@@ -66,6 +81,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   stationCount = 68,
   totalStationCount = 68,
   stormCount,
+  stormState = "idle",
   stormLastSyncedAt = null,
   selectedRegion = "ALL",
   onRegionChange,
@@ -77,6 +93,16 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   // Đếm tổng số lớp dữ liệu đang kích hoạt
   const activeLayerCount =
     Object.values(layerVisibility).filter(Boolean).length;
+
+  // Nhãn số bão phân nhánh theo trạng thái thật — lỗi đồng bộ không được giả thành "0 BÃO ACTIVE" (W3-05 D-8).
+  const stormCountLabel =
+    stormState === "error"
+      ? "LỖI ĐỒNG BỘ — GIỮ DỮ LIỆU CUỐI"
+      : stormCount === undefined
+        ? "ĐANG NẠP BÃO…"
+        : stormCount === 0
+          ? "0 BÃO ACTIVE"
+          : `${stormCount} BÃO ACTIVE — TÂM & QUỸ ĐẠO`;
 
   // Kích hoạt toggle bằng bàn phím (Enter/Space) theo NFR-USA-002
   const handleToggleKeyDown = (
@@ -137,7 +163,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             </div>
           </div>
 
-          <div className="p-3 space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto">
+          {/* pb-14: chừa chỗ cho nút AI Copilot nổi cùng góc dưới-phải (bottom-4 right-4 z-[1000])
+              để hàng huy hiệu Last Sync cuối cùng không bị nút này che khi cuộn hết panel (W3-07 TC-16). */}
+          <div className="px-3 pt-3 pb-14 space-y-4 max-h-[calc(100vh-180px)] overflow-y-auto">
             {/* 1. NGUỒN BẢN ĐỒ NỀN (BASE TILES) */}
             <div className="space-y-1.5">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
@@ -280,14 +308,15 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                       BÃO &amp; ÁP THẤP NHIỆT ĐỚI
                     </div>
                     <div
-                      className="text-[9px] text-[#84907f]"
+                      className={`text-[9px] ${
+                        stormState === "error"
+                          ? "text-[#dc2626]"
+                          : "text-[#84907f]"
+                      }`}
                       data-testid="storm-layer-count"
+                      data-storm-state={stormState}
                     >
-                      {stormCount === undefined
-                        ? "ĐANG NẠP BÃO…"
-                        : stormCount === 0
-                          ? "0 BÃO ACTIVE"
-                          : `${stormCount} BÃO ACTIVE — TÂM & QUỸ ĐẠO`}
+                      {stormCountLabel}
                     </div>
                   </div>
                 </div>
@@ -399,6 +428,111 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   <EyeOff className="w-3.5 h-3.5 text-[#84907f]" />
                 )}
               </div>
+
+              {/* 2b. CHÚ GIẢI LỚP BÃO (SR-MAP-004 — W3-07) — chỉ render khi lớp bão bật.
+                  Mọi màu/swatch IMPORT từ hằng đã nghiệm thu (STORM_RISK_CONFIG — W3-05; TRACK_* — W3-06):
+                  cấm hardcode hex thứ hai. Nguồn dữ liệu ghi rõ theo BR-RULE-006. */}
+              {layerVisibility.cyclones && (
+                <div
+                  id="storm-legend"
+                  className="space-y-1.5 pt-2 border-t border-[#2d3329]"
+                >
+                  <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
+                    <span>[02B // CHÚ GIẢI LỚP BÃO]</span>
+                    <span className="text-[9px] text-[#e2ffcc]">GDACS</span>
+                  </div>
+
+                  {/* Hàng 1 — 4 cấp màu tâm bão theo cấp cảnh báo GDACS (quyết định #3) */}
+                  <div className="grid grid-cols-2 gap-1">
+                    {(Object.keys(STORM_RISK_CONFIG) as StormRiskLevel[]).map(
+                      (level) => (
+                        <div
+                          key={`legend-risk-${level}`}
+                          data-testid={`legend-risk-${level}`}
+                          className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
+                        >
+                          {/* Vòng xoáy thu nhỏ — vòng tròn viền 2px màu cấp cảnh báo */}
+                          <span
+                            className="w-3 h-3 rounded-full border-2 inline-block shrink-0"
+                            style={{
+                              borderColor: STORM_RISK_CONFIG[level].colorHex,
+                            }}
+                          />
+                          {STORM_RISK_CONFIG[level].label}
+                        </div>
+                      ),
+                    )}
+                  </div>
+
+                  {/* Hàng 2-4 — quỹ đạo & vùng nguy hiểm: swatch SVG phẳng, stroke khớp 100% tham số Leaflet thật */}
+                  <div className="space-y-1">
+                    <div
+                      className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
+                      data-testid="legend-track-history"
+                    >
+                      <svg width="26" height="6" className="shrink-0">
+                        <line
+                          x1="1"
+                          y1="3"
+                          x2="25"
+                          y2="3"
+                          stroke={TRACK_HISTORY_COLOR}
+                          strokeWidth="2"
+                        />
+                      </svg>
+                      QUỸ ĐẠO LỊCH SỬ (LIỀN NÉT)
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
+                      data-testid="legend-track-forecast"
+                    >
+                      <svg width="26" height="6" className="shrink-0">
+                        <line
+                          x1="1"
+                          y1="3"
+                          x2="25"
+                          y2="3"
+                          stroke={TRACK_FORECAST_COLOR}
+                          strokeWidth="2"
+                          strokeDasharray={TRACK_FORECAST_DASH_ARRAY}
+                        />
+                      </svg>
+                      DỰ BÁO DI CHUYỂN (ĐỨT ĐOẠN)
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
+                      data-testid="legend-track-impact"
+                    >
+                      {/* Độ đậm viền suy từ TRACK_IMPACT_FILL_OPACITY — không bịa opacity thứ hai */}
+                      <span
+                        className="w-5 h-3 border inline-block shrink-0"
+                        style={{
+                          borderColor: TRACK_IMPACT_COLOR,
+                          backgroundColor: TRACK_IMPACT_COLOR,
+                          opacity: TRACK_IMPACT_FILL_OPACITY + 0.15,
+                        }}
+                      />
+                      VÙNG ẢNH HƯỞNG NGUY HIỂM
+                    </div>
+                    <div className="text-[8px] text-[#84907f] leading-snug">
+                      — VÙNG NGUY HIỂM CHỈ HIỆN KHI GDACS CUNG CẤP POLYGON THẬT
+                      <br />— MỐC QUỸ ĐẠO: HOVER MỌI ZOOM · NHÃN CHỈ TỪ ZOOM ≥{" "}
+                      {TRACK_TOOLTIP_ZOOM_THRESHOLD}
+                    </div>
+                  </div>
+
+                  {/* Hàng 5 — phù hiệu NGOÀI HỘP THEO DÕI: bão ngoài STORM_WATCH_BBOX vẫn hiển thị, không bị ẩn */}
+                  <div
+                    className="flex items-center gap-1.5 text-[9px] text-[#84907f]"
+                    data-testid="legend-outside-box"
+                  >
+                    <span className="px-1 border border-[#84907f] text-[8px] uppercase font-bold shrink-0">
+                      NGOÀI HỘP
+                    </span>
+                    BÃO NGOÀI VÙNG THEO DÕI VẪN HIỂN THỊ
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 3. BỘ LỌC VÙNG MIỀN (REGION FILTER) */}
@@ -540,20 +674,43 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                     </span>
                   )}
                 </span>
-                <span
-                  className="text-[#dde2e4] font-bold"
-                  data-testid="last-sync-badge"
-                >
-                  LAST SYNC:{" "}
-                  {lastSyncedAt
-                    ? new Date(lastSyncedAt).toLocaleTimeString("vi-VN", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: false,
-                      })
-                    : "--:--:--"}
-                </span>
+              </div>
+
+              {/* Huy hiệu Last Sync 2 NHỊP (SR-MAP-004 — W3-07, quyết định #5/#6):
+                  nhãn chu kỳ = kỳ vọng nguồn dữ liệu (TTL cache W3-03: weather_current 15m / active_storms 30m),
+                  GIÁ TRỊ = mốc ĐO thật (recorded_at / max(updated_at)) — không phải giờ browser (W2-02 #6). */}
+              <div className="grid grid-cols-2 gap-1">
+                <div className="p-1 border border-[#2d3329] bg-[#161b13]">
+                  <span className="text-[8px] text-[#84907f] block uppercase">
+                    THỜI TIẾT OWM · 15 PHÚT
+                  </span>
+                  <span
+                    className="text-[10px] text-[#dde2e4] font-bold"
+                    data-testid="last-sync-badge"
+                  >
+                    {lastSyncedAt
+                      ? new Date(lastSyncedAt).toLocaleTimeString("vi-VN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: false,
+                        })
+                      : "--:--:--"}
+                  </span>
+                </div>
+                <div className="p-1 border border-[#2d3329] bg-[#161b13]">
+                  <span className="text-[8px] text-[#84907f] block uppercase">
+                    BÃO GDACS · 30 PHÚT
+                  </span>
+                  <span
+                    className="text-[10px] text-[#dde2e4] font-bold"
+                    data-testid="last-sync-storm"
+                  >
+                    {stormLastSyncedAt
+                      ? formatSyncTime(stormLastSyncedAt)
+                      : "--"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
