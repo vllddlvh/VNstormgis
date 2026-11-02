@@ -172,6 +172,10 @@ const STORM_LEVEL_FIXTURES: StormLevelFixture[] = [
 const VERIFY_HISTORY_MILESTONES: Array<{
   latLng: [number, number];
   forecastTime: string;
+  windSpeed?: number;
+  windGust?: number;
+  pressure?: number;
+  category?: string;
 }> = [
   { latLng: [18.4, 116.5], forecastTime: "2024-09-04T00:00:00Z" },
   { latLng: [18.6, 115.2], forecastTime: "2024-09-04T06:00:00Z" },
@@ -183,17 +187,49 @@ const VERIFY_HISTORY_MILESTONES: Array<{
   { latLng: [19.6, 110.2], forecastTime: "2024-09-05T18:00:00Z" },
   { latLng: [19.8, 109.6], forecastTime: "2024-09-06T00:00:00Z" },
   { latLng: [20.1, 108.6], forecastTime: "2024-09-06T06:00:00Z" },
-  { latLng: [20.4, 107.8], forecastTime: "2024-09-06T12:00:00Z" },
+  {
+    latLng: [20.4, 107.8],
+    forecastTime: "2024-09-06T12:00:00Z",
+    windSpeed: 52.4,
+    windGust: 66.0,
+    pressure: 970,
+    category: "Red",
+  },
   { latLng: [20.6, 107.5], forecastTime: "2024-09-06T18:00:00Z" },
-  { latLng: [20.7, 107.2], forecastTime: "2024-09-07T00:00:00Z" },
+  {
+    latLng: [20.7, 107.2],
+    forecastTime: "2024-09-07T00:00:00Z",
+    windSpeed: 45.2,
+    windGust: 58.0,
+    pressure: 980,
+    category: "Orange",
+  },
 ];
 
 const VERIFY_FORECAST_MILESTONES: Array<{
   latLng: [number, number];
   forecastTime: string;
+  windSpeed?: number;
+  windGust?: number;
+  pressure?: number;
+  category?: string;
 }> = [
-  { latLng: [20.9, 106.3], forecastTime: "2024-09-07T06:00:00Z" },
-  { latLng: [21.1, 105.3], forecastTime: "2024-09-07T12:00:00Z" },
+  {
+    latLng: [20.9, 106.3],
+    forecastTime: "2024-09-07T06:00:00Z",
+    windSpeed: 38.6,
+    windGust: 49.5,
+    pressure: 992,
+    category: "Orange",
+  },
+  {
+    latLng: [21.1, 105.3],
+    forecastTime: "2024-09-07T12:00:00Z",
+    windSpeed: 28.0,
+    windGust: 36.5,
+    pressure: 998,
+    category: "Green",
+  },
 ];
 
 const VERIFY_TRACK_FIXTURE: StormTrackData = {
@@ -222,20 +258,20 @@ const VERIFY_TRACK_FIXTURE: StormTrackData = {
       latLng: milestone.latLng,
       trackType: "historical" as const,
       forecastTime: milestone.forecastTime,
-      windSpeed: null,
-      windGust: null,
-      pressure: null,
-      category: null,
+      windSpeed: milestone.windSpeed ?? null,
+      windGust: milestone.windGust ?? null,
+      pressure: milestone.pressure ?? null,
+      category: milestone.category ?? null,
     })),
     ...VERIFY_FORECAST_MILESTONES.map((milestone, index) => ({
       trackId: 9101 + index,
       latLng: milestone.latLng,
       trackType: "forecast" as const,
       forecastTime: milestone.forecastTime,
-      windSpeed: null,
-      windGust: null,
-      pressure: null,
-      category: null,
+      windSpeed: milestone.windSpeed ?? null,
+      windGust: milestone.windGust ?? null,
+      pressure: milestone.pressure ?? null,
+      category: milestone.category ?? null,
     })),
   ],
 };
