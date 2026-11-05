@@ -1,7 +1,7 @@
 /**
  * @file LayerControlDrawer.tsx
  * @description Bảng điều khiển lớp dữ liệu nổi (Floating Layer Control Panel) chuẩn thiết kế San Rita.
- * Cho phép kỹ sư vận hành chuyển đổi linh hoạt nguồn bản đồ nền (Voyager / Dark / OSM),
+ * Cho phép kỹ sư vận hành chuyển đổi linh hoạt nguồn bản đồ nền (OSM Germany / OSM France / ArcGIS Dark),
  * bật/tắt các lớp chuyên đề thời tiết (Trạm quan trắc, Lượng mưa, Radar mưa, Gió, Mây vệ tinh, Tâm bão),
  * tinh chỉnh độ trong suốt Opacity của lớp và theo dõi trạng thái đồng bộ dữ liệu
  * (Telemetry Loading Bar + huy hiệu Last Sync).
@@ -22,12 +22,20 @@ import {
   Cloud,
   Radio,
   Sliders,
+  Map as MapIcon,
 } from "lucide-react";
 import { LayerVisibilityState } from "@/types/map";
 import {
   STORM_RISK_CONFIG,
   StormRiskLevel,
 } from "@/components/map/markerFactory";
+import {
+  TERRITORY_ARCHIPELAGO_DASH,
+  TERRITORY_ARCHIPELAGO_STYLE,
+  TERRITORY_LAND_STYLE,
+  TERRITORY_MARITIME_DASH,
+  TERRITORY_MARITIME_STYLE,
+} from "@/lib/territoryStyles";
 import {
   TRACK_FORECAST_COLOR,
   TRACK_FORECAST_DASH_ARRAY,
@@ -88,7 +96,11 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   lastSyncedAt = null,
   isSyncing = false,
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(true);
+  // Màn hình hẹp (< 768px): mặc định thu gọn để không che phần lớn bản đồ;
+  // người dùng mở lại bằng nút "LỚP BẢN ĐỒ".
+  const [isOpen, setIsOpen] = useState<boolean>(() =>
+    window.matchMedia("(min-width: 768px)").matches,
+  );
 
   // Đếm tổng số lớp dữ liệu đang kích hoạt
   const activeLayerCount =
@@ -170,43 +182,145 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             <div className="space-y-1.5">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
                 <span>[01 // BẢN ĐỒ NỀN BASEMAP]</span>
-                <span className="text-[9px] text-[#e2ffcc]">CARTO / OSM</span>
+                <span className="text-[9px] text-[#e2ffcc]">OSM / ARCGIS</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 <button
-                  id="btn-tile-voyager"
-                  onClick={() => onTileChange("voyager")}
+                  id="btn-tile-osm-de"
+                  onClick={() => onTileChange("osm-de")}
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
-                    activeTileId === "voyager"
+                    activeTileId === "osm-de"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  VOYAGER
+                  OSM GERMANY
                 </button>
                 <button
-                  id="btn-tile-dark"
-                  onClick={() => onTileChange("dark")}
+                  id="btn-tile-osm-fr"
+                  onClick={() => onTileChange("osm-fr")}
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
-                    activeTileId === "dark"
+                    activeTileId === "osm-fr"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  DARK TACTICAL
+                  OSM FRANCE
                 </button>
                 <button
-                  id="btn-tile-osm"
-                  onClick={() => onTileChange("osm")}
+                  id="btn-tile-arcgis-dark"
+                  onClick={() => onTileChange("arcgis-dark")}
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
-                    activeTileId === "osm"
+                    activeTileId === "arcgis-dark"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  OSM STANDARD
+                  ARCGIS DARK
                 </button>
               </div>
+              <p className="text-[8px] leading-snug text-[#84907f]">
+                CARTO cần API key nên đã thay bằng OSM/ArcGIS keyless.
+                OSM Germany là mặc định.
+              </p>
+            </div>
+
+            {/* 1b. LỚP THAM CHIẾU LÃNH THỔ — toggle + legend khớp style render thật */}
+            <div className="space-y-2 pt-2 border-t border-[#2d3329]">
+              <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
+                <span>[01B // THAM CHIẾU LÃNH THỔ]</span>
+                <span className="text-[9px] text-[#e2ffcc]">WGS84</span>
+              </div>
+
+              <div
+                id="layer-toggle-territory"
+                role="switch"
+                aria-checked={layerVisibility.territory}
+                tabIndex={0}
+                onClick={() => onToggleLayer("territory")}
+                onKeyDown={(e) => handleToggleKeyDown(e, "territory")}
+                className={`p-2 border cursor-pointer flex items-center justify-between transition-colors ${
+                  layerVisibility.territory
+                    ? "border-[#2d3329] bg-[#1a2117] text-[#dde2e4]"
+                    : "border-[#2d3329]/50 bg-[#161b13] text-[#84907f]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MapIcon
+                    className={`w-3.5 h-3.5 ${
+                      layerVisibility.territory
+                        ? "text-[#dc2626]"
+                        : "text-[#84907f]"
+                    }`}
+                  />
+                  <div>
+                    <div className="text-xs font-bold leading-tight">
+                      VIỀN LÃNH THỔ VIỆT NAM
+                    </div>
+                    <div className="text-[9px] text-[#84907f]">
+                      ĐẤT LIỀN · BIỂN ĐÔNG · HOÀNG SA · TRƯỜNG SA
+                    </div>
+                  </div>
+                </div>
+                {layerVisibility.territory ? (
+                  <Eye className="w-3.5 h-3.5 text-[#e2ffcc]" />
+                ) : (
+                  <EyeOff className="w-3.5 h-3.5 text-[#84907f]" />
+                )}
+              </div>
+
+              {layerVisibility.territory && (
+                <div
+                  id="territory-legend"
+                  className="space-y-1 pt-0.5"
+                  aria-label="Chú giải lớp viền lãnh thổ"
+                >
+                  <div className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]">
+                    <svg width="26" height="6" className="shrink-0">
+                      <line
+                        x1="1"
+                        y1="3"
+                        x2="25"
+                        y2="3"
+                        stroke={TERRITORY_LAND_STYLE.color}
+                        strokeWidth={TERRITORY_LAND_STYLE.weight}
+                      />
+                    </svg>
+                    ĐẤT LIỀN &amp; HẢI ĐẢO
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]">
+                    <svg width="26" height="6" className="shrink-0">
+                      <line
+                        x1="1"
+                        y1="3"
+                        x2="25"
+                        y2="3"
+                        stroke={TERRITORY_MARITIME_STYLE.color}
+                        strokeWidth={TERRITORY_MARITIME_STYLE.weight}
+                        strokeDasharray={TERRITORY_MARITIME_DASH}
+                      />
+                    </svg>
+                    VÙNG BIỂN EEZ
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]">
+                    <svg width="14" height="14" className="shrink-0">
+                      <circle
+                        cx="7"
+                        cy="7"
+                        r="5"
+                        fill="none"
+                        stroke={TERRITORY_ARCHIPELAGO_STYLE.color}
+                        strokeWidth={TERRITORY_ARCHIPELAGO_STYLE.weight}
+                        strokeDasharray={TERRITORY_ARCHIPELAGO_DASH}
+                      />
+                    </svg>
+                    VÙNG THEO DÕI HOÀNG SA / TRƯỜNG SA
+                  </div>
+                  <div className="text-[8px] text-[#84907f] leading-snug">
+                    NGUỒN: NATURAL EARTH · MARINE REGIONS (VLIZ)
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* 2. CÁC LỚP DỮ LIỆU THỜI TIẾT (WEATHER LAYERS) */}

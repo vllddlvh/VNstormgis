@@ -29,6 +29,8 @@ import {
 } from "./markerFactory";
 import { StormTrackData } from "@/lib/stormUtils";
 import {
+  DEFAULT_TILE_ID,
+  TILE_PROVIDERS,
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
   formatCoordinate,
@@ -351,12 +353,11 @@ export const MarkerVerificationMap: React.FC = () => {
         >
           <ZoomControl position="bottomright" />
 
-          {/* Lớp Bản Đồ Nền CartoDB Voyager Chuẩn */}
+          {/* Lớp Bản Đồ Nền OSM Germany — keyless, tránh watermark CARTO (OBS-03) */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            subdomains="abcd"
-            maxZoom={20}
+            attribution={TILE_PROVIDERS[DEFAULT_TILE_ID].attribution}
+            url={TILE_PROVIDERS[DEFAULT_TILE_ID].url}
+            maxZoom={TILE_PROVIDERS[DEFAULT_TILE_ID].maxZoom}
           />
 
           {/* Mốc 1: Leaflet Default Marker Đã Khắc Phục Lỗi (Tọa độ Đà Nẵng - Tâm Bản Đồ) */}

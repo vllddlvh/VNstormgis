@@ -147,11 +147,25 @@ ttl_ok() {
 
 # sample_median <url> <n> -> "median|min|max|các mẫu" (xếp theo thời điểm lấy mẫu)
 sample_median() {
-    local url="$1" n="$2" i t ms
+    local url="$1" n="$2" i t ms out line
+    local -a args=()
+    local -a raw=()
     local -a seq=()
+
+    # Warm-up + n mẫu trong MỘT tiến trình curl: loại nhiễu khởi tạo process
+    # (~2-4 ms/lần) và tận dụng keep-alive; mẫu warm-up bị bỏ.
+    args+=(-o /dev/null "$url")
     for ((i = 1; i <= n; i++)); do
-        t=$(curl -s -o /dev/null -w '%{time_total}' -m 15 "$url" || true)
-        [ -z "$t" ] && return 1
+        args+=(-o /dev/null "$url")
+    done
+    out=$(curl -s -w '%{time_total}\n' -m 15 "${args[@]}" || true)
+    while IFS= read -r line; do
+        [ -n "$line" ] && raw+=("$line")
+    done <<< "$out"
+    [ "${#raw[@]}" -lt $((n + 1)) ] && return 1
+
+    for ((i = 1; i <= n; i++)); do
+        t="${raw[$i]}"
         ms=$(awk -v x="$t" 'BEGIN{printf "%.1f", x * 1000}')
         seq+=("$ms")
     done
@@ -397,6 +411,10 @@ W_URL="$BACKEND_BASE_URL/api/v1/weather/current"
 S_URL="$BACKEND_BASE_URL/api/v1/storms?status=active"
 W_KEY="weathergis:cache:weather_current::geojson"
 S_KEY="weathergis:cache:active_storms::geojson:active"
+
+# Xóa key cũ trước khi prime để TTL đo được là TTL mới — script tái chạy nhiều lần
+# mà không fail TTL chỉ vì key còn sống từ lượt trước.
+rcli DEL "$W_KEY" "$S_KEY" >/dev/null 2>&1 || true
 
 # Prime: lượt đầu CÓ THỂ là MISS (Redis bàn giao dbsize=0 từ W3-08).
 curl -s -o /dev/null -m 30 "$W_URL" || true

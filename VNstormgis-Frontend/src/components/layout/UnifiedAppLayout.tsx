@@ -34,6 +34,7 @@ import {
 import { RainSeverityLevel } from "@/types/weather";
 import { StatusType } from "@/components/common/StatusBadge";
 import {
+  DEFAULT_TILE_ID,
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
   VIETNAM_MAX_BOUNDS,
@@ -100,11 +101,13 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   const [activeTab, setActiveTab] = useState<"operations" | "diagnostics">(
     "operations",
   );
-  const [activeTileId, setActiveTileId] = useState<string>("voyager");
+  const [activeTileId, setActiveTileId] =
+    useState<string>(DEFAULT_TILE_ID);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // 5. Quản lý Trạng thái các lớp chuyên đề
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibilityState>({
+    territory: true,
     stations: true,
     rainfall: true,
     radar: false,
@@ -296,13 +299,46 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   }, [refreshStorms]);
 
   // Điều phối chuyển động bay (FlyTo) của bản đồ Leaflet
-  const handleFlyTo = (coords: CoordinateTuple, zoom = 11) => {
+  const handleFlyTo = useCallback((coords: CoordinateTuple, zoom = 11) => {
     if (mapRef.current) {
       mapRef.current.flyTo(coords, zoom, {
         duration: 1.5,
       });
     }
-  };
+  }, []);
+
+  const handleStationSelect = useCallback(
+    (station: StationMarkerData) => {
+      setSelectedStationId(station.id);
+      handleFlyTo(station.coordinates, 12);
+    },
+    [handleFlyTo],
+  );
+
+  const handleFlyToStation = useCallback(
+    (station: StationMarkerData) => {
+      handleFlyTo(station.coordinates, 12);
+    },
+    [handleFlyTo],
+  );
+
+  const handleAskAi = useCallback((station: StationMarkerData) => {
+    setAiPrompt(
+      `Kiểm tra tình hình thời tiết và cảnh báo tại trạm [${station.code}] ${station.name}`,
+    );
+  }, []);
+
+  const handleMapStateChange = useCallback(
+    ({ center, zoom }: { center: CoordinateTuple; zoom: number }) => {
+      setMapCenter(center);
+      setMapZoom(zoom);
+    },
+    [],
+  );
+
+  const handleMapReady = useCallback((map: L.Map) => {
+    mapRef.current = map;
+  }, []);
 
   // Đưa bản đồ về trung tâm toàn cảnh Việt Nam — đồng thời là lối ra duy nhất của chế độ bão.
   const handleResetCenter = () => {
@@ -444,27 +480,15 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             stormState={stormState}
             selectedStationId={selectedStationId}
             onStormSelect={handleStormSelect}
-            onStationSelect={(station) => {
-              setSelectedStationId(station.id);
-              handleFlyTo(station.coordinates, 12);
-            }}
-            onFlyToStation={(station) => handleFlyTo(station.coordinates, 12)}
-            onAskAi={(station) =>
-              setAiPrompt(
-                `Kiểm tra tình hình thời tiết và cảnh báo tại trạm [${station.code}] ${station.name}`,
-              )
-            }
+            onStationSelect={handleStationSelect}
+            onFlyToStation={handleFlyToStation}
+            onAskAi={handleAskAi}
             activeTileId={activeTileId}
             layerVisibility={layerVisibility}
             layerOpacity={layerOpacity}
             onMouseMoveCoords={setCursorCoords}
-            onMapStateChange={({ center, zoom }) => {
-              setMapCenter(center);
-              setMapZoom(zoom);
-            }}
-            onMapReady={(map) => {
-              mapRef.current = map;
-            }}
+            onMapStateChange={handleMapStateChange}
+            onMapReady={handleMapReady}
             className="w-full h-full"
           />
 

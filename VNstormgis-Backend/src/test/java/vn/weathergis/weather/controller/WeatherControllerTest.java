@@ -242,6 +242,25 @@ class WeatherControllerTest {
     }
 
     @Test
+    @DisplayName("TC-05b: thiếu location_code → 400 RFC 7807 có errorCode/timestamp")
+    void shouldReturnProblemDetailForMissingLocationCode() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/weather/history")
+                                .param("hours", "24")
+                                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Tham số không hợp lệ"))
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value(org.hamcrest.Matchers.containsString("location_code")))
+                .andExpect(jsonPath("$.errorCode").value("COM_400_INVALID_PARAM"))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        verifyNoInteractions(weatherService);
+    }
+
+    @Test
     @DisplayName("TC-15: CORS cho frontend :5173")
     void shouldExposeCorsHeader() throws Exception {
         when(weatherService.getCurrentWeatherAsGeoJson())

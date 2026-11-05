@@ -7,6 +7,9 @@ spring:
   config:
     activate:
       on-profile: dev
+    # W4-01: nạp biến môi trường local khi chạy từ VNstormgis-Backend/.
+    # optional — CI/không có file vẫn khởi động; extension hint [.properties] để Spring đọc .env.local.
+    import: optional:file:../VNstormgis-Deployment/env/.env.local[.properties]
 
   # ----------------------------------------------------------------------------
   # 1. CẤU HÌNH KẾT NỐI CƠ SỞ DỮ LIỆU POSTGRESQL + POSTGIS 16
@@ -96,7 +99,9 @@ logging:
     root: INFO
     vn.weathergis: DEBUG # Ghi log chi tiết toàn bộ nghiệp vụ ứng dụng WeatherGIS
     org.hibernate.SQL: DEBUG # Hiển thị các câu truy vấn SQL thực thi
-    org.hibernate.orm.jdbc.bind: TRACE # Hiển thị chi tiết giá trị tham số bind vào câu lệnh SQL
+    # W3-08: bind TRACE làm tăng latency HTTP ~2-4 ms/request, bóp méo cổng cache HIT < 5 ms.
+    # Mặc định INFO; bật lại khi debug: --logging.level.org.hibernate.orm.jdbc.bind=TRACE
+    org.hibernate.orm.jdbc.bind: INFO
     org.flywaydb: INFO # Ghi log chi tiết quá trình quét và di trú Flyway
     org.springdoc: INFO # Ghi log quá trình quét khởi tạo tài liệu OpenAPI
     com.zaxxer.hikari: INFO # Giám sát trạng thái cấp phát kết nối của HikariCP
@@ -148,6 +153,8 @@ weathergis:
       # backoff-ms: 500,1000,2000 # Mặc định retry backoff GDACS (theo @Value); ghi đè khi cần
   internal:
     sync-secret: ${INTERNAL_SYNC_SECRET:} # Bắt buộc cấp qua môi trường; rỗng = endpoint từ chối mọi request (fail-closed)
+  admin:
+    api-key: ${ADMIN_API_KEY:} # W4-01: header X-Admin-Api-Key; rỗng = fail-closed (filter thuộc W4-01)
 
   # ----------------------------------------------------------------------------
   # 9. CẤU HÌNH DISTRIBUTED CACHE LAYER (TASK W3-03)

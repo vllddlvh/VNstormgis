@@ -23,11 +23,11 @@ export const DisclaimerFooter: React.FC<DisclaimerFooterProps> = ({
   activeTileId,
 }) => {
   const tileProviderLabel =
-    activeTileId === "dark"
-      ? "CARTO DARK MATTER"
-      : activeTileId === "osm"
-        ? "OPENSTREETMAP"
-        : "CARTO VOYAGER";
+    activeTileId === "arcgis-dark"
+      ? "ARCGIS DARK GRAY"
+      : activeTileId === "osm-fr"
+        ? "OSM FRANCE"
+        : "OSM GERMANY";
 
   return (
     <footer className="h-6 px-4 bg-[#161b13]/95 border-t border-[#2d3329] flex items-center justify-between text-[10px] text-[#84907f] font-mono z-[1100] select-none">

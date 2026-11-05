@@ -60,34 +60,41 @@ export const DEFAULT_VIEWPORT_CONFIG: MapViewportConfig = {
 };
 
 /**
+ * Provider mặc định — OSM Germany trả tile thật, không cần API key.
+ * CARTO basemaps hiện trả watermark "API KEY REQUIRED" khi không có key (OBS-03);
+ * OSM Standard (tile.openstreetmap.org) không truy cập được từ mạng dev hiện tại.
+ */
+export const DEFAULT_TILE_ID = "osm-de";
+
+/**
  * Danh mục các nhà cung cấp bản đồ nền (TileLayer Providers) hỗ trợ trong hệ thống.
+ * Tất cả provider dưới đây đều keyless và đã kiểm tra trả tile thật.
  */
 export const TILE_PROVIDERS: Record<string, TileLayerOption> = {
-  voyager: {
-    id: "voyager",
-    name: "CartoDB Voyager (Tác Chiến)",
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+  "osm-de": {
+    id: "osm-de",
+    name: "OpenStreetMap Germany",
+    url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Tiles: OpenStreetMap Germany',
     maxZoom: 19,
   },
-  dark: {
-    id: "dark",
-    name: "CartoDB Dark Matter (Ban Đêm)",
-    url: "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png",
+  "osm-fr": {
+    id: "osm-fr",
+    name: "OpenStreetMap France (Dự Phòng)",
+    url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Tiles: OpenStreetMap France',
+    subdomains: "abc",
     maxZoom: 19,
   },
-  osm: {
-    id: "osm",
-    name: "OpenStreetMap Standard (Dự Phòng)",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
+  "arcgis-dark": {
+    id: "arcgis-dark",
+    name: "ArcGIS Dark Gray (Ban Đêm)",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    attribution: "Tiles &copy; Esri — Esri, DeLorme, NAVTEQ",
+    maxZoom: 18,
+    maxNativeZoom: 16,
   },
 };
 

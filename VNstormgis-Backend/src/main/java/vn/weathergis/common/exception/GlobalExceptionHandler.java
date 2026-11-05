@@ -8,13 +8,16 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
@@ -101,6 +104,50 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         enrichProblemDetail(problemDetail, ErrorCode.VALIDATION_ERROR.getCode(), request);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleTypeMismatch(
+            TypeMismatchException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        log.warn("Type mismatch: {}", ex.getMessage());
+        String detail =
+                ex.getPropertyName() != null
+                        ? "Tham số '" + ex.getPropertyName() + "' không đúng định dạng"
+                        : "Tham số yêu cầu không đúng định dạng";
+        return invalidParameterResponse(detail, request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        log.warn("Missing request parameter: {}", ex.getParameterName());
+        return invalidParameterResponse(
+                "Thiếu tham số bắt buộc: " + ex.getParameterName(), request);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        log.warn("Unreadable request body: {}", ex.getMessage());
+        return invalidParameterResponse("Nội dung JSON không hợp lệ hoặc không đọc được", request);
+    }
+
+    private ResponseEntity<Object> invalidParameterResponse(String detail, WebRequest request) {
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        problemDetail.setType(URI.create(ERROR_BASE_URI + "invalid-parameter"));
+        problemDetail.setTitle("Tham số không hợp lệ");
+        enrichProblemDetail(problemDetail, ErrorCode.INVALID_PARAMETER.getCode(), request);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body((Object) problemDetail);
     }
 
     @ExceptionHandler(SyncUnauthorizedException.class)

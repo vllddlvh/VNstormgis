@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { CircleMarker, Tooltip } from "react-leaflet";
 import { StationMarkerData } from "@/types/map";
 import { RAINFALL_SEVERITY_CONFIG, calculateRainfallRadius } from "@/lib/rainfallUtils";
@@ -18,11 +18,14 @@ export interface RainfallLayerProps {
   stations: StationMarkerData[];
 }
 
-export const RainfallLayer: React.FC<RainfallLayerProps> = ({ stations }) => {
-  return (
-    <>
-      {/* Render TRƯỚC lớp marker trạm trong MapContainer → icon trạm nằm TRÊN vòng tròn */}
-      {stations.map((station) => {
+const RainfallLayerComponent: React.FC<RainfallLayerProps> = ({
+  stations,
+}) => {
+  // Giữ element ổn định khi BaseMap re-render vì telemetry con trỏ (mỗi mousemove) —
+  // tránh cập nhật path/tooltip vô ích và giữ nguyên listener hover của Leaflet.
+  const markers = useMemo(
+    () =>
+      stations.map((station) => {
         const weather = station.weather;
         if (!weather) return null;
         const config = RAINFALL_SEVERITY_CONFIG[weather.severity_rain];
@@ -40,16 +43,31 @@ export const RainfallLayer: React.FC<RainfallLayerProps> = ({ stations }) => {
               fillOpacity: 0.55,
             }}
           >
-            <Tooltip direction="top" offset={[0, -6]} className="san-rita-tooltip">
+            <Tooltip
+              direction="top"
+              offset={[0, -6]}
+              className="san-rita-tooltip san-rita-tooltip-station"
+            >
               <span className="font-mono text-[10px]">
                 [{station.code}] {rain1h.toFixed(1)} mm — {config.label}
+                <br />
+                <span className="text-[#84907f]">{station.name}</span>
+                <span className="text-[#e2ffcc]">
+                  {" "}
+                  · NHẤP ICON TRẠM ĐỂ XEM CHI TIẾT
+                </span>
               </span>
             </Tooltip>
           </CircleMarker>
         );
-      })}
-    </>
+      }),
+    [stations],
   );
+
+  // Render TRƯỚC lớp marker trạm trong MapContainer → icon trạm nằm TRÊN vòng tròn
+  return <>{markers}</>;
 };
+
+export const RainfallLayer = React.memo(RainfallLayerComponent);
 
 export default RainfallLayer;

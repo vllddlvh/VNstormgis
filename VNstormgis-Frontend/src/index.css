@@ -116,6 +116,15 @@
   border-top-color: var(--color-forest-charcoal) !important;
 }
 
+/* 3b-2. Tooltip trạm (gió/mưa): bề rộng cố định để tên trạm dài xuống dòng gọn,
+   không bị shrink-to-fit thành cột hẹp khi marker nằm gần mép phải bản đồ. */
+.san-rita-tooltip.san-rita-tooltip-station {
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  white-space: normal;
+}
+
 /* 3c. Mũi tên gió / chấm tròn hướng khuyết (WindLayer — SR-MAP-003):
    gỡ nền trắng + viền mặc định của .leaflet-div-icon, giữ San Rita phẳng. */
 .wind-arrow-marker,

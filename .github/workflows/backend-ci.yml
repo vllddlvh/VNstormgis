@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, staging]
     paths:
-      - "backend/**"
+      - "VNstormgis-Backend/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [main, staging]
     paths:
-      - "backend/**"
+      - "VNstormgis-Backend/**"
       - ".github/workflows/backend-ci.yml"
 
 permissions:
@@ -31,15 +31,9 @@ jobs:
           distribution: "temurin"
 
       - name: Grant execute permission for gradlew
-        run: |
-          if [ -f backend/gradlew ]; then
-            chmod +x backend/gradlew
-          fi
+        working-directory: VNstormgis-Backend
+        run: chmod +x gradlew
 
-      - name: Build with Gradle & Run Tests
-        run: |
-          if [ -f backend/gradlew ]; then
-            cd backend && ./gradlew test --no-daemon
-          else
-            echo "Backend Gradle wrapper not yet initialized. Skipping build."
-          fi
+      - name: Spotless check & tests
+        working-directory: VNstormgis-Backend
+        run: ./gradlew spotlessCheck test --no-daemon

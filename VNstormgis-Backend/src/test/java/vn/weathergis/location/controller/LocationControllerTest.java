@@ -128,6 +128,34 @@ class LocationControllerTest {
     }
 
     @Test
+    @DisplayName("TC-05b: UUID sai định dạng → 400 RFC 7807 có errorCode/timestamp")
+    void testInvalidUuidReturnsProblemDetailWithErrorCode() throws Exception {
+        mockMvc.perform(get("/api/v1/locations/not-a-uuid").accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Tham số không hợp lệ"))
+                .andExpect(jsonPath("$.errorCode").value("COM_400_INVALID_PARAM"))
+                .andExpect(jsonPath("$.instance").value("/api/v1/locations/not-a-uuid"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    @DisplayName("TC-05c: thiếu tham số lat → 400 RFC 7807 có errorCode/timestamp")
+    void testMissingNearbyLatitudeReturnsProblemDetailWithErrorCode() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/locations/nearby")
+                                .param("lng", "105.85")
+                                .param("radiusKm", "50")
+                                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Tham số không hợp lệ"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("lat")))
+                .andExpect(jsonPath("$.errorCode").value("COM_400_INVALID_PARAM"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
     @DisplayName("TC-04: Lấy chi tiết trạm quan trắc theo mã trạm hợp lệ")
     void testGetLocationByCodeSuccess() throws Exception {
         UUID danangId = UUID.randomUUID();

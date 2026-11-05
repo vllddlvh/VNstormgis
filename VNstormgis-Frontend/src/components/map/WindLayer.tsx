@@ -9,7 +9,7 @@
  * @version 1.0.0
  */
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Marker, Tooltip } from "react-leaflet";
 import { StationMarkerData } from "@/types/map";
 import {
@@ -28,11 +28,16 @@ export interface WindLayerProps {
   opacity: number;
 }
 
-export const WindLayer: React.FC<WindLayerProps> = ({ stations, opacity }) => {
-  return (
-    <>
-      {/* Render SAU RainfallLayer (04B), TRƯỚC lớp marker trạm (05) — quyết định #5 */}
-      {stations.map((station) => {
+const WindLayerComponent: React.FC<WindLayerProps> = ({
+  stations,
+  opacity,
+}) => {
+  // Icon phải ổn định theo [stations, opacity]: BaseMap re-render mỗi mousemove (telemetry
+  // con trỏ). Nếu tạo L.DivIcon mới mỗi render, react-leaflet gọi setIcon → thay DOM marker
+  // đang hover; Leaflet mất mouseout trên element cũ nên tooltip gió bị kẹt mở.
+  const markers = useMemo(
+    () =>
+      stations.map((station) => {
         const weather = station.weather;
         // Không có bản ghi / thiếu wind_speed → không ký hiệu gió (quyết định #11)
         if (!weather || weather.wind_speed === null) return null;
@@ -66,18 +71,33 @@ export const WindLayer: React.FC<WindLayerProps> = ({ stations, opacity }) => {
             // trạm vẫn chiếm phần lớn vùng click nên popup mở bình thường.
             zIndexOffset={1000}
           >
-            <Tooltip direction="top" offset={[0, -6]} className="san-rita-tooltip">
+            <Tooltip
+              direction="top"
+              offset={[0, -6]}
+              className="san-rita-tooltip san-rita-tooltip-station"
+            >
               <span className="font-mono text-[10px]">
                 {isCalmOrUnknownDir
                   ? `[${station.code}] ${speedText} — hướng chưa xác định`
                   : `[${station.code}] ${speedText} — ${config.label}${gustText}`}
+                <br />
+                <span className="text-[#84907f]">{station.name}</span>
+                <span className="text-[#e2ffcc]">
+                  {" "}
+                  · NHẤP ICON TRẠM ĐỂ XEM CHI TIẾT
+                </span>
               </span>
             </Tooltip>
           </Marker>
         );
-      })}
-    </>
+      }),
+    [stations, opacity],
   );
+
+  // Render SAU RainfallLayer (04B), TRƯỚC lớp marker trạm (05) — quyết định #5
+  return <>{markers}</>;
 };
+
+export const WindLayer = React.memo(WindLayerComponent);
 
 export default WindLayer;

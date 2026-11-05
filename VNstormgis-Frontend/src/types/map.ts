@@ -78,12 +78,15 @@ export interface TileLayerOption {
   attribution: string;
   subdomains?: string | string[];
   maxZoom?: number;
+  maxNativeZoom?: number;
 }
 
 /**
  * Trạng thái bật/tắt các lớp dữ liệu không gian trên bản đồ.
  */
 export interface LayerVisibilityState {
+  /** Lớp tham chiếu viền đỏ lãnh thổ + vùng biển + hai quần đảo (VietnamTerritoryLayer). */
+  territory: boolean;
   stations: boolean;
   /** Lớp Mưa (SR-MAP-002) — CircleMarker phân cấp màu theo lượng mưa, render bởi RainfallLayer (W2-08). */
   rainfall: boolean;
