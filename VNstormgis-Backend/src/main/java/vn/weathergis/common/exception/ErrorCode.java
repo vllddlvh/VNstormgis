@@ -45,6 +45,18 @@ public enum ErrorCode {
             "Không tìm thấy trạm quan trắc với mã yêu cầu",
             HttpStatus.NOT_FOUND),
 
+    // Alert Threshold Domain errors (ALT_xxx)
+    ALERT_THRESHOLD_UNAUTHORIZED(
+            "ALT_401_UNAUTHORIZED", "Khóa quản trị không hợp lệ", HttpStatus.UNAUTHORIZED),
+    ALERT_THRESHOLD_NOT_FOUND(
+            "ALT_404_NOT_FOUND", "Không tìm thấy ngưỡng cảnh báo", HttpStatus.NOT_FOUND),
+    ALERT_THRESHOLD_INVALID_PARAMETER(
+            "ALT_400_INVALID_PARAMETER",
+            "Tham số ngưỡng cảnh báo không hợp lệ",
+            HttpStatus.BAD_REQUEST),
+    ALERT_THRESHOLD_VALIDATION(
+            "ALT_400_VALIDATION", "Dữ liệu ngưỡng cảnh báo không hợp lệ", HttpStatus.BAD_REQUEST),
+
     // Storm Domain errors (STM_xxx)
     STORM_NOT_FOUND(
             "STM_404_NOT_FOUND",
