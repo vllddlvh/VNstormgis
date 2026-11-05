@@ -42,6 +42,7 @@ public class WeatherSyncService {
     private final WeatherRecordRepository weatherRecordRepository;
     private final DataSyncLogRepository dataSyncLogRepository;
     private final ObjectProvider<CacheManager> cacheManagerProvider;
+    private final ThresholdEvaluationScheduler thresholdEvaluationScheduler;
     private final long throttleMs;
     private final String apiKey;
 
@@ -54,6 +55,7 @@ public class WeatherSyncService {
             WeatherRecordRepository weatherRecordRepository,
             DataSyncLogRepository dataSyncLogRepository,
             ObjectProvider<CacheManager> cacheManagerProvider,
+            ThresholdEvaluationScheduler thresholdEvaluationScheduler,
             @Value("${weathergis.sync.throttle-ms:100}") long throttleMs,
             @Value("${weathergis.external.owm.api-key:}") String apiKey) {
         this.client = client;
@@ -61,6 +63,7 @@ public class WeatherSyncService {
         this.weatherRecordRepository = weatherRecordRepository;
         this.dataSyncLogRepository = dataSyncLogRepository;
         this.cacheManagerProvider = cacheManagerProvider;
+        this.thresholdEvaluationScheduler = thresholdEvaluationScheduler;
         this.throttleMs = throttleMs;
         this.apiKey = apiKey;
     }
@@ -74,6 +77,16 @@ public class WeatherSyncService {
             WeatherSyncResult result = runCycle();
             if ("SUCCESS".equals(result.status())) {
                 evictWeatherCurrentCache();
+            }
+            if (result.recordsProcessed() > 0) {
+                try {
+                    thresholdEvaluationScheduler.evaluateAfterSync(result);
+                } catch (RuntimeException ex) {
+                    // Monitoring must never rewrite the terminal result of committed ingestion.
+                    log.error(
+                            "Threshold evaluation failed after weather sync: {}",
+                            ex.getClass().getSimpleName());
+                }
             }
             return result;
         } finally {

@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -30,6 +33,7 @@ import vn.weathergis.automation.client.OpenWeatherMapClient;
 import vn.weathergis.automation.client.dto.OpenWeatherMapCurrentWeather;
 import vn.weathergis.automation.client.exception.OpenWeatherMapClientException;
 import vn.weathergis.automation.client.exception.OpenWeatherMapRateLimitException;
+import vn.weathergis.automation.controller.InternalSyncController;
 import vn.weathergis.automation.domain.DataSyncLogEntity;
 import vn.weathergis.automation.dto.WeatherSyncResult;
 import vn.weathergis.automation.repository.DataSyncLogRepository;
@@ -58,6 +62,7 @@ class WeatherSyncServiceTest {
     @Mock private ObjectProvider<CacheManager> cacheManagerProvider;
     @Mock private CacheManager cacheManager;
     @Mock private Cache weatherCurrentCache;
+    @Mock private ThresholdEvaluationScheduler thresholdEvaluationScheduler;
 
     /** Trạm giả lập — JTS Point: X = KINH ĐỘ, Y = VĨ ĐỘ (AGENTS.md mục 1). */
     private LocationEntity station(String code) {
@@ -75,6 +80,7 @@ class WeatherSyncServiceTest {
                 weatherRecordRepository,
                 dataSyncLogRepository,
                 cacheManagerProvider,
+                thresholdEvaluationScheduler,
                 0L /* throttle-ms = 0 — không ngủ */,
                 apiKey);
     }
@@ -116,6 +122,7 @@ class WeatherSyncServiceTest {
         // DỪNG GỌI: SGN (trạm thứ 3) không bao giờ bị gọi
         verify(client, times(2)).fetchCurrentWeather(anyDouble(), anyDouble());
         verify(weatherRecordRepository).saveAll(any());
+        verify(thresholdEvaluationScheduler).evaluateAfterSync(result);
     }
 
     @Test
@@ -167,6 +174,7 @@ class WeatherSyncServiceTest {
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).contains("Nạp một phần").contains("1 trạm lỗi");
         assertThat(result.recordsProcessed()).isEqualTo(1);
+        verify(thresholdEvaluationScheduler).evaluateAfterSync(result);
     }
 
     @Test
@@ -185,6 +193,7 @@ class WeatherSyncServiceTest {
         assertThat(result.recordsProcessed()).isEqualTo(2);
         assertThat(result.errorMessage()).isNull();
         verify(weatherCurrentCache).clear();
+        verify(thresholdEvaluationScheduler).evaluateAfterSync(result);
     }
 
     @Test
@@ -213,7 +222,11 @@ class WeatherSyncServiceTest {
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).contains("chưa được cấu hình");
         verifyNoInteractions(
-                client, locationRepository, weatherRecordRepository, cacheManagerProvider);
+                client,
+                locationRepository,
+                weatherRecordRepository,
+                cacheManagerProvider,
+                thresholdEvaluationScheduler);
     }
 
     @Test
@@ -226,7 +239,7 @@ class WeatherSyncServiceTest {
 
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).contains("Không có trạm active");
-        verifyNoInteractions(client);
+        verifyNoInteractions(client, thresholdEvaluationScheduler);
     }
 
     @Test
@@ -255,9 +268,79 @@ class WeatherSyncServiceTest {
 
         assertThatThrownBy(service::triggerWeatherSync)
                 .isInstanceOf(SyncInProgressException.class); // 409
+        verifyNoInteractions(thresholdEvaluationScheduler);
 
         release.countDown();
         first.join(5000);
         assertThat(first.isAlive()).isFalse();
+        verify(thresholdEvaluationScheduler, times(1)).evaluateAfterSync(any());
+    }
+
+    @Test
+    void shouldEvaluateAfterCronHasPersistedWeatherAndTerminalSyncResult() {
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+
+        new WeatherSyncScheduler(newService("test-key")).syncWeather();
+
+        InOrder order =
+                inOrder(
+                        dataSyncLogRepository,
+                        weatherRecordRepository,
+                        thresholdEvaluationScheduler);
+        order.verify(dataSyncLogRepository).save(any());
+        order.verify(weatherRecordRepository).saveAll(any());
+        order.verify(dataSyncLogRepository).save(any());
+        order.verify(thresholdEvaluationScheduler).evaluateAfterSync(any());
+    }
+
+    @Test
+    void shouldEvaluateAfterInternalTriggerAndKeepSuccessfulResponse() {
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+        InternalSyncController controller =
+                new InternalSyncController(
+                        newService("test-key"),
+                        mock(StormSyncService.class),
+                        "test-internal-secret");
+
+        WeatherSyncResult result =
+                controller.syncWeather("test-internal-secret").getBody().getData();
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(result.recordsProcessed()).isEqualTo(1);
+        verify(thresholdEvaluationScheduler).evaluateAfterSync(result);
+    }
+
+    @Test
+    void shouldPreserveSyncResultWhenMonitoringFails() {
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+        doThrow(new IllegalStateException("monitor down"))
+                .when(thresholdEvaluationScheduler)
+                .evaluateAfterSync(any());
+
+        WeatherSyncResult result = newService("test-key").triggerWeatherSync();
+
+        assertThat(result.status()).isEqualTo("SUCCESS");
+        assertThat(result.errorMessage()).isNull();
+        assertThat(result.recordsProcessed()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotEvaluateBeforeWeatherPersistenceSucceeds() {
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+        when(weatherRecordRepository.saveAll(any()))
+                .thenThrow(new IllegalStateException("write failed"));
+
+        assertThatThrownBy(() -> newService("test-key").triggerWeatherSync())
+                .isInstanceOf(IllegalStateException.class);
+
+        verifyNoInteractions(thresholdEvaluationScheduler);
     }
 }

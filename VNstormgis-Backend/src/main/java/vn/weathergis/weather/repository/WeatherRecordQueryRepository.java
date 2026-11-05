@@ -35,7 +35,7 @@ public interface WeatherRecordQueryRepository extends JpaRepository<WeatherRecor
                     FROM locations l
                     INNER JOIN weather_records w ON l.id = w.location_id
                     WHERE l.is_active = true
-                    ORDER BY w.location_id, w.recorded_at DESC
+                    ORDER BY w.location_id, w.recorded_at DESC, w.id DESC
                     """,
             nativeQuery = true)
     List<LatestWeatherPerStation> findLatestWeatherPerActiveStation();

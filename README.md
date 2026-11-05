@@ -165,4 +165,33 @@ and `CRITICAL`. Values must be finite and positive. Responses include the databa
 trigger's `updated_at`. Errors use RFC 7807 with `ALT_*` codes. The routes and admin
 header are documented in [Swagger UI](http://localhost:8080/swagger-ui/index.html).
 
+## 9. Threshold evaluation (W4-02)
+
+Every weather sync that commits at least one record runs
+`ThresholdEvaluationScheduler` through the shared `WeatherSyncService` path,
+including partial failures. Both the existing cron and internal sync endpoint
+use this path. Evaluation reads enabled thresholds afresh and queries PostGIS
+directly, selecting the latest observation per active station by
+`recorded_at DESC, id DESC`. The nearest active storm is chosen using
+`ST_DistanceSphere / 1000.0` in km, with storm ID breaking distance ties.
+
+Each affected station publishes one immutable `ThresholdViolatedEvent` containing
+all its threshold violations and source facts. Weather windows use observation
+time; storm windows use the centre's database `updated_at`, both normalized to
+UTC. Keys follow `v1:<locationId>:<thresholdId>:<UTC window>[:<stormId>]` and remain
+stable when the same source snapshot is evaluated again. Consumers must persist
+all violation keys to implement durable idempotency in W4-03.
+
+Evaluation writes `AI_MONITOR` audit rows (`RUNNING` → `SUCCESS`/`FAILED`), counts
+stations scanned, and prevents overlapping evaluations within one process.
+Evaluation failures preserve the completed weather sync result. No independent
+cron or evaluation endpoint is added. This task publishes in-process events;
+alert persistence, retries and Gemini generation belong to later tasks.
+
+Run its focused suite with Docker available, from `VNstormgis-Backend`:
+
+```bash
+./gradlew spotlessCheck test --tests '*ThresholdEval*' --tests '*WeatherSyncServiceTest'
+```
+
 _© 2026 UET — WebGIS for Weather of Vietnam Team._
