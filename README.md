@@ -194,4 +194,40 @@ Run its focused suite with Docker available, from `VNstormgis-Backend`:
 ./gradlew spotlessCheck test --tests '*ThresholdEval*' --tests '*WeatherSyncServiceTest'
 ```
 
+## 10. Alerts persistence and read APIs (W4-03)
+
+`ThresholdViolationAlertListener` consumes `ThresholdViolatedEvent` synchronously
+and persists a PostgreSQL inbox job (`alert_generation_jobs`) together with all
+unclaimed station violation keys (`alert_violation_keys`) in one transaction,
+serialized per station via `pg_advisory_xact_lock`. Partially overlapping events
+claim only newly observed keys without inheriting severity or trigger reasons from
+previously claimed violations.
+
+Jobs progress through `PENDING → READY → COMPLETED`. W4-05 records verified AI or
+deterministic fallback content (`is_fallback`) into `READY` within a separate
+transaction, and `AlertPersistenceService` publishes the alert row (`alerts`) with
+its immutable `factual_snapshot` JSONB, `Point(lng, lat)` SRID 4326 geometry, and
+key links in a short transaction. `AlertPublicationRetryScheduler` recovers due
+`READY` jobs on startup and on a configurable schedule using `FOR UPDATE SKIP LOCKED`
+and bounded exponential backoff (`weathergis.alert.retry`: `enabled=true`,
+`fixed-delay-ms=30000`, `initial-delay-ms=5000`, `base-backoff-ms=5000`,
+`max-backoff-ms=300000`, `batch-size=50`).
+
+Public read endpoints (no admin key or Gemini key required):
+
+- `GET /api/v1/alerts/active` — raw GeoJSON `FeatureCollection` ordered by
+  `triggered_at DESC, id ASC` (`status='active'` only; explicit `"geometry": null`
+  for legacy unlocated rows).
+- `GET /api/v1/alerts/{id}` — `ApiResponse<AlertDetailResponse>` across `active`,
+  `resolved`, and `dismissed`, returning current nullable relations (`location`,
+  `threshold`, `storm`) alongside the immutable `factual_snapshot`. Invalid UUIDs
+  return `400 ALR_400_INVALID_ID` and missing alerts return `404 ALR_404_NOT_FOUND`
+  (RFC 7807).
+
+Run the focused W4-03 suite from `VNstormgis-Backend`:
+
+```bash
+./gradlew spotlessCheck test --tests 'vn.weathergis.alert.*'
+```
+
 _© 2026 UET — WebGIS for Weather of Vietnam Team._

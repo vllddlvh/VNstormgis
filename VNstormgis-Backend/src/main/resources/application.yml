@@ -38,6 +38,14 @@ server:
 weathergis:
   admin:
     api-key: ${ADMIN_API_KEY:}
+  alert:
+    retry:
+      enabled: ${ALERT_RETRY_ENABLED:true}
+      fixed-delay-ms: ${ALERT_RETRY_FIXED_DELAY_MS:30000}
+      initial-delay-ms: ${ALERT_RETRY_INITIAL_DELAY_MS:5000}
+      base-backoff-ms: ${ALERT_RETRY_BASE_BACKOFF_MS:5000}
+      max-backoff-ms: ${ALERT_RETRY_MAX_BACKOFF_MS:300000}
+      batch-size: ${ALERT_RETRY_BATCH_SIZE:50}
 
 management:
   endpoints:

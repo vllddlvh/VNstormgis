@@ -163,7 +163,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 requestErrorCode(
                         request,
                         ErrorCode.INVALID_PARAMETER,
-                        ErrorCode.ALERT_THRESHOLD_INVALID_PARAMETER));
+                        ErrorCode.ALERT_THRESHOLD_INVALID_PARAMETER,
+                        ErrorCode.ALERT_INVALID_ID));
     }
 
     private ResponseEntity<Object> invalidParameterResponse(
@@ -177,16 +178,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ErrorCode requestErrorCode(
-            WebRequest request, ErrorCode defaultCode, ErrorCode alertCode) {
+            WebRequest request, ErrorCode defaultCode, ErrorCode alertThresholdCode) {
+        return requestErrorCode(request, defaultCode, alertThresholdCode, defaultCode);
+    }
+
+    private ErrorCode requestErrorCode(
+            WebRequest request,
+            ErrorCode defaultCode,
+            ErrorCode alertThresholdCode,
+            ErrorCode alertCode) {
         if (request instanceof ServletWebRequest servletRequest) {
             Object pattern =
                     servletRequest
                             .getRequest()
                             .getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-            if (pattern != null
-                    && (pattern.toString().equals("/api/v1/alert-thresholds")
-                            || pattern.toString().startsWith("/api/v1/alert-thresholds/"))) {
-                return alertCode;
+            String path =
+                    pattern != null
+                            ? pattern.toString()
+                            : servletRequest.getRequest().getRequestURI();
+            if (path != null) {
+                if (path.equals("/api/v1/alert-thresholds")
+                        || path.startsWith("/api/v1/alert-thresholds/")) {
+                    return alertThresholdCode;
+                }
+                if (path.equals("/api/v1/alerts") || path.startsWith("/api/v1/alerts/")) {
+                    return alertCode;
+                }
             }
         }
         return defaultCode;

@@ -57,6 +57,16 @@ public enum ErrorCode {
     ALERT_THRESHOLD_VALIDATION(
             "ALT_400_VALIDATION", "Dữ liệu ngưỡng cảnh báo không hợp lệ", HttpStatus.BAD_REQUEST),
 
+    // Alert Domain errors (ALR_xxx)
+    ALERT_NOT_FOUND(
+            "ALR_404_NOT_FOUND",
+            "Không tìm thấy cảnh báo với mã định danh yêu cầu",
+            HttpStatus.NOT_FOUND),
+    ALERT_INVALID_ID(
+            "ALR_400_INVALID_ID",
+            "Mã định danh cảnh báo không đúng định dạng UUID",
+            HttpStatus.BAD_REQUEST),
+
     // Storm Domain errors (STM_xxx)
     STORM_NOT_FOUND(
             "STM_404_NOT_FOUND",

@@ -112,11 +112,11 @@ class StormIngestionIT extends AbstractPostGisIntegrationTest {
         @DisplayName(
                 "TC-ST-01/02: Flyway chạy tới V6; GiST idx_storms_geom_current, uq_storm_track và trigger updated_at tồn tại")
         void shouldHaveFlywaySchemaArtifacts() {
-            String latestMigration =
-                    jdbcTemplate.queryForObject(
-                            "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1",
+            List<String> appliedMigrations =
+                    jdbcTemplate.queryForList(
+                            "SELECT version FROM flyway_schema_history WHERE success = TRUE ORDER BY installed_rank ASC",
                             String.class);
-            assertThat(latestMigration).isEqualTo("6");
+            assertThat(appliedMigrations).contains("1", "2", "3", "4", "5", "6");
 
             List<String> stormIndexes =
                     jdbcTemplate.queryForList(

@@ -18,6 +18,7 @@ public class GeoJsonFeature {
             example = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
     private String id;
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     @Schema(description = "Hình học không gian GeoJSON (Point, Polygon...)")
     private Geometry geometry;
 
