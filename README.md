@@ -138,4 +138,31 @@ Dự án áp dụng chặt chẽ mô hình **Harness Engineering** để phân t
 
 ---
 
+## 8. Alert Threshold API (W4-01)
+
+Set `ADMIN_API_KEY` in the backend process environment before starting Spring Boot:
+
+```bash
+export ADMIN_API_KEY="$(openssl rand -hex 32)"
+cd VNstormgis-Backend
+./gradlew bootRun --args='--spring.profiles.active=dev'
+```
+
+Public reads: `GET /api/v1/alert-thresholds` (optional `parameter` and `is_enabled`
+filters) and `GET /api/v1/alert-thresholds/{id}`. Writes require the
+`X-Admin-Api-Key` header with the configured key: `POST` creates (`201` with
+`Location`), `PUT /{id}` replaces all business fields (`200`),
+`PATCH /{id}/toggle` flips `is_enabled` once per call without a request body
+(`200`), and `DELETE /{id}` removes the threshold (`204`). Existing alerts remain
+with `threshold_id=null`. An unset or blank key rejects every write (`401`).
+
+The JSON fields are `name`, `parameter`, `operator`, `threshold_value`,
+`severity_level`, `description`, and `is_enabled`. `is_enabled` defaults to `true`
+on creation and is required for replacement with `PUT`. Parameters are `rain_1h`,
+`rain_3h`, `wind_speed`, `wind_gust`, and `storm_dist` (distance in km). Operators
+are `>=`, `>`, `<=`, `<`, and `=`; severity levels are `INFO`, `WARNING`, `DANGER`,
+and `CRITICAL`. Values must be finite and positive. Responses include the database
+trigger's `updated_at`. Errors use RFC 7807 with `ALT_*` codes. The routes and admin
+header are documented in [Swagger UI](http://localhost:8080/swagger-ui/index.html).
+
 _© 2026 UET — WebGIS for Weather of Vietnam Team._

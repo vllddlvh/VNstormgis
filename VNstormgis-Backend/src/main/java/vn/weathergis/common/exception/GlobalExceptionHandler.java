@@ -22,7 +22,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import vn.weathergis.alert.exception.AdminUnauthorizedException;
 
 /**
  * Khung xử lý lỗi toàn cục theo chuẩn quốc tế RFC 7807 Problem Details. Đảm bảo mọi lỗi trả về từ
@@ -101,7 +103,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             invalidParams.add(param);
         }
         problemDetail.setProperty("invalidParams", invalidParams);
-        enrichProblemDetail(problemDetail, ErrorCode.VALIDATION_ERROR.getCode(), request);
+        enrichProblemDetail(
+                problemDetail,
+                requestErrorCode(
+                                request,
+                                ErrorCode.VALIDATION_ERROR,
+                                ErrorCode.ALERT_THRESHOLD_VALIDATION)
+                        .getCode(),
+                request);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
@@ -138,16 +147,61 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode status,
             WebRequest request) {
         log.warn("Unreadable request body: {}", ex.getMessage());
-        return invalidParameterResponse("Nội dung JSON không hợp lệ hoặc không đọc được", request);
+        return invalidParameterResponse(
+                "Nội dung JSON không hợp lệ hoặc không đọc được",
+                request,
+                requestErrorCode(
+                        request,
+                        ErrorCode.INVALID_PARAMETER,
+                        ErrorCode.ALERT_THRESHOLD_VALIDATION));
     }
 
     private ResponseEntity<Object> invalidParameterResponse(String detail, WebRequest request) {
+        return invalidParameterResponse(
+                detail,
+                request,
+                requestErrorCode(
+                        request,
+                        ErrorCode.INVALID_PARAMETER,
+                        ErrorCode.ALERT_THRESHOLD_INVALID_PARAMETER));
+    }
+
+    private ResponseEntity<Object> invalidParameterResponse(
+            String detail, WebRequest request, ErrorCode errorCode) {
         ProblemDetail problemDetail =
                 ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
         problemDetail.setType(URI.create(ERROR_BASE_URI + "invalid-parameter"));
         problemDetail.setTitle("Tham số không hợp lệ");
-        enrichProblemDetail(problemDetail, ErrorCode.INVALID_PARAMETER.getCode(), request);
+        enrichProblemDetail(problemDetail, errorCode.getCode(), request);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body((Object) problemDetail);
+    }
+
+    private ErrorCode requestErrorCode(
+            WebRequest request, ErrorCode defaultCode, ErrorCode alertCode) {
+        if (request instanceof ServletWebRequest servletRequest) {
+            Object pattern =
+                    servletRequest
+                            .getRequest()
+                            .getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+            if (pattern != null
+                    && (pattern.toString().equals("/api/v1/alert-thresholds")
+                            || pattern.toString().startsWith("/api/v1/alert-thresholds/"))) {
+                return alertCode;
+            }
+        }
+        return defaultCode;
+    }
+
+    @ExceptionHandler(AdminUnauthorizedException.class)
+    public ResponseEntity<ProblemDetail> handleAdminUnauthorizedException(
+            AdminUnauthorizedException ex, WebRequest request) {
+        ErrorCode ec = ex.getErrorCode();
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(ec.getHttpStatus(), ex.getMessage());
+        problemDetail.setType(URI.create(ERROR_BASE_URI + "unauthorized"));
+        problemDetail.setTitle("Xác thực quản trị thất bại");
+        enrichProblemDetail(problemDetail, ec.getCode(), request);
+        return ResponseEntity.status(ec.getHttpStatus()).body(problemDetail);
     }
 
     @ExceptionHandler(SyncUnauthorizedException.class)
