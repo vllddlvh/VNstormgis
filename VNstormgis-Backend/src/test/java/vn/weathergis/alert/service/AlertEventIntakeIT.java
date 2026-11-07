@@ -24,7 +24,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import vn.weathergis.alert.config.AlertRetryProperties;
 import vn.weathergis.alert.dto.AlertGenerationJobView;
-import vn.weathergis.alert.dto.VerifiedAlertSubmission;
 import vn.weathergis.alert.repository.AlertGenerationJobRepository;
 import vn.weathergis.alert.repository.AlertRepository;
 import vn.weathergis.alert.repository.AlertThresholdRepository;
@@ -128,13 +127,8 @@ class AlertEventIntakeIT extends AbstractPostGisIntegrationTest {
         // Publish the alert and transition status to resolved, then dismissed; keys remain claimed
         UUID alertId =
                 restartedService.submitAndPublish(
-                        new VerifiedAlertSubmission(
-                                initialJob.jobId(),
-                                "Cảnh báo mưa to và gió mạnh tại Trạm Replay",
-                                "Lượng mưa đạt 60.0 mm và gió đạt 18.0 m/s tại Trạm Replay.",
-                                false,
-                                initialJob.violationKeys(),
-                                initialJob.factualSnapshot()));
+                        vn.weathergis.alert.AlertTestSubmission.claim(
+                                initialJob, false, jdbc, objectMapper));
         jdbc.update("update alerts set status = 'resolved' where id = ?", alertId);
         assertThat(restartedService.intake(replayedWhilePending)).isEmpty();
 

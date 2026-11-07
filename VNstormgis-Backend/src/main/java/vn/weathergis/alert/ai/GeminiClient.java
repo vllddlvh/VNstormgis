@@ -44,7 +44,7 @@ public class GeminiClient {
                                 com.fasterxml.jackson.databind.DeserializationFeature
                                         .FAIL_ON_TRAILING_TOKENS);
         this.instruction =
-                new ClassPathResource("prompts/proactive-alert-v1.txt")
+                new ClassPathResource("prompts/proactive-alert-v2.txt")
                         .getContentAsString(StandardCharsets.UTF_8);
         properties.validate();
         if (properties.isEnabled()) {

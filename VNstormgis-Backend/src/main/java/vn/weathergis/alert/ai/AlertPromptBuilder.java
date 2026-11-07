@@ -12,7 +12,7 @@ import vn.weathergis.alert.dto.AlertGenerationJobView;
 
 @Component
 public class AlertPromptBuilder {
-    public static final String VERSION = "proactive-alert-v1";
+    public static final String VERSION = "proactive-alert-v2";
     private static final Map<String, String> UNITS =
             Map.of(
                     "rain_1h",

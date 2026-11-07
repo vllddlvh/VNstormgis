@@ -21,7 +21,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import vn.weathergis.alert.dto.AlertGenerationJobView;
-import vn.weathergis.alert.dto.VerifiedAlertSubmission;
 import vn.weathergis.alert.service.AlertPersistenceService;
 import vn.weathergis.automation.event.ThresholdViolatedEvent;
 import vn.weathergis.automation.event.ThresholdViolatedEvent.Violation;
@@ -165,22 +164,11 @@ class AlertApiIT extends AbstractPostGisIntegrationTest {
         // 3. Submit verified content: Da Nang uses fallback=true, Hue uses fallback=false
         UUID daNangAlertId =
                 persistenceService.submitAndPublish(
-                        new VerifiedAlertSubmission(
-                                daNangJob.jobId(),
-                                "Cảnh báo mưa lớn tại Trạm Đà Nẵng",
-                                "Mẫu dự phòng: tại Trạm Đà Nẵng, rain_1h đạt 55.0 mm (>= 50.0 mm) và wind_speed đạt 18.0 m/s (>= 15.0 m/s).",
-                                true,
-                                daNangJob.violationKeys(),
-                                daNangJob.factualSnapshot()));
+                        vn.weathergis.alert.AlertTestSubmission.claim(
+                                daNangJob, true, jdbc, mapper));
         UUID hueAlertId =
                 persistenceService.submitAndPublish(
-                        new VerifiedAlertSubmission(
-                                hueJob.jobId(),
-                                "Cảnh báo bão gần tại Trạm Huế",
-                                "Tâm Bão kiểm thử cách Trạm Huế 195.5 km (ngưỡng <= 300.0 km).",
-                                false,
-                                hueJob.violationKeys(),
-                                hueJob.factualSnapshot()));
+                        vn.weathergis.alert.AlertTestSubmission.claim(hueJob, false, jdbc, mapper));
 
         // 4. GET /api/v1/alerts/active returns raw GeoJSON ordered by triggered_at DESC (Da Nang
         // first, Hue second)

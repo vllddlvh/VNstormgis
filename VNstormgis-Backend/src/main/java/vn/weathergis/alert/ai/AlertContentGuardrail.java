@@ -40,6 +40,17 @@ public class AlertContentGuardrail {
         for (int i = 0; i < violations.size(); i++) {
             ViolationSnapshot v = violations.get(i);
             if (!holds(v)) throw new IllegalArgumentException("Invalid violation relation");
+            if ("storm_dist".equals(v.parameter())
+                    && (v.stormId() == null
+                            || v.stormId().isBlank()
+                            || v.stormName() == null
+                            || v.stormName().isBlank()
+                            || v.distanceKm() == null
+                            || BigDecimal.valueOf(v.measuredValue())
+                                            .compareTo(BigDecimal.valueOf(v.distanceKm()))
+                                    != 0)) {
+                throw new IllegalArgumentException("Invalid storm facts");
+            }
             if (i > 0) explanation.append("; ");
             explanation
                     .append(LABELS.get(v.parameter()))

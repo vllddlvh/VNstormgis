@@ -2,6 +2,8 @@ package vn.weathergis.alert.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Clock;
@@ -55,12 +57,555 @@ class AlertPublicationIT extends AbstractPostGisIntegrationTest {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private AlertPersistenceService persistenceService;
 
     private final List<UUID> stationIds = new ArrayList<>();
     private final List<Integer> thresholdIds = new ArrayList<>();
 
+    @Test
+    void committedReadyJobIsPublishedOnRecoveryWithoutAnotherModelCall() {
+        UUID station = createStation("W405_READY", "Trạm Ready", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_READY",
+                                        "Trạm Ready",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station, rule, "rain_1h", ">=", 50,
+                                                        "DANGER", 60, "mm"))))
+                        .orElseThrow();
+        persistenceService.recordVerifiedContent(
+                vn.weathergis.alert.AlertTestSubmission.claim(pending, true, jdbc, objectMapper));
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        assertThat(persistenceService.retryDueReadyJobs()).isEqualTo(1);
+        assertThat(persistenceService.findJobById(pending.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.COMPLETED);
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void databaseClaimFailureDoesNotCallModelAndNextScanRecovers() {
+        UUID station = createStation("W405_CLAIM", "Trạm Claim", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_CLAIM",
+                                        "Trạm Claim",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station, rule, "rain_1h", ">=", 50,
+                                                        "DANGER", 60, "mm"))))
+                        .orElseThrow();
+        jdbc.execute(
+                """
+                create or replace function w405_fail_claim() returns trigger as $$
+                begin
+                    if NEW.claim_token is not null then raise exception 'claim failure'; end if;
+                    return NEW;
+                end; $$ language plpgsql;
+                create trigger w405_fail_claim before update on alert_generation_jobs
+                for each row execute function w405_fail_claim();
+                """);
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        null,
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome
+                                                .DISABLED,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        assertThat(persistenceService.findJobById(pending.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.PENDING);
+        verify(client, never()).generate(any());
+        jdbc.execute("drop trigger w405_fail_claim on alert_generation_jobs");
+        jdbc.execute("drop function w405_fail_claim()");
+        worker.runBatch();
+        assertThat(persistenceService.findJobById(pending.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.COMPLETED);
+    }
+
+    @Test
+    void nullMeasurementIsNotConvertedToZeroOrPublished() {
+        UUID station = createStation("W405_NULL", "Trạm Null", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_NULL",
+                                        "Trạm Null",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station, rule, "rain_1h", ">=", 50,
+                                                        "DANGER", 60, "mm"))))
+                        .orElseThrow();
+        jdbc.update(
+                "update alert_generation_jobs set factual_snapshot = jsonb_set(factual_snapshot, '{violations,0,measured_value}', 'null'::jsonb) where id = ?",
+                pending.jobId());
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select last_error from alert_generation_jobs where id = ?",
+                                String.class,
+                                pending.jobId()))
+                .isEqualTo("INVALID_FACTUAL_DATA");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alerts where location_id = ?",
+                                Integer.class,
+                                station))
+                .isZero();
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void databaseFailureBeforeReadyIsQuarantinedAndRecovers() {
+        UUID station = createStation("W405_DB", "Trạm DB", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_DB",
+                                        "Trạm DB",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station, rule, "rain_1h", ">=", 50,
+                                                        "DANGER", 60, "mm"))))
+                        .orElseThrow();
+        jdbc.execute(
+                """
+                create or replace function w405_fail_ready() returns trigger as $$
+                begin
+                    if NEW.status = 'READY' then raise exception 'test failure'; end if;
+                    return NEW;
+                end; $$ language plpgsql;
+                create trigger w405_fail_ready before update on alert_generation_jobs
+                for each row execute function w405_fail_ready();
+                """);
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        null,
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome
+                                                .DISABLED,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        assertThat(persistenceService.findJobById(pending.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.PENDING);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select quarantine_until > clock_timestamp() from alert_generation_jobs where id = ?",
+                                Boolean.class,
+                                pending.jobId()))
+                .isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alerts where location_id = ?",
+                                Integer.class,
+                                station))
+                .isZero();
+        jdbc.execute("drop trigger w405_fail_ready on alert_generation_jobs");
+        jdbc.execute("drop function w405_fail_ready()");
+        jdbc.update(
+                "update alert_generation_jobs set quarantine_until = null where id = ?",
+                pending.jobId());
+        worker.runBatch();
+        assertThat(persistenceService.findJobById(pending.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.COMPLETED);
+    }
+
+    @Test
+    void workerPublishesAcceptedDraftWithFalseFallbackFlag() {
+        UUID station = createStation("W405_AI", "Trạm AI", 108.2, 16);
+        int rule = createThreshold("wind_speed", ">=", 15, "WARNING");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_AI",
+                                        "Trạm AI",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station,
+                                                        rule,
+                                                        "wind_speed",
+                                                        ">=",
+                                                        15,
+                                                        "WARNING",
+                                                        20,
+                                                        "m/s"))))
+                        .orElseThrow();
+        var guard =
+                new vn.weathergis.alert.ai.AlertContentGuardrail(
+                        new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper));
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        guard.fallback(inv.getArgument(0)),
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome.DRAFT,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        guard,
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        var completed = persistenceService.findJobById(pending.jobId()).orElseThrow();
+        assertThat(completed.status()).isEqualTo(AlertJobStatus.COMPLETED);
+        assertThat(alertService.getAlertById(completed.alertId()).isFallback()).isFalse();
+        verify(client, times(1)).generate(any());
+    }
+
+    @Test
+    void workerHonorsBatchLimitAcrossScans() {
+        UUID one = createStation("W405_BATCH1", "Trạm Một", 108.2, 16);
+        UUID two = createStation("W405_BATCH2", "Trạm Hai", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        for (UUID station : List.of(one, two)) {
+            persistenceService.intake(
+                    new ThresholdViolatedEvent(
+                            station,
+                            "W405_BATCH",
+                            "Trạm",
+                            108.2,
+                            16,
+                            UUID.randomUUID(),
+                            EVALUATED_AT,
+                            List.of(
+                                    violation(
+                                            station, rule, "rain_1h", ">=", 50, "DANGER", 60,
+                                            "mm"))));
+        }
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        null,
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome
+                                                .DISABLED,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var properties = new vn.weathergis.alert.config.AlertWorkerProperties();
+        properties.setBatchSize(1);
+        properties.setConcurrency(2);
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        properties);
+        worker.runBatch();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alerts where location_id in (?, ?)",
+                                Integer.class,
+                                one,
+                                two))
+                .isEqualTo(1);
+        worker.runBatch();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alerts where location_id in (?, ?)",
+                                Integer.class,
+                                one,
+                                two))
+                .isEqualTo(2);
+        verify(client, times(2)).generate(any());
+    }
+
+    @Test
+    void invalidFactsAreQuarantinedAndDoNotStarveTheNextJob() {
+        UUID badStation = createStation("W405_BAD", "Trạm\nkhông hợp lệ", 108.2, 16);
+        UUID goodStation = createStation("W405_GOOD", "Trạm Tốt", 108.2, 16);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var bad =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        badStation,
+                                        "W405_BAD",
+                                        "Trạm\nkhông hợp lệ",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        badStation,
+                                                        rule,
+                                                        "rain_1h",
+                                                        ">=",
+                                                        50,
+                                                        "DANGER",
+                                                        60,
+                                                        "mm"))))
+                        .orElseThrow();
+        var good =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        goodStation,
+                                        "W405_GOOD",
+                                        "Trạm Tốt",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        goodStation,
+                                                        rule,
+                                                        "rain_1h",
+                                                        ">=",
+                                                        50,
+                                                        "DANGER",
+                                                        60,
+                                                        "mm"))))
+                        .orElseThrow();
+        jdbc.update(
+                "update alert_generation_jobs set created_at = clock_timestamp() - interval '1 minute' where id = ?",
+                bad.jobId());
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        null,
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome
+                                                .TIMEOUT,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper)),
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        worker.runBatch();
+        assertThat(persistenceService.findJobById(bad.jobId()).orElseThrow().status())
+                .isEqualTo(AlertJobStatus.PENDING);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select quarantine_until > clock_timestamp() from alert_generation_jobs where id = ?",
+                                Boolean.class,
+                                bad.jobId()))
+                .isTrue();
+        var completed = persistenceService.findJobById(good.jobId()).orElseThrow();
+        assertThat(completed.status()).isEqualTo(AlertJobStatus.COMPLETED);
+        assertThat(alertService.getAlertById(completed.alertId()).isFallback()).isTrue();
+        verify(client, times(1)).generate(any());
+    }
+
+    @Test
+    void expiredClaimIsFencedAfterConcurrentClaimAndReclaim() throws Exception {
+        UUID station = createStation("W405_LEASE", "Trạm Lease", 108.2, 16.0);
+        int rule = createThreshold("rain_1h", ">=", 50, "DANGER");
+        var pending =
+                persistenceService
+                        .intake(
+                                new ThresholdViolatedEvent(
+                                        station,
+                                        "W405_LEASE",
+                                        "Trạm Lease",
+                                        108.2,
+                                        16,
+                                        UUID.randomUUID(),
+                                        EVALUATED_AT,
+                                        List.of(
+                                                violation(
+                                                        station, rule, "rain_1h", ">=", 50,
+                                                        "DANGER", 60, "mm"))))
+                        .orElseThrow();
+        var client = mock(vn.weathergis.alert.ai.GeminiClient.class);
+        when(client.generate(any()))
+                .thenAnswer(
+                        inv ->
+                                new vn.weathergis.alert.ai.GeminiGenerationResult(
+                                        inv.getArgument(0),
+                                        null,
+                                        vn.weathergis.alert.ai.GeminiGenerationResult.Outcome
+                                                .DISABLED,
+                                        null,
+                                        "test",
+                                        Duration.ZERO,
+                                        null));
+        var guard =
+                new vn.weathergis.alert.ai.AlertContentGuardrail(
+                        new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper));
+        var worker =
+                new AlertGenerationWorker(
+                        jdbc,
+                        transactionManager,
+                        persistenceService,
+                        client,
+                        guard,
+                        new vn.weathergis.alert.config.AlertWorkerProperties());
+        AlertGenerationWorker.Claim old;
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var latch = new CountDownLatch(1);
+            var a =
+                    pool.submit(
+                            () -> {
+                                latch.await();
+                                return worker.claim();
+                            });
+            var b =
+                    pool.submit(
+                            () -> {
+                                latch.await();
+                                return worker.claim();
+                            });
+            latch.countDown();
+            var results =
+                    java.util.stream.Stream.of(a.get(), b.get())
+                            .filter(java.util.Objects::nonNull)
+                            .toList();
+            assertThat(results).hasSize(1);
+            old = results.getFirst();
+        }
+        assertThat(old.jobId()).isEqualTo(pending.jobId());
+        jdbc.update(
+                "update alert_generation_jobs set lease_until = clock_timestamp() - interval '1 second' where id = ?",
+                pending.jobId());
+        var replacement = worker.claim();
+        assertThat(replacement.token()).isNotEqualTo(old.token());
+        var content = guard.fallback(pending);
+        assertThatThrownBy(
+                        () ->
+                                persistenceService.recordVerifiedContent(
+                                        new VerifiedAlertSubmission(
+                                                pending.jobId(),
+                                                content.title(),
+                                                content.aiExplanation(),
+                                                true,
+                                                pending.violationKeys(),
+                                                pending.factualSnapshot(),
+                                                old.token())))
+                .isInstanceOf(AlertJobConflictException.class);
+        worker.process(replacement);
+        var completed = persistenceService.findJobById(pending.jobId()).orElseThrow();
+        assertThat(completed.status()).isEqualTo(AlertJobStatus.COMPLETED);
+        assertThat(alertService.getAlertById(completed.alertId()).isFallback()).isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alerts where location_id = ?",
+                                Integer.class,
+                                station))
+                .isEqualTo(1);
+        verify(client, times(1)).generate(any());
+        worker.process(old);
+        verifyNoMoreInteractions(client);
+    }
+
     @AfterEach
     void cleanFixtures() {
+        jdbc.execute("drop trigger if exists w405_fail_claim on alert_generation_jobs");
+        jdbc.execute("drop function if exists w405_fail_claim()");
+        jdbc.execute("drop trigger if exists w405_fail_ready on alert_generation_jobs");
+        jdbc.execute("drop function if exists w405_fail_ready()");
         jdbc.execute("drop trigger if exists trg_fail_key_link_w403 on alert_violation_keys");
         jdbc.execute("drop function if exists fail_key_link_w403()");
         for (UUID stationId : stationIds) {
@@ -133,13 +678,7 @@ class AlertPublicationIT extends AbstractPostGisIntegrationTest {
                 """);
 
         VerifiedAlertSubmission fallbackSubmission =
-                new VerifiedAlertSubmission(
-                        pending.jobId(),
-                        "Cảnh báo mưa lớn và gió mạnh tại Trạm Retry",
-                        "Mẫu dự phòng: lượng mưa 68.0 mm (>= 50.0 mm) và gió 19.5 m/s (>= 15.0 m/s).",
-                        true,
-                        pending.violationKeys(),
-                        pending.factualSnapshot());
+                vn.weathergis.alert.AlertTestSubmission.claim(pending, true, jdbc, objectMapper);
 
         assertThatThrownBy(() -> service.submitAndPublish(fallbackSubmission))
                 .isInstanceOf(RuntimeException.class);
@@ -237,13 +776,7 @@ class AlertPublicationIT extends AbstractPostGisIntegrationTest {
                         .orElseThrow();
 
         VerifiedAlertSubmission verifiedSubmission =
-                new VerifiedAlertSubmission(
-                        pending.jobId(),
-                        "Cảnh báo mưa lớn tại Trạm Đa Worker",
-                        "Lượng mưa 1h đạt 80.0 mm, vượt ngưỡng >= 50.0 mm tại Trạm Đa Worker.",
-                        false,
-                        pending.violationKeys(),
-                        pending.factualSnapshot());
+                vn.weathergis.alert.AlertTestSubmission.claim(pending, false, jdbc, objectMapper);
 
         // Step 1: Transition PENDING -> READY
         AlertGenerationJobView readyJob = service.recordVerifiedContent(verifiedSubmission);

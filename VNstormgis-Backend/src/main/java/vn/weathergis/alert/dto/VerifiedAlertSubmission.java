@@ -18,7 +18,18 @@ public record VerifiedAlertSubmission(
         String aiExplanation,
         Boolean isFallback,
         List<String> violationKeys,
-        AlertFactualSnapshot factualSnapshot) {
+        AlertFactualSnapshot factualSnapshot,
+        UUID claimToken) {
+
+    public VerifiedAlertSubmission(
+            UUID jobId,
+            String title,
+            String aiExplanation,
+            Boolean isFallback,
+            List<String> violationKeys,
+            AlertFactualSnapshot factualSnapshot) {
+        this(jobId, title, aiExplanation, isFallback, violationKeys, factualSnapshot, null);
+    }
 
     public VerifiedAlertSubmission {
         violationKeys = violationKeys == null ? null : List.copyOf(violationKeys);

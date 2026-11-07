@@ -45,4 +45,10 @@ public interface AlertGenerationJobRepository
 
     @Query(value = "select pg_advisory_xact_lock(:lockKey)", nativeQuery = true)
     void acquireStationLock(@Param("lockKey") long lockKey);
+
+    @Query(
+            value =
+                    "select exists(select 1 from alert_generation_jobs where id = :id and status = 'PENDING' and claim_token = :token and lease_until > clock_timestamp())",
+            nativeQuery = true)
+    boolean hasLiveClaim(@Param("id") UUID id, @Param("token") UUID token);
 }

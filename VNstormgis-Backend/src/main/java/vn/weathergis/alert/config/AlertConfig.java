@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(AlertRetryProperties.class)
+@EnableConfigurationProperties({AlertRetryProperties.class, AlertWorkerProperties.class})
 public class AlertConfig {
 
     @Bean

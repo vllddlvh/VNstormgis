@@ -17,7 +17,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import vn.weathergis.alert.domain.AlertViolationKeyEntity;
 import vn.weathergis.alert.dto.AlertDetailResponse;
 import vn.weathergis.alert.dto.AlertGenerationJobView;
-import vn.weathergis.alert.dto.VerifiedAlertSubmission;
 import vn.weathergis.alert.service.AlertPersistenceService;
 import vn.weathergis.alert.service.AlertService;
 import vn.weathergis.automation.event.ThresholdViolatedEvent;
@@ -115,13 +114,12 @@ class AlertRepositoryIT extends AbstractPostGisIntegrationTest {
 
         UUID alertId =
                 persistenceService.submitAndPublish(
-                        new VerifiedAlertSubmission(
-                                pending.jobId(),
-                                "Cảnh báo mưa lớn tại Trạm Repo",
-                                "Lượng mưa 1h tại Trạm Repo đạt 64.0 mm, vượt ngưỡng >= 50.0 mm.",
+                        vn.weathergis.alert.AlertTestSubmission.claim(
+                                pending,
                                 false,
-                                pending.violationKeys(),
-                                pending.factualSnapshot()));
+                                jdbc,
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                        .findAndRegisterModules()));
         alertIds.add(alertId);
 
         var spatial =
@@ -194,13 +192,12 @@ class AlertRepositoryIT extends AbstractPostGisIntegrationTest {
 
         UUID alertId =
                 persistenceService.submitAndPublish(
-                        new VerifiedAlertSubmission(
-                                pending.jobId(),
-                                "Cảnh báo bão gần và mưa lớn tại Trạm Liên Kết",
-                                "Tâm bão Kiểm Chứng FK cách 150.0 km (<= 300.0 km), mưa 1h đạt 72.0 mm.",
+                        vn.weathergis.alert.AlertTestSubmission.claim(
+                                pending,
                                 false,
-                                pending.violationKeys(),
-                                pending.factualSnapshot()));
+                                jdbc,
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                        .findAndRegisterModules()));
         alertIds.add(alertId);
 
         // Edit threshold and station first -> snapshot and trigger_reason remain historical

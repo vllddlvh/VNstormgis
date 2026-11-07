@@ -28,6 +28,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import vn.weathergis.alert.ai.AlertContentGuardrail;
+import vn.weathergis.alert.ai.AlertPromptBuilder;
+import vn.weathergis.alert.ai.GeminiGenerationResult.GeminiAlertDraft;
 import vn.weathergis.alert.config.AlertRetryProperties;
 import vn.weathergis.alert.domain.AlertEntity;
 import vn.weathergis.alert.domain.AlertGenerationJobEntity;
@@ -39,6 +42,7 @@ import vn.weathergis.alert.dto.AlertFactualSnapshot.ViolationSnapshot;
 import vn.weathergis.alert.dto.AlertGenerationJobView;
 import vn.weathergis.alert.dto.VerifiedAlertSubmission;
 import vn.weathergis.alert.exception.AlertJobConflictException;
+import vn.weathergis.alert.exception.InvalidFactualSnapshotException;
 import vn.weathergis.alert.repository.AlertGenerationJobRepository;
 import vn.weathergis.alert.repository.AlertRepository;
 import vn.weathergis.alert.repository.AlertThresholdRepository;
@@ -89,6 +93,7 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
     private final LocationRepository locationRepository;
     private final StormRepository stormRepository;
     private final ObjectMapper objectMapper;
+    private final AlertContentGuardrail guardrail;
     private final AlertRetryProperties retryProperties;
     private final Clock clock;
     private final TransactionTemplate requiredTx;
@@ -112,6 +117,7 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
         this.locationRepository = locationRepository;
         this.stormRepository = stormRepository;
         this.objectMapper = objectMapper;
+        this.guardrail = new AlertContentGuardrail(new AlertPromptBuilder(objectMapper));
         this.retryProperties = retryProperties;
         this.clock = clock;
         this.requiredTx = new TransactionTemplate(transactionManager);
@@ -289,6 +295,14 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
         Boolean fallbackFlag = submission.isFallback();
 
         if (job.getStatus() == AlertJobStatus.PENDING) {
+            if (submission.claimToken() == null
+                    || !jobRepository.hasLiveClaim(job.getId(), submission.claimToken())) {
+                throw new AlertJobConflictException("Claim expired or replaced: " + job.getId());
+            }
+            AlertGenerationJobView view = toJobView(job, storedSnapshot, ownedKeys);
+            if (!guardrail.accepts(view, new GeminiAlertDraft(trimmedTitle, trimmedExplanation))) {
+                throw new AlertJobConflictException("Alert content failed grounding verification");
+            }
             OffsetDateTime now = nowUtc();
             job.setStatus(AlertJobStatus.READY);
             job.setVerifiedTitle(trimmedTitle);
@@ -362,6 +376,17 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
                         "Khóa vi phạm đã được gắn với cảnh báo khác: "
                                 + keyEntity.getViolationKey());
             }
+        }
+
+        AlertGenerationJobView readyView =
+                toJobView(
+                        job,
+                        snapshot,
+                        ownedKeys.stream().map(AlertViolationKeyEntity::getViolationKey).toList());
+        if (!guardrail.accepts(
+                readyView,
+                new GeminiAlertDraft(job.getVerifiedTitle(), job.getVerifiedAiExplanation()))) {
+            throw new IllegalStateException("READY content failed grounding verification");
         }
 
         Integer thresholdId =
@@ -694,9 +719,21 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
 
     private AlertFactualSnapshot deserializeSnapshot(String json) {
         try {
+            var root = objectMapper.readTree(json);
+            var violations = root.path("violations");
+            if (!violations.isArray()
+                    || !root.path("representative_threshold").path("threshold_value").isNumber()) {
+                throw new InvalidFactualSnapshotException();
+            }
+            for (var violation : violations) {
+                if (!violation.path("measured_value").isNumber()
+                        || !violation.path("threshold_value").isNumber()) {
+                    throw new InvalidFactualSnapshotException();
+                }
+            }
             return objectMapper.readValue(json, AlertFactualSnapshot.class);
         } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Không thể đọc factual_snapshot từ CSDL", ex);
+            throw new InvalidFactualSnapshotException(ex);
         }
     }
 

@@ -295,21 +295,27 @@ class AlertPersistenceServiceTest {
                         });
         when(keyRepository.linkKeysToAlert(jobId, alertId)).thenReturn(1);
 
+        UUID token = UUID.randomUUID();
+        when(jobRepository.hasLiveClaim(jobId, token)).thenReturn(true);
+        var content =
+                new vn.weathergis.alert.ai.AlertContentGuardrail(
+                                new vn.weathergis.alert.ai.AlertPromptBuilder(objectMapper))
+                        .fallback(pending);
         VerifiedAlertSubmission submission =
                 new VerifiedAlertSubmission(
                         jobId,
-                        "  Cảnh báo mưa lớn tại Trạm Đà Nẵng  ",
-                        "  Lượng mưa 1h tại Trạm Đà Nẵng đạt 55.0 mm (ngưỡng >= 50.0 mm).  ",
+                        content.title(),
+                        content.aiExplanation(),
                         isFallback,
                         pending.violationKeys(),
-                        pending.factualSnapshot());
+                        pending.factualSnapshot(),
+                        token);
 
         UUID publishedId = service.submitAndPublish(submission);
 
         assertThat(publishedId).isEqualTo(alertId);
-        assertThat(savedAlert.get().getTitle()).isEqualTo("Cảnh báo mưa lớn tại Trạm Đà Nẵng");
-        assertThat(savedAlert.get().getAiExplanation())
-                .isEqualTo("Lượng mưa 1h tại Trạm Đà Nẵng đạt 55.0 mm (ngưỡng >= 50.0 mm).");
+        assertThat(savedAlert.get().getTitle()).isEqualTo(content.title());
+        assertThat(savedAlert.get().getAiExplanation()).isEqualTo(content.aiExplanation());
         assertThat(savedAlert.get().getIsFallback()).isEqualTo(isFallback);
         assertThat(savedAlert.get().getTriggeredAt().toInstant()).isEqualTo(EVALUATED_AT);
         assertThat(savedAlert.get().getCreatedAt().toInstant()).isEqualTo(NOW);
