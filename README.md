@@ -230,4 +230,19 @@ Run the focused W4-03 suite from `VNstormgis-Backend`:
 ./gradlew spotlessCheck test --tests 'vn.weathergis.alert.*'
 ```
 
+### Grounded Gemini alert drafts (W4-04)
+
+The backend provides an opt-in internal Gemini client for committed `PENDING` alert
+jobs. It sends only the stored factual snapshot inside a versioned
+`[FACTUAL_SYSTEM_DATA]` prompt and returns an **unverified draft** or a typed
+failure. It does not publish alerts or start a worker; W4-05 must verify the
+facts or use a deterministic fallback before publication.
+
+Set `GEMINI_ENABLED=true`, `GEMINI_API_KEY`, and a verified `GEMINI_MODEL` to
+enable the client. Defaults are a 3-second connect timeout, a 5-second total
+request deadline, 1,024 output tokens, and a 64 KiB response limit under
+`weathergis.ai.gemini`. No live request is made at startup. Run the offline
+client tests with `./gradlew test --tests 'vn.weathergis.alert.ai.*'` from
+`VNstormgis-Backend/`.
+
 _© 2026 UET — WebGIS for Weather of Vietnam Team._
