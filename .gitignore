@@ -134,5 +134,9 @@ commitlint.config.js
 package-lock.json
 package.json
 scripts/*
+!scripts/test-w4-06-ui.mjs
+!scripts/fixtures/
+scripts/fixtures/*
+!scripts/fixtures/w4-06-alerts.mjs
 !scripts/verify-week2-pipeline.sh
 !scripts/verify-week3-pipeline.sh
