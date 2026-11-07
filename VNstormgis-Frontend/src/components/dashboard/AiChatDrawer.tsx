@@ -8,7 +8,7 @@
  * @version 1.0.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Bot, X, Send, Sparkles, Navigation, Terminal } from "lucide-react";
 import { CoordinateTuple } from "@/types/map";
 
@@ -23,6 +23,8 @@ export interface AiChatMessage {
 }
 
 export interface AiChatDrawerProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** Callback điều hướng bản đồ đến tọa độ được AI gợi ý */
   onNavigateToLocation: (coords: CoordinateTuple, zoom?: number) => void;
   /** Prompt kích hoạt từ bên ngoài (ví dụ click từ Marker Popup) */
@@ -32,11 +34,18 @@ export interface AiChatDrawerProps {
 }
 
 export const AiChatDrawer: React.FC<AiChatDrawerProps> = ({
+  isOpen: controlledOpen,
+  onOpenChange,
   onNavigateToLocation,
   externalPrompt,
   onClearExternalPrompt,
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const isOpen = controlledOpen ?? localOpen;
+  const setIsOpen = useCallback((open: boolean) => {
+    setLocalOpen(open);
+    onOpenChange?.(open);
+  }, [onOpenChange]);
   const [inputQuery, setInputQuery] = useState<string>("");
   const [messages, setMessages] = useState<AiChatMessage[]>([
     {
@@ -84,7 +93,7 @@ export const AiChatDrawer: React.FC<AiChatDrawerProps> = ({
         setMessages((prev) => [...prev, copilotMsg]);
       }, 500);
     }
-  }, [externalPrompt, onClearExternalPrompt]);
+  }, [externalPrompt, onClearExternalPrompt, setIsOpen]);
 
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -159,7 +168,7 @@ export const AiChatDrawer: React.FC<AiChatDrawerProps> = ({
       <div className="absolute bottom-4 right-4 z-[1000] font-mono select-none">
         <button
           id="btn-ai-copilot-trigger"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-2 px-3 py-2 bg-[#161b13] border border-[#2d3329] hover:border-[#e2ffcc] text-[#dde2e4] hover:text-[#e2ffcc] transition-colors shadow-flat"
           title="Mở trợ lý AI Copilot"
         >

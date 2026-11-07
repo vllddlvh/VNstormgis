@@ -1,136 +1,234 @@
-/**
- * @file AlertTickerBar.tsx
- * @description Thanh băng chuyền tin tức cảnh báo khẩn cấp nổi (Floating Alert Ticker Bar) chuẩn San Rita.
- * Hiển thị các bản tin thiên tai, bão lũ thời gian thực từ Trung tâm KTTV Quốc gia.
- * Hỗ trợ tương tác trực tiếp: click vào bản tin cảnh báo để tự động điều hướng (flyTo) bản đồ đến vị trí trạm.
- *
- * @author VNstormgis Team - Frontend & Design Specialist
- * @version 1.0.0
- */
-
-import React, { useState, useEffect } from "react";
-import { AlertTriangle, ChevronLeft, ChevronRight, Navigation } from "lucide-react";
-import { WeatherAlertItem } from "@/types/map";
-import { SEVERITY_CONFIG } from "@/components/map/markerFactory";
-import { SAMPLE_WEATHER_ALERTS } from "@/data/mockMapData";
+import { useEffect, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Navigation,
+  Pause,
+  Play,
+} from "lucide-react";
+import { formatAlertTime, getAlertCoordinates } from "@/lib/alertUtils";
+import type { AlertFeature } from "@/types/alert";
+import { AlertContentSource, AlertSeverityBadge } from "./AlertSeverityBadge";
 
 export interface AlertTickerBarProps {
-  /** Danh sách các bản tin cảnh báo thiên tai */
-  alerts?: WeatherAlertItem[];
-  /** Callback khi người dùng click vào bản tin để bay đến vị trí */
-  onSelectAlert: (alert: WeatherAlertItem) => void;
+  alerts: AlertFeature[];
+  isLoading: boolean;
+  isRefreshing: boolean;
+  hasLoaded: boolean;
+  error: string | null;
+  lastSuccessfulFetchAt: string | null;
+  mapReady: boolean;
+  onSelectAlert: (alert: AlertFeature) => void;
+  onFlyTo: (alert: AlertFeature) => void;
+  className?: string;
 }
 
-export const AlertTickerBar: React.FC<AlertTickerBarProps> = ({
-  alerts = SAMPLE_WEATHER_ALERTS,
+/** Rotates published alerts without substituting samples or changing API order. */
+export function AlertTickerBar({
+  alerts,
+  isLoading,
+  isRefreshing,
+  hasLoaded,
+  error,
+  lastSuccessfulFetchAt,
+  mapReady,
   onSelectAlert,
-}) => {
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
-
-  // Tự động chuyển bản tin sau mỗi 7 giây nếu không hover
-  useEffect(() => {
-    if (isPaused || alerts.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % alerts.length);
-    }, 7000);
-
-    return () => clearInterval(interval);
-  }, [isPaused, alerts.length]);
-
-  if (!alerts || alerts.length === 0) return null;
-
+  onFlyTo,
+  className = "",
+}: AlertTickerBarProps) {
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+  const currentIndex = Math.max(
+    0,
+    alerts.findIndex((alert) => alert.id === currentId),
+  );
   const currentAlert = alerts[currentIndex];
-  const severityInfo = SEVERITY_CONFIG[currentAlert.severity];
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev - 1 + alerts.length) % alerts.length);
-  };
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReducedMotion(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  useEffect(() => {
+    setCurrentId((previous) =>
+      alerts.some((alert) => alert.id === previous)
+        ? previous
+        : (alerts[0]?.id ?? null),
+    );
+  }, [alerts]);
+  useEffect(() => {
+    if (
+      manuallyPaused ||
+      hovered ||
+      focused ||
+      reducedMotion ||
+      alerts.length <= 1
+    )
+      return;
+    const timer = window.setInterval(() => {
+      setCurrentId((previous) => {
+        const index = Math.max(
+          0,
+          alerts.findIndex((alert) => alert.id === previous),
+        );
+        return alerts[(index + 1) % alerts.length].id;
+      });
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, [alerts, manuallyPaused, hovered, focused, reducedMotion]);
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % alerts.length);
-  };
+  const navigate = (direction: number) =>
+    setCurrentId(
+      alerts[(currentIndex + direction + alerts.length) % alerts.length].id,
+    );
+  const canLocate =
+    currentAlert && mapReady && getAlertCoordinates(currentAlert) !== null;
+  const status = isLoading
+    ? "Đang tải cảnh báo…"
+    : !hasLoaded
+      ? "Không tải được cảnh báo"
+      : error
+        ? "Chưa cập nhật được · Kết quả lần tải trước"
+        : isRefreshing
+          ? "Đang cập nhật cảnh báo…"
+          : null;
 
   return (
-    <div
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      className="absolute bottom-4 left-4 right-20 md:right-auto md:max-w-2xl z-[1000] font-mono select-none"
+    <section
+      aria-label="Bản tin cảnh báo"
+      data-testid="alert-ticker"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget))
+          setFocused(false);
+      }}
+      className={`absolute bottom-20 left-3 right-3 sm:bottom-4 z-[1000] max-w-2xl border border-charcoal bg-carbon font-mono text-topo sm:left-4 sm:right-64 ${className}`}
     >
-      <div className="bg-[#161b13] border border-[#2d3329] shadow-flat flex items-stretch">
-        {/* Khối Nhãn Cảnh Báo Khẩn */}
-        <div
-          className="px-3 py-2 flex items-center gap-1.5 border-r border-[#2d3329]"
-          style={{ backgroundColor: `${severityInfo.bgHex}15` }}
+      {status && (
+        <p
+          role="status"
+          className="border-b border-charcoal px-3 py-2 text-[10px] text-sage"
         >
-          <AlertTriangle className="w-4 h-4 animate-pulse" style={{ color: severityInfo.bgHex }} />
-          <span
-            className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline"
-            style={{ color: severityInfo.bgHex }}
-          >
-            {severityInfo.name}
-          </span>
-        </div>
-
-        {/* Khối Nội Dung Bản Tin */}
+          {status}
+          {error && lastSuccessfulFetchAt
+            ? ` · Tải thành công: ${formatAlertTime(lastSuccessfulFetchAt)}`
+            : ""}
+        </p>
+      )}
+      {!currentAlert ? (
+        hasLoaded ? (
+          <p className="p-3 text-xs text-sage">
+            {error
+              ? "Lần tải trước: không có cảnh báo đang hoạt động"
+              : "Không có cảnh báo đang hoạt động"}
+          </p>
+        ) : null
+      ) : (
         <div
-          onClick={() => onSelectAlert(currentAlert)}
-          className="flex-1 px-3 py-1.5 flex flex-col justify-center cursor-pointer hover:bg-[#1a2117] transition-colors overflow-hidden"
-          title="Click để định vị bản đồ đến tâm điểm trạm cảnh báo"
+          data-alert-id={currentAlert.id}
+          data-severity={currentAlert.properties.severity_level}
+          data-fallback={String(currentAlert.properties.is_fallback)}
         >
-          <div className="flex items-center gap-2 text-[10px]">
-            <span className="text-[#e2ffcc] font-bold">[{currentAlert.code}]</span>
-            <span className="text-[#84907f] uppercase">{currentAlert.stationName}</span>
-            <span className="text-[#2d3329]">•</span>
-            <span className="text-[#84907f] text-[9px]">{currentAlert.time}</span>
-          </div>
-          <div className="text-xs text-[#dde2e4] font-medium truncate tracking-tight">
-            {currentAlert.headline}
-          </div>
-        </div>
-
-        {/* Khối Nút Điều Hướng FlyTo & Next/Prev */}
-        <div className="flex items-center border-l border-[#2d3329] bg-[#1a2117]">
-          {/* Nút FlyTo */}
           <button
-            id="btn-alert-flyto"
+            type="button"
             onClick={() => onSelectAlert(currentAlert)}
-            className="h-full px-2.5 text-[9px] uppercase font-bold text-[#e2ffcc] hover:bg-[#242c20] border-r border-[#2d3329] flex items-center gap-1 transition-colors"
-            title="Định vị đến vị trí trạm này"
+            className="block w-full space-y-2 p-3 text-left hover:bg-gis-panel focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
           >
-            <Navigation className="w-3 h-3 text-[#e2ffcc]" />
-            <span className="hidden lg:inline">XEM VỊ TRÍ</span>
-          </button>
-
-          {/* Bộ điều khiển chuyển bản tin */}
-          <div className="flex items-center">
-            <button
-              id="btn-alert-prev"
-              onClick={handlePrev}
-              className="p-1.5 text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-              title="Bản tin trước"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="text-[9px] text-[#84907f] px-1">
-              {currentIndex + 1}/{alerts.length}
+            <span className="flex flex-wrap items-center gap-2">
+              <AlertSeverityBadge
+                severity={currentAlert.properties.severity_level}
+              />
+              <AlertContentSource
+                isFallback={currentAlert.properties.is_fallback}
+              />
             </span>
-            <button
-              id="btn-alert-next"
-              onClick={handleNext}
-              className="p-1.5 text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-              title="Bản tin kế tiếp"
+            <span
+              className="block truncate text-xs font-bold"
+              title={currentAlert.properties.title || undefined}
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              {currentAlert.properties.title || "Chưa có tiêu đề"}
+            </span>
+            <span className="block truncate text-[10px] text-sage">
+              {currentAlert.properties.location_name || "Chưa có tên trạm"} ·{" "}
+              {formatAlertTime(currentAlert.properties.triggered_at)}
+            </span>
+          </button>
+          <div className="flex flex-wrap items-center justify-between gap-1 border-t border-charcoal px-2 py-1">
+            <button
+              type="button"
+              onClick={() => onFlyTo(currentAlert)}
+              disabled={!canLocate}
+              aria-label="Xem vị trí cảnh báo đang hiển thị"
+              title={
+                !mapReady
+                  ? "Bản đồ chưa sẵn sàng"
+                  : !canLocate
+                    ? "Cảnh báo không có tọa độ hợp lệ"
+                    : "Xem vị trí cảnh báo"
+              }
+              className="inline-flex min-h-9 items-center gap-1 px-1 text-[10px] font-bold text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Navigation aria-hidden="true" className="h-3 w-3" /> XEM VỊ TRÍ
             </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                disabled={alerts.length <= 1}
+                aria-label="Bản tin trước"
+                className="p-2 text-sage hover:text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint disabled:opacity-50"
+              >
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+              </button>
+              <span className="text-[10px] text-sage">
+                {currentIndex + 1}/{alerts.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(1)}
+                disabled={alerts.length <= 1}
+                aria-label="Bản tin kế tiếp"
+                className="p-2 text-sage hover:text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint disabled:opacity-50"
+              >
+                <ChevronRight aria-hidden="true" className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setManuallyPaused((previous) => !previous)}
+                disabled={reducedMotion || alerts.length <= 1}
+                aria-label={
+                  manuallyPaused
+                    ? "Chạy luân phiên bản tin"
+                    : "Dừng luân phiên bản tin"
+                }
+                aria-pressed={manuallyPaused || reducedMotion}
+                title={
+                  reducedMotion
+                    ? "Đã dừng theo tùy chọn giảm chuyển động"
+                    : undefined
+                }
+                className="p-2 text-sage hover:text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint disabled:opacity-50"
+              >
+                {manuallyPaused || reducedMotion ? (
+                  <Play aria-hidden="true" className="h-3 w-3" />
+                ) : (
+                  <Pause aria-hidden="true" className="h-3 w-3" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </section>
   );
-};
+}
 
 export default AlertTickerBar;

@@ -16,18 +16,21 @@ import React, {
   useMemo,
 } from "react";
 import L from "leaflet";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, Bell, RefreshCw } from "lucide-react";
 import { HeaderNavbar } from "./HeaderNavbar";
 import { DisclaimerFooter } from "./DisclaimerFooter";
 import { BaseMap } from "@/components/map/BaseMap";
 import { LayerControlDrawer } from "@/components/dashboard/LayerControlDrawer";
 import { MapNavigationControls } from "@/components/dashboard/MapNavigationControls";
 import { AlertTickerBar } from "@/components/dashboard/AlertTickerBar";
+import { AlertPanel } from "@/components/dashboard/AlertPanel";
+import { useAlerts } from "@/hooks/useAlerts";
+import { ALERT_FOCUS_ZOOM, getAlertCoordinates } from "@/lib/alertUtils";
+import type { AlertFeature } from "@/types/alert";
 import { AiChatDrawer } from "@/components/dashboard/AiChatDrawer";
 import {
   CoordinateTuple,
   LayerVisibilityState,
-  WeatherAlertItem,
   WeatherSeverityLevel,
   StationMarkerData,
 } from "@/types/map";
@@ -50,10 +53,7 @@ import {
   toStormTrackData,
 } from "@/lib/stormUtils";
 import { STORM_REFRESH_INTERVAL_MS } from "@/types/storm";
-import {
-  INITIAL_MOCK_STATIONS,
-  SAMPLE_WEATHER_ALERTS,
-} from "@/data/mockMapData";
+import { INITIAL_MOCK_STATIONS } from "@/data/mockMapData";
 
 /** Cầu nối thang 4 bậc mưa (backend) → thang 6 bậc icon trạm (markerFactory). */
 const RAIN_SEVERITY_TO_MARKER: Record<RainSeverityLevel, WeatherSeverityLevel> =
@@ -77,6 +77,53 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
 }) => {
   // 1. Quản lý Leaflet Map Instance
   const mapRef = useRef<L.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const alerts = useAlerts();
+  const refreshAlerts = alerts.refresh;
+  const [rightDrawer, setRightDrawer] = useState<
+    "layers" | "alerts" | "chat" | null
+  >(() => (window.matchMedia("(min-width: 768px)").matches ? "layers" : null));
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const [alertNotice, setAlertNotice] = useState<string | null>(null);
+  const alertTriggerRef = useRef<HTMLButtonElement>(null);
+  const selectedAlert =
+    alerts.alerts.find((alert) => alert.id === selectedAlertId) ?? null;
+
+  useEffect(() => {
+    if (
+      selectedAlertId &&
+      alerts.hasLoaded &&
+      !alerts.isRefreshing &&
+      !alerts.error &&
+      !selectedAlert
+    ) {
+      setSelectedAlertId(null);
+      setAlertNotice("Cảnh báo không còn trong danh sách đang hoạt động");
+    }
+  }, [
+    selectedAlertId,
+    selectedAlert,
+    alerts.hasLoaded,
+    alerts.isRefreshing,
+    alerts.error,
+  ]);
+
+  const handleLayersOpenChange = useCallback((open: boolean) => {
+    setRightDrawer(open ? "layers" : null);
+  }, []);
+  const handleChatOpenChange = useCallback((open: boolean) => {
+    setRightDrawer(open ? "chat" : null);
+  }, []);
+  const handleCloseAlerts = useCallback(() => {
+    setRightDrawer(null);
+    setSelectedAlertId(null);
+    alertTriggerRef.current?.focus();
+  }, []);
+  const handleSelectAlert = useCallback((alert: AlertFeature) => {
+    setAlertNotice(null);
+    setSelectedAlertId(alert.id);
+    setRightDrawer("alerts");
+  }, []);
 
   // 2. Trạng thái kết nối Backend Spring Boot & Dữ liệu trạm PostGIS
   const [backendStatus, setBackendStatus] = useState<StatusType>("loading");
@@ -128,9 +175,10 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     null,
   );
 
-  // 5d. Chế độ tác nghiệp bão (W3-07 quyết định #7) — thả VIETNAM_MAX_BOUNDS tạm thời khi bay tới bão,
-  // khôi phục duy nhất tại VỀ TOÀN CẢNH. Lộ trạng thái qua data-storm-ops-mode để kiểm thử.
-  const [stormOpsMode, setStormOpsMode] = useState<boolean>(false);
+  // Storm and alert focus share unrestricted bounds; only VỀ TOÀN CẢNH restores them.
+  const [mapFocusMode, setMapFocusMode] = useState<
+    "default" | "storm" | "alert"
+  >("default");
 
   // 5c. Quỹ đạo bão active (SR-STM-003 — W3-06) — nạp EAGER cho mọi bão active trong cùng chu kỳ.
   const [stormTracks, setStormTracks] = useState<
@@ -281,9 +329,10 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
 
   // LÀM MỚI: nạp lõi thành công rồi mới kéo nhịp bão (Mục 3.7).
   const checkHealthAndLoadData = useCallback(async () => {
+    void refreshAlerts();
     const coreLoaded = await loadCoreData();
     if (coreLoaded) void refreshStorms();
-  }, [loadCoreData, refreshStorms]);
+  }, [loadCoreData, refreshStorms, refreshAlerts]);
 
   useEffect(() => {
     void loadCoreData();
@@ -338,14 +387,40 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
 
   const handleMapReady = useCallback((map: L.Map) => {
     mapRef.current = map;
+    setMapReady(true);
   }, []);
 
-  // Đưa bản đồ về trung tâm toàn cảnh Việt Nam — đồng thời là lối ra duy nhất của chế độ bão.
+  const handleTabChange = useCallback(
+    (tab: "operations" | "diagnostics") => {
+      if (tab === activeTab) return;
+      mapRef.current = null;
+      setMapReady(false);
+      setRightDrawer(null);
+      setMapFocusMode("default");
+      setActiveTab(tab);
+    },
+    [activeTab],
+  );
+
+  const handleFlyToAlert = useCallback((alert: AlertFeature) => {
+    const map = mapRef.current;
+    const coordinates = getAlertCoordinates(alert);
+    if (!map || !coordinates || !map.getContainer().isConnected) return;
+    map.stop();
+    map.setMaxBounds(undefined);
+    setMapFocusMode("alert");
+    map.flyTo(coordinates, ALERT_FOCUS_ZOOM, {
+      duration: 1.5,
+      animate: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    });
+  }, []);
+
+  // Đưa bản đồ về toàn cảnh Việt Nam và khôi phục bounds sau khi định vị bão/cảnh báo.
   const handleResetCenter = () => {
     if (mapRef.current) {
       // Khôi phục bounds TRƯỚC khi bay — set sau flyTo sẽ bị bỏ qua/ghi đè giữa chuyến (Runbook 7.5).
       mapRef.current.setMaxBounds(VIETNAM_MAX_BOUNDS);
-      setStormOpsMode(false);
+      setMapFocusMode("default");
       mapRef.current.flyTo(VIETNAM_DEFAULT_CENTER, VIETNAM_DEFAULT_ZOOM, {
         duration: 1.5,
       });
@@ -359,7 +434,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     if (!map) return;
     // Leaflet coi bounds rỗng là null và gỡ luôn listener kẹp pan — đúng ngữ nghĩa "thả ràng buộc".
     map.setMaxBounds(undefined);
-    setStormOpsMode(true);
+    setMapFocusMode("storm");
     map.flyTo(storm.latLng, STORM_FOCUS_ZOOM, { duration: 1.5 });
   }, []);
 
@@ -392,12 +467,6 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     }));
   };
 
-  // Click vào bản tin cảnh báo
-  const handleSelectAlert = (alert: WeatherAlertItem) => {
-    setSelectedStationId(alert.id);
-    handleFlyTo(alert.coordinates, 11);
-  };
-
   // Toàn màn hình
   const handleToggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -420,11 +489,11 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
         mapCenter={mapCenter}
         mapZoom={mapZoom}
         cursorCoords={cursorCoords}
-        isRefreshing={isRefreshing}
+        isRefreshing={isRefreshing || alerts.isRefreshing}
         onRefreshHealth={checkHealthAndLoadData}
         onResetView={handleResetCenter}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
       />
@@ -433,7 +502,8 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
       {activeTab === "operations" ? (
         /* CHẾ ĐỘ 01: BẢN ĐỒ TÁC CHIẾN TRÀN VIỀN (FULL-BLEED SPATIAL CANVAS) */
         <main
-          data-storm-ops-mode={stormOpsMode ? "on" : "off"}
+          data-storm-ops-mode={mapFocusMode === "storm" ? "on" : "off"}
+          data-map-focus-mode={mapFocusMode}
           className="flex-1 relative w-full h-[calc(100vh-56px-24px)] overflow-hidden"
         >
           {/* Banner Cảnh Báo Mất Kết Nối Backend Spring Boot (San Rita Alert Banner) */}
@@ -493,27 +563,69 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
           />
 
           {/* Bảng Điều Khiển Lớp Nổi (Floating Layer Control, Top Right, z-1000) */}
-          <LayerControlDrawer
-            activeTileId={activeTileId}
-            onTileChange={setActiveTileId}
-            layerVisibility={layerVisibility}
-            onToggleLayer={handleToggleLayer}
-            layerOpacity={layerOpacity}
-            onOpacityChange={handleOpacityChange}
-            stationCount={filteredStations.length}
-            totalStationCount={stations.length}
-            stormCount={
-              stormState === "idle" || stormState === "loading"
-                ? undefined
-                : stormCenters.length
-            }
-            stormState={stormState}
-            stormLastSyncedAt={lastStormSyncedAt}
-            selectedRegion={selectedRegion}
-            onRegionChange={setSelectedRegion}
-            lastSyncedAt={lastSyncedAt}
-            isSyncing={isRefreshing}
-          />
+          <button
+            ref={alertTriggerRef}
+            id="btn-open-alerts"
+            aria-controls="alert-panel"
+            aria-expanded={rightDrawer === "alerts"}
+            onClick={() => {
+              if (rightDrawer === "alerts") handleCloseAlerts();
+              else setRightDrawer("alerts");
+            }}
+            className="absolute top-4 left-4 z-[1060] flex items-center gap-2 border border-charcoal bg-carbon px-3 py-2 text-xs text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
+          >
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            CẢNH BÁO
+            {alerts.hasLoaded && (
+              <span
+                aria-label={
+                  alerts.error ? "Số lượng ở lần tải cuối" : "Số cảnh báo"
+                }
+              >
+                {alerts.alerts.length}
+                {alerts.error ? " · CŨ" : ""}
+              </span>
+            )}
+          </button>
+          <div hidden={rightDrawer === "alerts" || rightDrawer === "chat"}>
+            <LayerControlDrawer
+              isOpen={rightDrawer === "layers"}
+              onOpenChange={handleLayersOpenChange}
+              activeTileId={activeTileId}
+              onTileChange={setActiveTileId}
+              layerVisibility={layerVisibility}
+              onToggleLayer={handleToggleLayer}
+              layerOpacity={layerOpacity}
+              onOpacityChange={handleOpacityChange}
+              stationCount={filteredStations.length}
+              totalStationCount={stations.length}
+              stormCount={
+                stormState === "idle" || stormState === "loading"
+                  ? undefined
+                  : stormCenters.length
+              }
+              stormState={stormState}
+              stormLastSyncedAt={lastStormSyncedAt}
+              selectedRegion={selectedRegion}
+              onRegionChange={setSelectedRegion}
+              lastSyncedAt={lastSyncedAt}
+              isSyncing={isRefreshing}
+            />
+          </div>
+
+          {rightDrawer === "alerts" && (
+            <AlertPanel
+              {...alerts}
+              selectedAlert={selectedAlert}
+              notice={alertNotice}
+              mapReady={mapReady}
+              onSelectAlert={handleSelectAlert}
+              onBack={() => setSelectedAlertId(null)}
+              onRefresh={alerts.refresh}
+              onClose={handleCloseAlerts}
+              onFlyTo={handleFlyToAlert}
+            />
+          )}
 
           {/* Cụm Phím Thu Phóng Nổi (Floating Navigation Controls, Right Edge Centered, z-1000) */}
           <MapNavigationControls
@@ -525,13 +637,19 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
           />
 
           {/* Thanh Cuộn Bản Tin Cảnh Báo Nổi (Floating Alert Ticker, Bottom Left-Center, z-1000) */}
-          <AlertTickerBar
-            alerts={SAMPLE_WEATHER_ALERTS}
-            onSelectAlert={handleSelectAlert}
-          />
+          {rightDrawer !== "alerts" && (
+            <AlertTickerBar
+              {...alerts}
+              mapReady={mapReady}
+              onSelectAlert={handleSelectAlert}
+              onFlyTo={handleFlyToAlert}
+            />
+          )}
 
           {/* Trợ Lý AI Khí Tượng Nổi & Ngăn Kéo Đối Thoại (AiChatDrawer, Bottom Right, z-1000 / z-1200) */}
           <AiChatDrawer
+            isOpen={rightDrawer === "chat"}
+            onOpenChange={handleChatOpenChange}
             onNavigateToLocation={(coords, zoom) =>
               handleFlyTo(coords, zoom || 11)
             }

@@ -47,6 +47,8 @@ import {
 } from "@/lib/stormUtils";
 
 export interface LayerControlDrawerProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** Nguồn bản đồ nền hiện tại */
   activeTileId: string;
   /** Callback thay đổi nguồn bản đồ nền */
@@ -80,6 +82,8 @@ export interface LayerControlDrawerProps {
 }
 
 export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
+  isOpen: controlledOpen,
+  onOpenChange,
   activeTileId,
   onTileChange,
   layerVisibility,
@@ -98,9 +102,14 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
 }) => {
   // Màn hình hẹp (< 768px): mặc định thu gọn để không che phần lớn bản đồ;
   // người dùng mở lại bằng nút "LỚP BẢN ĐỒ".
-  const [isOpen, setIsOpen] = useState<boolean>(() =>
-    window.matchMedia("(min-width: 768px)").matches,
+  const [localOpen, setLocalOpen] = useState<boolean>(
+    () => window.matchMedia("(min-width: 768px)").matches,
   );
+  const isOpen = controlledOpen ?? localOpen;
+  const setIsOpen = (open: boolean) => {
+    setLocalOpen(open);
+    onOpenChange?.(open);
+  };
 
   // Đếm tổng số lớp dữ liệu đang kích hoạt
   const activeLayerCount =
