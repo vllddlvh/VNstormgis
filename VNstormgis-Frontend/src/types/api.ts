@@ -20,5 +20,6 @@ export interface ProblemDetail {
   detail?: string;
   instance?: string;
   timestamp?: string;
+  errorCode?: string;
   invalidParams?: Record<string, string>;
 }

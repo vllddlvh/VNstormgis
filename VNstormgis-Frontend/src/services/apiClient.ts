@@ -29,6 +29,7 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError<ProblemDetail>) => {
+    if (axios.isCancel(error)) return Promise.reject(error);
     if (error.response?.data) {
       const problem = error.response.data;
       console.error(
