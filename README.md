@@ -20,60 +20,27 @@
 
 ## 2. Cấu Trúc Monorepo (Monorepo Layout)
 
-Dự án được tổ chức theo mô hình **Monorepo** tinh gọn, phân tách 4 phân hệ chính:
+Dự án được tổ chức theo mô hình **Monorepo**:
 
 ```text
 VNstormgis/
-├── .github/workflows/         # CI/CD Workflows (backend-ci.yml, frontend-ci.yml)
-├── .husky/                    # Git Hooks tự động hóa (commit-msg, pre-commit)
-├── backend/                   # Backend API Service (Spring Boot 3.3, Java 21)
-├── frontend/                  # WebGIS Client (React 18, Vite, Leaflet, Tailwind)
-├── deployment/                # Hạ tầng Docker Compose, Nginx gateway, biến môi trường
-├── docs/                      # Toàn bộ tài liệu kiến trúc, BRD/SRS & nhật ký Sprint
-├── .editorconfig              # Quy chuẩn soạn thảo đa IDE
-├── .gitignore                 # Bộ lọc loại trừ rác và mã bảo mật
-├── .lintstagedrc.json         # Cấu hình tự động format mã nguồn
-├── commitlint.config.js       # Quy chuẩn Conventional Commits v1.0.0
-├── package.json               # Công cụ quản trị Monorepo cấp Root
-├── AGENT.md                   # Cẩm nang vận hành và kim chỉ nam kỹ thuật cho AI Agent
-├── PROGRESS.md                # Bảng theo dõi tiến độ thực thi & trạng thái kiểm định
-└── README.md                  # Hướng dẫn Onboarding nhà phát triển
+├── VNstormgis-Backend/        # Spring Boot API và Flyway migrations
+├── VNstormgis-Frontend/       # React, Vite và Leaflet
+├── VNstormgis-Deployment/     # Docker Compose và mẫu biến môi trường
+├── scripts/                  # Script kiểm định tích hợp
+├── docs/                     # Tài liệu kiến trúc và Sprint
+├── RUN_LOCAL.md              # Hướng dẫn chạy end to end
+└── README.md
 ```
 
 ---
 
-## 3. Hướng Dẫn Thiết Lập Môi Trường Phát Triển (Quickstart Guide)
+## 3. Hướng Dẫn Chạy Local End to End
 
-### Yêu Cầu Tiên Quyết (Prerequisites)
-
-- **Node.js:** v20.x hoặc v22.x LTS (`node -v`)
-- **Java Development Kit (JDK):** OpenJDK 21 LTS (`java -version`)
-- **Docker & Docker Compose:** Docker Desktop 4.x+ (`docker compose version`)
-- **Git:** >= 2.38
-
-### Các Bước Bắt Đầu Nhanh (Step-by-Step Onboarding)
-
-```bash
-# Bước 1: Clone kho lưu trữ
-git clone https://github.com/vllddlvh/WebGIS-for-weather-of-Vietnam.git
-cd VNstormgis
-
-# Bước 2: Chuyển sang nhánh staging mới nhất
-git checkout staging
-git pull origin staging
-
-# Bước 3: Cài đặt công cụ quản trị Monorepo & kích hoạt Git Hooks
-npm install
-
-# Bước 4: Sao chép tệp biến môi trường mẫu
-cp deployment/env/.env.example deployment/env/.env.local
-
-# Bước 5: Khởi động cơ sở dữ liệu PostGIS & Redis bằng Docker
-docker compose -f deployment/docker-compose.yml up -d
-
-# Bước 6: Tạo nhánh tính năng cho nhiệm vụ được giao
-git checkout -b feature/<mã-task>-<tên-tính-năng>
-```
+Xem [RUN_LOCAL.md](RUN_LOCAL.md) để cài môi trường, khởi động PostGIS/Redis,
+backend và frontend, đồng bộ dữ liệu thực, kiểm tra API/UI và dừng ứng dụng.
+Các lệnh trong hướng dẫn dùng cấu trúc thư mục `VNstormgis-*` hiện tại; repo
+không có `package.json` ở thư mục gốc.
 
 ---
 
@@ -106,15 +73,10 @@ Hệ thống sử dụng **Husky + Commitlint** để tự động kiểm tra đ
 
 ## 5. Lệnh Quản Trị Hệ Thống Thường Dùng (Useful Commands)
 
-| Lệnh Thực Thi                                           | Mục Đích                                                        |
-| :------------------------------------------------------ | :-------------------------------------------------------------- |
-| `npm run lint:root`                                     | Kiểm tra định dạng JSON, YAML, Markdown toàn dự án              |
-| `npm run format:root`                                   | Tự động format toàn bộ JSON, YAML, Markdown                     |
-| `npm run backend:format`                                | Tự động format mã nguồn Java bằng Google Java Format (Spotless) |
-| `npm run frontend:lint`                                 | Chạy ESLint kiểm tra lỗi mã nguồn React TypeScript              |
-| `npm run frontend:format`                               | Tự động format mã nguồn React bằng Prettier                     |
-| `docker compose -f deployment/docker-compose.yml up -d` | Khởi động PostGIS 16 và Redis 7.2                               |
-| `docker compose -f deployment/docker-compose.yml ps`    | Kiểm tra trạng thái healthcheck các container                   |
+- Chạy toàn bộ ứng dụng: theo [RUN_LOCAL.md](RUN_LOCAL.md).
+- Kiểm tra backend: `(cd VNstormgis-Backend && ./gradlew spotlessCheck test)`.
+- Kiểm tra frontend: `(cd VNstormgis-Frontend && npm run type-check && npm run lint && npm run build)`.
+- Kiểm định tích hợp sau khi có dữ liệu thực: `bash scripts/verify-week3-pipeline.sh`.
 
 ---
 
@@ -122,19 +84,19 @@ Hệ thống sử dụng **Husky + Commitlint** để tự động kiểm tra đ
 
 Dự án áp dụng chặt chẽ mô hình **Harness Engineering** để phân tách rõ ràng giữa hướng dẫn phát triển, cẩm nang vận hành cho AI Agent và bảng theo dõi tiến độ:
 
-- 📋 **[PROGRESS.md](file:///Users/dllv/Documents/GitHub/VNstormgis/PROGRESS.md)**: Nguồn chân lý duy nhất (Single Source of Truth) theo dõi toàn bộ tiến độ thực thi, ma trận 15 nhiệm vụ Tuần 1, vận tốc Sprint, trạng thái các cổng kiểm định chất lượng (Quality Gates) và nhật ký bàn giao nhiệm vụ.
-- 🤖 **[AGENT.md](file:///Users/dllv/Documents/GitHub/VNstormgis/AGENT.md)**: Cẩm nang vận hành thực thi, mô hình tư duy kiến trúc (Modular Monolith), các rào chắn kỹ thuật bất biến (Spatial Coordinates WGS84, Grounded AI anti-hallucination) và bảng lệnh chuẩn dành cho AI Agent.
+- **[RUN_LOCAL.md](RUN_LOCAL.md):** Các bước chạy và tự kiểm tra toàn bộ ứng dụng trên máy cá nhân.
+- **`AGENTS.md`, `PROGRESS.md`:** Hướng dẫn cho coding agent và nhật ký tiến độ trong workspace nội bộ (nếu có).
 
 ---
 
 ## 7. Tài Liệu Dự Án (Documentation Reference)
 
-- [Kế hoạch chi tiết Tuần 1](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/week1/README.md)
-- [Kiến trúc hệ thống (System Architecture)](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/5.%20System%20Architecture.md)
-- [Đặc tả RESTful API](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/2.%20API%20docs.md)
-- [Thiết kế CSDL không gian ERD](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/1.%20ERD.md)
-- [Hạ tầng triển khai & CI/CD](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/7.%20Deployment%20Infrastructure.md)
-- [Lộ trình tổng thể Master Timeline](file:///Users/dllv/Documents/GitHub/VNstormgis/docs/The%20plans%20of%20project/8.%20Master%20Timeline.md)
+- [Kế hoạch chi tiết Tuần 1](docs/week1/README.md)
+- [Kiến trúc hệ thống (System Architecture)](<docs/The plans of project/5. System Architecture.md>)
+- [Đặc tả RESTful API](<docs/The plans of project/2. API docs.md>)
+- [Thiết kế CSDL không gian ERD](<docs/The plans of project/1. ERD.md>)
+- [Hạ tầng triển khai & CI/CD](<docs/The plans of project/7. Deployment Infrastructure.md>)
+- [Lộ trình tổng thể Master Timeline](<docs/The plans of project/8. Master Timeline.md>)
 
 ---
 

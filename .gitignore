@@ -133,6 +133,8 @@ commitlint.config.js
 .husky
 package-lock.json
 package.json
+!VNstormgis-Frontend/package-lock.json
+!VNstormgis-Frontend/package.json
 scripts/*
 !scripts/test-w4-06-ui.mjs
 !scripts/fixtures/
