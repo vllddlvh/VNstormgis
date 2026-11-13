@@ -142,3 +142,6 @@ scripts/fixtures/*
 !scripts/fixtures/w4-06-alerts.mjs
 !scripts/verify-week2-pipeline.sh
 !scripts/verify-week3-pipeline.sh
+!scripts/verify-week4-pipeline.sh
+!scripts/W4-08-RUNBOOK.md
+artifacts/
