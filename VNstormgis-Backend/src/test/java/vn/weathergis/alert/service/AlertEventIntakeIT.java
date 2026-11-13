@@ -363,6 +363,35 @@ class AlertEventIntakeIT extends AbstractPostGisIntegrationTest {
                         """);
         assertThat(latestAudit.get("status")).isEqualTo("FAILED");
         assertThat(latestAudit.get("error_message")).isNotNull();
+
+        // Re-evaluating the same committed source observation can recreate the same key.
+        // This does not recover a superseded observation without a durable outbox/replay source.
+        evaluationScheduler.evaluateAfterSync(
+                new WeatherSyncResult(
+                        "OPENWEATHERMAP", "SUCCESS", 1, 1, observedAt, observedAt, null));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from alert_generation_jobs where location_id = ?",
+                                Integer.class,
+                                stationId))
+                .isEqualTo(1);
+        String recoveredKey =
+                jdbc.queryForObject(
+                        """
+                        select violation_key from alert_violation_keys
+                        where job_id in (select id from alert_generation_jobs where location_id = ?)
+                          and violation_key like ?
+                        """,
+                        String.class,
+                        stationId,
+                        "v1:" + stationId + ":" + validRule + ":%");
+        assertThat(recoveredKey)
+                .isEqualTo("v1:" + stationId + ":" + validRule + ":" + observedAt.toInstant());
+        assertThat(
+                        jdbc.queryForObject(
+                                "select status from data_sync_logs where source = 'AI_MONITOR' order by id desc limit 1",
+                                String.class))
+                .isEqualTo("SUCCESS");
     }
 
     private AlertPersistenceService newServiceInstance() {

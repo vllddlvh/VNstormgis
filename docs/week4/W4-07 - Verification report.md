@@ -1,0 +1,49 @@
+# W4-07 — Verification report
+
+Date: 2026-11-13. Branch: `codex/w4-06-alert-panel`; base commit: `ec70ec7`. This report covers the W4-07 working-tree changes on that base. Test data used a disposable Testcontainers PostGIS 16/3.4 database, a dynamic-port WireMock Gemini endpoint, and the real Spring evaluator, listener, worker, persistence, and HTTP controllers. No live Gemini key or weather database was used.
+
+## Results and rerun commands
+
+Run from `VNstormgis-Backend/` with Docker available:
+
+```bash
+./gradlew test --tests 'vn.weathergis.alert.AlertPipelineIT' --tests 'vn.weathergis.alert.AlertGeminiFaultIT'
+./gradlew spotlessCheck test bootJar jacocoTestReport
+```
+
+The focused command passed: **19 tests, 0 failures/errors/skips**. The final full gate, run after the last test edit and formatting, passed: **539 tests in 59 suites, 0 failures, 0 errors, 1 skipped**. The skip is the opt-in `GeminiLiveSmokeTest`. XML: `VNstormgis-Backend/build/test-results/test/TEST-*.xml`; HTML: `VNstormgis-Backend/build/reports/tests/test/index.html`; coverage: `VNstormgis-Backend/build/reports/jacoco/test/jacocoTestReport.xml` and `VNstormgis-Backend/build/reports/jacoco/test/html/index.html`.
+
+For stability, the three PostGIS methods `AlertPublicationIT#expiredClaimIsFencedAfterConcurrentClaimAndReclaim`, `AlertPublicationIT#failureAfterAlertInsertBeforeKeyLinkRollsBackAlertAndSchedulesBoundedRetryThenRecovers`, and `AlertEventIntakeIT#intakeFailureRollsBackJobAndKeysAndMarksAiMonitorFailedWhilePreservingWeatherRecords` were run **twice**, both runs **3/3 passed**, with `--rerun-tasks`.
+
+JaCoCo line coverage on the full suite: **2,909/3,261 = 89.21%** across all production classes. The declared W4-07 core scope (`GeminiClient`, `AlertContentGuardrail`, `AlertPromptBuilder`, `AlertGenerationWorker`, `AlertPersistenceServiceImpl`, `ThresholdEvaluator`, `ThresholdEvaluationScheduler`, `ThresholdEvaluationQueryRepository`) reached **907/988 = 91.80%**. These are line coverage figures, not evidence of all semantic combinations.
+
+## Acceptance matrix
+
+| ID | Executed method and fixture | DB/API assertion and result |
+| --- | --- | --- |
+| IT-01 | `AlertPipelineIT#noViolationForBelowThresholdDisabledRuleOrMissingWeather`; rain below `>`, disabled wind, missing weather row. `ThresholdEvaluatorTest#skipsMissingAndNonfiniteWeatherValues` covers nullable source values at the evaluator boundary (the `weather_records` columns themselves are NOT NULL). | No job/key/alert or WireMock request; active GET empty. PASS. |
+| IT-02 | `AlertPipelineIT#storedWeatherAndPostGisStormReachVerifiedGeminiDraftAndBothApis`; 55 mm rain versus `>= 50`, 18 m/s wind versus `> 17`, distinct 3h rain/gust. `ThresholdEvaluatorTest#comparesEveryParameterAndOperatorAtBothSidesAndExactBoundary` covers all five operators and both sides. | Real evaluator creates PENDING, correct parameters/values/units/keys; accepted WireMock draft becomes `is_fallback=false`; job COMPLETED, keys linked, DB matches detail and active GET. PASS. |
+| IT-03 | Same pipeline method uses coincident and distant storms. `ThresholdEvaluationIT#stormDistanceUsesKilometresAtZeroExactAndOutsideBoundaries` checks PostGIS 0 km, equality, inside/outside distance boundaries. | Nearest storm, zero distance and `[108.2,16.0]` retained through snapshot and GeoJSON. PASS. |
+| IT-04 | Same pipeline method combines rain, wind, storm; `AlertEventIntakeIT#partialOverlapClaimsOnlyNewKeyAndExcludesPreviousViolationsFromReasonAndSeverity` checks partial overlap and representative selection. | One job/alert owns all new keys; CRITICAL storm rule wins; reason and full snapshot retain every violation. PASS. |
+| IT-05 | `AlertGeminiFaultIT#fixedDelayExceedsFiveSecondDeadlineAndStillPublishesFallback` and `#dribblingBodyExceedsFiveSecondDeadlineAndStillPublishesFallback`; `GeminiClientTest#deadlineIncludesSlowStreamingBody` measures the client call alone. | Each fault makes one request and publishes verified fallback to both GETs. Client-only test asserts 4.5–6.5 s; pipeline test allows 4.5–10 s for worker, DB and HTTP reads. PASS. |
+| IT-06 | `AlertGeminiFaultIT#rejectsFaultAndPublishesOnlyVerifiedFallback` has separate 429, 500, 503 and connection-reset invocations. | One HTTP request per invocation, COMPLETED job, fallback DB and both GETs. `AlertPublicationIT#invalidFactsAreQuarantinedAndDoNotStarveTheNextJob` covers progress past a bad job. PASS. |
+| IT-07 | Same fault method: malformed Gemini JSON, missing field, safety block, overlong draft. | Rejected draft absent from DB/GET; exact grounded fallback published. PASS. |
+| IT-08 | Same fault method: wrong number, unit, station and invented forecast. `AlertContentGuardrailTest#rejectsChangedMeaningEvenWhenNumbersArePresent` and `#verifiesMultipleParametersWithoutInterchangingSharedNumbers` cover parameter, threshold, unit and cross-metric substitutions. | Both text fields must match the fact-rendered grammar; only fallback reaches DB/GET. PASS for the tested grammar. |
+| IT-09 | `AlertGeminiFaultIT#disabledGeminiNeverUsesNetworkAndStillPublishesFallback`; `GeminiClientTest#disabledAndNonPendingDoNotCallNetwork` covers disabled/non-PENDING client calls. | Zero WireMock requests, fallback published, `AI_MONITOR=SUCCESS`. Missing configuration is rejected at client construction by `GeminiClientTest#validatesConfigurationAndDoesNotExposeSecret`, rather than exercised as a running Spring context. PASS for disabled; missing-config pipeline path remains untested. |
+| IT-10 | `AlertPipelineIT#oversizedEvidenceIsQuarantinedWithoutTruncatingOrCallingGemini` creates 75 simultaneous violations. `AlertPublicationIT#nullMeasurementIsNotConvertedToZeroOrPublished` covers a corrupted null measurement. | All 75 keys remain unlinked; PENDING job has `INVALID_FACTUAL_DATA` and a future quarantine deadline; no alert or Gemini call. PASS for safe quarantine; W4-05 publication limit remains open. |
+| IT-11 | `AlertPipelineIT#replayClaimsOnlyNewViolationEvenAfterFirstAlertIsResolved`; `AlertEventIntakeIT#replayAndFreshServiceInstanceAcrossRestartPreserveDeduplicationEvenAfterResolvedOrDismissed`. | `[A,B]` replay creates no job; enabling C creates a second job with only C, then resolved/dismissed replay creates no duplicate; three linked keys across two alerts. PASS. |
+| IT-12 | `AlertPublicationIT#expiredClaimIsFencedAfterConcurrentClaimAndReclaim` and `AlertEventIntakeIT#concurrentMultiInstanceIntakeSerializesByStationWithoutDuplicates`; repeated twice for the fencing method. | Old token cannot write READY after reclaim; keys/alert stay unique. PASS. This does not establish exactly one external Gemini request. |
+| IT-13 | `AlertPublicationIT#databaseFailureBeforeReadyIsQuarantinedAndRecovers`, `#committedReadyJobIsPublishedOnRecoveryWithoutAnotherModelCall`, `#failureAfterAlertInsertBeforeKeyLinkRollsBackAlertAndSchedulesBoundedRetryThenRecovers`; last method repeated twice. | PENDING and READY recovery, atomic rollback of alert/key linking, and no repeated model call for READY. PASS. |
+| IT-14 | `AlertRepositoryIT#spatialGeometryUsesSrid4326LngLatAndViolationKeysEnforceGlobalUniqueness` edits then deletes threshold, station and storm. | Historical factual snapshot and keys persist while nullable FKs become null. PASS at repository/service layer; not repeated through HTTP after deletion. |
+| IT-15 | `AlertApiIT#eventToInboxToVerifiedPublicationExposesActiveGeoJsonAndDetailWithoutExposingPendingJobs`, `#problemDetailsAndOpenApiContractMatchSpecification`, `AlertRepositoryIT#legacyAlertWithoutSnapshotOrGeometryRemainsReadableWithExplicitNulls`, plus new pipeline/fault GET assertions. | Active/detail agree on flags and geometry; empty/legacy/null behavior and `ALR_*` RFC 7807 errors checked. PASS. |
+
+The new pipeline fixture checks each published job is COMPLETED, every owned key links to its single alert, title/explanation/reason/severity/threshold/snapshot/flag agree between DB and detail GET, and active GeoJSON uses `[lng,lat]`. WireMock request inspection checks the configured model, `temperature=0.2`, the `[FACTUAL_SYSTEM_DATA]` delimiters, original measurements and thresholds, and one request per fault. No prompt or API key is copied into this report.
+
+## Delivery boundaries and open decisions
+
+- **W4-05 remains REVIEW.** A sufficiently large honest explanation exceeds the 4,000-character publication limit. The 75-rule test confirms quarantine without truncation or invented values, so it does not satisfy an unconditional alert-publication promise. Owner: AI/Backend and Tech Lead. Decide a bounded threshold policy, structured multi-part output or reviewed exception before W4-05 and the entire pipeline can be signed off.
+- **Before inbox commit:** `AlertEventIntakeIT#intakeFailureRollsBackJobAndKeysAndMarksAiMonitorFailedWhilePreservingWeatherRecords` injects a database failure, observes `AI_MONITOR=FAILED` with the committed weather row retained, and then re-evaluates the same source timestamp to recover the same `v1:` key. This does not recover an older observation after source data changes. Owner: Backend/Tech Lead; decide replay or outbox for W4-08/W4-10. No zero-loss claim is made.
+- **Model prose:** W4-05 accepts only the closed Vietnamese grammar generated by the fallback renderer. A natural-language Gemini draft outside it falls back, even if the prose is factually sound. Owner: AI/Backend and Product Owner for SRS behavior review. Live model quality and quota were not tested.
+- **Missing-config running context:** the client rejects missing enabled-model/key configuration at startup; the suite checks this at client level. No end-to-end startup-failure case was added to the running-context fixture.
+
+Tech Lead acceptance remains a separate review of these results and the W4-05 boundary.
