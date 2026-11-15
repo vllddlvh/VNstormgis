@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.weathergis.alert.dto.AlertDetailEnvelope;
 import vn.weathergis.alert.dto.AlertDetailResponse;
+import vn.weathergis.alert.dto.AlertGeoJsonSchema;
 import vn.weathergis.alert.service.AlertService;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
 
@@ -53,11 +55,17 @@ public class AlertController {
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema = @Schema(implementation = GeoJsonFeatureCollection.class))),
+                                schema =
+                                        @Schema(
+                                                implementation =
+                                                        AlertGeoJsonSchema.Collection.class))),
         @ApiResponse(
                 responseCode = "500",
                 description = "Lỗi xử lý nội bộ (RFC 7807 COM_500_INTERNAL_ERROR)",
-                content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                schema = @Schema(implementation = ProblemDetail.class)))
     })
     @GetMapping(value = "/active", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<GeoJsonFeatureCollection> getActiveAlerts() {
@@ -79,25 +87,30 @@ public class AlertController {
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_JSON_VALUE,
-                                schema =
-                                        @Schema(
-                                                implementation =
-                                                        vn.weathergis.common.api.ApiResponse
-                                                                .class))),
+                                schema = @Schema(implementation = AlertDetailEnvelope.class))),
         @ApiResponse(
                 responseCode = "400",
                 description =
                         "Mã định danh không đúng định dạng UUID (RFC 7807 ALR_400_INVALID_ID)",
-                content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                schema = @Schema(implementation = ProblemDetail.class))),
         @ApiResponse(
                 responseCode = "404",
                 description =
                         "Không tìm thấy cảnh báo với UUID yêu cầu (RFC 7807 ALR_404_NOT_FOUND)",
-                content = @Content(schema = @Schema(implementation = ProblemDetail.class))),
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                schema = @Schema(implementation = ProblemDetail.class))),
         @ApiResponse(
                 responseCode = "500",
                 description = "Lỗi xử lý nội bộ (RFC 7807 COM_500_INTERNAL_ERROR)",
-                content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+                content =
+                        @Content(
+                                mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                                schema = @Schema(implementation = ProblemDetail.class)))
     })
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<vn.weathergis.common.api.ApiResponse<AlertDetailResponse>> getAlertById(

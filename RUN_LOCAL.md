@@ -117,3 +117,11 @@ docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Dep
 - Đồng bộ trả `401`: `INTERNAL_SYNC_SECRET` trong shell gọi `curl` phải giống file backend đã nạp. Nếu vừa sửa file, khởi động lại backend rồi `source` lại file ở terminal 1.
 - `weather/current` có `count=0`: xem `status` và `errorMessage` từ lệnh đồng bộ; kiểm tra khóa OpenWeatherMap và kết nối mạng.
 - UI báo `BACKEND OFFLINE`: xác nhận backend còn chạy tại `http://localhost:8080/actuator/health`, rồi bấm **LÀM MỚI KẾT NỐI**. Dùng đúng URL mà Vite in ra nếu cổng 5173 đang bị chiếm.
+
+## Week 4 alert verification and recovery
+
+Dùng Java 21, PostGIS/Redis như trên. `GET /api/v1/alert-thresholds`, `GET /api/v1/alerts/active`, `GET /api/v1/alerts/{id}` là public; POST/PUT/PATCH/DELETE threshold cần `X-Admin-Api-Key` từ `ADMIN_API_KEY`. `GEMINI_ENABLED=false` (mặc định) cho phép fallback offline; chỉ bật live khi đã cấu hình `GEMINI_API_KEY` và `GEMINI_MODEL` qua môi trường. Model mặc định rỗng; lần smoke `gemini-3.1-flash-lite` ngày 2026-11-07 không phải default. Swagger UI: `/swagger-ui/index.html`; OpenAPI: `/v3/api-docs`. Không dùng backend cũ còn chạy để đại diện cho jar vừa build.
+
+Local gate: `bash scripts/verify-week4-pipeline.sh` với `BACKEND_BASE_URL` (mặc định `http://localhost:8080`), `ARTIFACT_DIR` và `WAIT_TIMEOUT_SECONDS` tùy chọn. Xem `summary.json` trước, rồi Gradle log/JUnit XML. Script chỉ đọc live API; generation/fallback được chứng minh bằng fixture Testcontainers/WireMock, không bởi active collection rỗng. Xem `scripts/W4-08-RUNBOOK.md` cho lịch, retention, webhook và dispatch.
+
+Khi job chậm, kiểm `alert_generation_jobs` theo `status`, `last_error`, `lease_until`, `quarantine_until`, `next_attempt_at` trên môi trường kiểm thử cô lập và kiểm worker/retry/DB. PENDING dùng lease/token fencing; READY dùng publication retry/backoff. Chỉ phục hồi hạ tầng rồi để scheduler chạy hoặc chứng minh trên fixture cô lập; không xóa key chống trùng, sửa snapshot hay sửa job thủ công. Quy trình xử lý dữ kiện bất hợp lệ vĩnh viễn và giới hạn 4000 ký tự còn chờ AI/Backend + Tech Lead quyết định.

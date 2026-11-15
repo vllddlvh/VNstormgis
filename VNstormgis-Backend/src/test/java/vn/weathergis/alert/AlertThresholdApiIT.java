@@ -205,8 +205,38 @@ class AlertThresholdApiIT extends AbstractPostGisIntegrationTest {
         JsonNode paths = spec.path("paths");
         assertThat(paths.path(BASE).path("post").path("responses").has("201")).isTrue();
         assertThat(paths.path(BASE + "/{id}").path("delete").path("responses").has("204")).isTrue();
+        assertThat(
+                        paths.path(BASE)
+                                .path("get")
+                                .path("responses")
+                                .path("200")
+                                .path("content")
+                                .has("application/json"))
+                .isTrue();
         assertThat(paths.path(BASE).path("get").has("security")).isFalse();
         assertThat(paths.path(BASE + "/{id}").path("get").has("security")).isFalse();
+        JsonNode schemas = spec.path("components").path("schemas");
+        assertThat(schemas.path("AlertThresholdRequest").path("required").toString())
+                .contains(
+                        "name",
+                        "parameter",
+                        "operator",
+                        "threshold_value",
+                        "severity_level",
+                        "description")
+                .doesNotContain("is_enabled");
+        assertThat(schemas.path("AlertThresholdPutRequest").path("required").toString())
+                .contains("is_enabled");
+        assertThat(
+                        paths.path(BASE + "/{id}")
+                                .path("put")
+                                .path("requestBody")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/AlertThresholdPutRequest");
         for (String[] operation :
                 List.of(
                         new String[] {BASE, "post"},
@@ -217,7 +247,15 @@ class AlertThresholdApiIT extends AbstractPostGisIntegrationTest {
             assertThat(write.path("tags").get(0).asText())
                     .isEqualTo("5. Quản Trị Ngưỡng Cảnh Báo (Alert Thresholds)");
             assertThat(write.path("security").get(0).has("AdminApiKey")).isTrue();
+            assertThat(
+                            write.path("responses")
+                                    .path("401")
+                                    .path("content")
+                                    .has("application/problem+json"))
+                    .isTrue();
         }
+        assertThat(paths.path(BASE).path("get").path("responses").has("401")).isFalse();
+        assertThat(paths.path(BASE + "/{id}").path("get").path("responses").has("404")).isTrue();
     }
 
     private Map<String, Object> validRequest() {

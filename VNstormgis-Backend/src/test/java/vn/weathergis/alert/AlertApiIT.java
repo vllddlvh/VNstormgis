@@ -256,7 +256,8 @@ class AlertApiIT extends AbstractPostGisIntegrationTest {
 
         ResponseEntity<String> openApiResp = http.getForEntity("/v3/api-docs", String.class);
         assertThat(openApiResp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        JsonNode paths = mapper.readTree(openApiResp.getBody()).path("paths");
+        JsonNode openApi = mapper.readTree(openApiResp.getBody());
+        JsonNode paths = openApi.path("paths");
 
         JsonNode activeGet = paths.path(BASE + "/active").path("get");
         assertThat(activeGet.isMissingNode()).isFalse();
@@ -264,6 +265,27 @@ class AlertApiIT extends AbstractPostGisIntegrationTest {
                 .isEqualTo("6. Cảnh Báo Thiên Tai Chủ Động (Alerts)");
         assertThat(activeGet.has("security")).isFalse();
         assertThat(activeGet.path("responses").has("200")).isTrue();
+        assertThat(
+                        activeGet
+                                .path("responses")
+                                .path("200")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/Collection");
+        JsonNode schemas = openApi.path("components").path("schemas");
+        assertThat(schemas.path("Properties").path("properties").has("is_fallback")).isTrue();
+        assertThat(schemas.path("Collection").path("required").toString())
+                .contains("type", "features");
+        assertThat(
+                        schemas.path("Feature")
+                                .path("properties")
+                                .path("geometry")
+                                .path("nullable")
+                                .asBoolean())
+                .isTrue();
 
         JsonNode detailGet = paths.path(BASE + "/{id}").path("get");
         assertThat(detailGet.isMissingNode()).isFalse();
@@ -273,6 +295,49 @@ class AlertApiIT extends AbstractPostGisIntegrationTest {
         assertThat(detailGet.path("responses").has("200")).isTrue();
         assertThat(detailGet.path("responses").has("400")).isTrue();
         assertThat(detailGet.path("responses").has("404")).isTrue();
+        assertThat(
+                        detailGet
+                                .path("responses")
+                                .path("200")
+                                .path("content")
+                                .path("application/json")
+                                .path("schema")
+                                .path("$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/AlertDetailEnvelope");
+        assertThat(
+                        schemas.path("AlertDetailEnvelope")
+                                .path("properties")
+                                .path("data")
+                                .path("$ref")
+                                .asText())
+                .isEqualTo("#/components/schemas/AlertDetailResponse");
+        assertThat(
+                        schemas.path("AlertDetailResponse")
+                                .path("properties")
+                                .path("resolved_at")
+                                .path("nullable")
+                                .asBoolean())
+                .isTrue();
+        assertThat(schemas.path("AlertDetailEnvelope").path("required").toString())
+                .contains("data", "timestamp");
+        for (String nullableLink :
+                new String[] {"location", "threshold", "storm", "factual_snapshot"}) {
+            JsonNode property =
+                    schemas.path("AlertDetailResponse").path("properties").path(nullableLink);
+            assertThat(property.path("nullable").asBoolean()).isTrue();
+            assertThat(property.path("type").asText()).isEqualTo("object");
+            assertThat(property.path("properties").size()).isPositive();
+        }
+        for (String status : new String[] {"400", "404"}) {
+            assertThat(
+                            detailGet
+                                    .path("responses")
+                                    .path(status)
+                                    .path("content")
+                                    .has("application/problem+json"))
+                    .isTrue();
+        }
     }
 
     private void assertProblem(
