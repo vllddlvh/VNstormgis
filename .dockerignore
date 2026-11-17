@@ -1,0 +1,18 @@
+# Exclude local directories, build caches, and sensitive files from Docker build context
+.git
+.github
+.husky
+.vscode
+docs
+artifacts
+node_modules
+VNstormgis-Frontend/node_modules
+VNstormgis-Frontend/dist
+VNstormgis-Backend/.gradle
+VNstormgis-Backend/build
+VNstormgis-Backend/bin
+**/*.env
+**/*.env.*
+!VNstormgis-Deployment/env/.env.example
+**/*.log
+.DS_Store

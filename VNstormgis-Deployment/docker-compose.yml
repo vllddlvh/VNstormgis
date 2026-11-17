@@ -54,6 +54,80 @@ services:
       timeout: 3s
       retries: 3
 
+  # =======================================================
+  # 3. BACKEND CORE: Spring Boot Modular Monolith (Java 21)
+  # =======================================================
+  backend:
+    profiles: ["fullstack"]
+    build:
+      context: ..
+      dockerfile: VNstormgis-Deployment/docker/backend/Dockerfile
+    container_name: weathergis-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-weather_gis_db}
+      DB_USERNAME: ${DB_USERNAME:-gis_user}
+      DB_PASSWORD: ${DB_PASSWORD:-gis_password_secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_CACHE_ENABLED: ${REDIS_CACHE_ENABLED:-true}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY:-}
+      GEMINI_ENABLED: ${GEMINI_ENABLED:-false}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      INTERNAL_SYNC_SECRET: ${INTERNAL_SYNC_SECRET:-change_me_local_dev_secret}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-change_me_admin_api_key}
+      CHAT_RATELIMIT_TRUSTED_PROXIES: ${CHAT_RATELIMIT_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,127.0.0.1}
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    networks:
+      - weathergis-internal-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health/liveness || curl -fsS http://127.0.0.1:8080/actuator/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # =======================================================
+  # 4. FRONTEND & REVERSE PROXY: React 18 SPA + Nginx 1.26
+  # =======================================================
+  web:
+    profiles: ["fullstack"]
+    build:
+      context: ..
+      dockerfile: VNstormgis-Deployment/docker/frontend/Dockerfile
+    container_name: weathergis-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - weathergis-internal-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
 volumes:
   postgis_data:
     name: weathergis_postgis_data
