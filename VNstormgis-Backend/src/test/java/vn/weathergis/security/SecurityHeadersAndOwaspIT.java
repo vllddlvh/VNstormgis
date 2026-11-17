@@ -83,6 +83,8 @@ class SecurityHeadersAndOwaspIT extends AbstractPostGisIntegrationTest {
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "4");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "1");
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getFirstMappedPort());
         registry.add("weathergis.admin.api-key", () -> ADMIN_KEY);

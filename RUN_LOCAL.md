@@ -133,3 +133,23 @@ Ba endpoint chat chính tắc: `POST /api/v1/chat/sessions` (public, trả `sess
 `POST .../messages` áp dụng giới hạn phân tán Bucket4j + Redis: **10 câu hỏi/phút/phiên** (`CHAT_RATELIMIT_SESSION_LIMIT=10`) và **30 câu hỏi/phút/IP** (`CHAT_RATELIMIT_IP_LIMIT=30`) trong cửa sổ cố định 60 giây (`CHAT_RATELIMIT_WINDOW=60s`). Khi vượt ngưỡng, API trả `429 CHT_429_RATE_LIMITED` kèm header `Retry-After` và trường `retry_after_seconds` trước khi gọi Gemini hay ghi DB. Khi Redis không khả dụng, limiter **fail-closed** với `503 CHT_503_RATE_LIMITER_UNAVAILABLE`. Khi chạy sau Nginx reverse proxy, cấu hình `CHAT_RATELIMIT_TRUSTED_PROXIES` đúng địa chỉ IP/CIDR của proxy.
 
 Kiểm định đầu-cuối Tuần 5: chạy `bash scripts/verify-week5-pipeline.sh` (hoặc `bash .github/scripts/verify-week5-pipeline.sh`) với `BACKEND_BASE_URL`, `FRONTEND_BASE_URL`, `PLAYWRIGHT_MODULE` và `ARTIFACT_DIR` tùy chọn. Xem `.github/scripts/W5-08-RUNBOOK.md` cho chi tiết các cổng `G-01`–`G-05`, xử lý sự cố Redis/rate-limit và lịch chạy nightly (`02:40 UTC`).
+
+## Week 6 SIT, 500-CCU load testing and security audit
+
+Tuần 6 bổ sung bộ kiểm thử tích hợp toàn hệ thống (`SystemIntegrationAndEdgeCaseIT`), bộ lọc bảo mật OWASP (`SecurityHeadersFilter` + `SecurityHeadersAndOwaspIT`), kịch bản kiểm thử tải 500 người dùng đồng thời (`.github/scripts/run-load-test-500ccu.mjs` & `.github/scripts/load-test-500ccu.k6.js`), đóng gói Docker Multi-Stage (`VNstormgis-Deployment/docker/backend/Dockerfile`, `VNstormgis-Deployment/docker/frontend/Dockerfile`), cấu hình Nginx Reverse Proxy (`VNstormgis-Deployment/nginx/`) và công cụ kiểm toán bảo mật tự động (`.github/scripts/security-audit-week6.sh`).
+
+Để chạy cổng kiểm định tổng hợp Tuần 6 (`G-01` → `G-06`):
+
+```bash
+BACKEND_BASE_URL=http://127.0.0.1:8080 \
+ARTIFACT_DIR=/tmp/w6-07-verify \
+bash scripts/verify-week6-pipeline.sh
+```
+
+Để khởi chạy trọn bộ 4 container (`db`, `redis`, `backend`, `web` Nginx) bằng Docker Compose:
+
+```bash
+docker compose --profile fullstack --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml up -d --build
+```
+
+Xem `.github/scripts/W6-07-RUNBOOK.md` cho chi tiết ngưỡng chịu tải 500 CCU (`P95 <= 100ms`, `Avg < 50ms`, `0% 5xx`), quy trình kiểm toán bảo mật và lịch chạy nightly (`03:00 UTC`).

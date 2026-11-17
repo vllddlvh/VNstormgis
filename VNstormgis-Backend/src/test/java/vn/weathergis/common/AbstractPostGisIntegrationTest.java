@@ -34,7 +34,8 @@ public abstract class AbstractPostGisIntegrationTest {
                 new PostgreSQLContainer<>(POSTGIS_IMAGE)
                         .withDatabaseName("test_weather_gis_db")
                         .withUsername("test_gis_user")
-                        .withPassword("test_gis_password");
+                        .withPassword("test_gis_password")
+                        .withCommand("postgres", "-c", "max_connections=300");
         POSTGIS_CONTAINER.start();
     }
 
