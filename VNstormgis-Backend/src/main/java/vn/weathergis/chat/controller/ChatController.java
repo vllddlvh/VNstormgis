@@ -224,6 +224,15 @@ public class ChatController {
                                 schema = @Schema(implementation = ProblemDetail.class)))
     })
     @SecurityRequirement(name = "X-Session-Token")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            description =
+                    "Payload câu hỏi tiếng Việt (tối đa 8 KiB; message bắt buộc 1–500 code point"
+                            + " sau strip; referenced_alert_id và spatial_filter tùy chọn)",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = SendMessageRequest.class)))
     @PostMapping(value = "/{sessionId}/messages", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<vn.weathergis.common.api.ApiResponse<SendMessageResponse>> sendMessage(
             @Parameter(

@@ -89,7 +89,7 @@ Mở URL Vite in trên terminal (thường là `http://localhost:5173`). Vite ch
 2. Mở **TÁC CHIẾN (GIS OPS)**: xem các lớp trạm và thời tiết; bấm **CẢNH BÁO** để xem danh sách cảnh báo thực hoặc trạng thái rỗng.
 3. Nếu có banner lỗi backend, bấm **LÀM MỚI KẾT NỐI** sau khi sửa lỗi. Chỉ nhìn thấy marker chưa chứng minh kết nối thành công, vì UI có dữ liệu trạm mẫu khi tải API thất bại.
 
-Ngăn chat AI trên frontend hiện là giao diện mô phỏng, chưa gọi Gemini. `GEMINI_ENABLED=true`, `GEMINI_API_KEY` và `GEMINI_MODEL` chỉ dùng cho luồng tạo nội dung cảnh báo của backend khi được cấu hình.
+Ngăn chat AI (`AiChatDrawer`) đã kết nối API thật (`/api/v1/chat/sessions`, `/api/v1/chat/sessions/{id}/messages` với header `X-Session-Token` và lưu trữ `vnstormgis.chat.session` trong `localStorage`). Khi `GEMINI_ENABLED=false` (mặc định), cả luồng cảnh báo tự động lẫn trợ lý hội thoại đều hoạt động đầy đủ ở chế độ **fallback tất định** (`is_fallback=true`, dựng câu trả lời tiếng Việt trực tiếp từ dữ liệu PostGIS). Khi bật `GEMINI_ENABLED=true` kèm `GEMINI_API_KEY` và `GEMINI_MODEL` qua biến môi trường, đầu ra của Gemini được kiểm chứng qua guardrail ngữ pháp đóng trước khi hiển thị/lưu.
 
 ## 6. Kiểm định và dừng ứng dụng
 
@@ -125,3 +125,11 @@ Dùng Java 21, PostGIS/Redis như trên. `GET /api/v1/alert-thresholds`, `GET /a
 Local gate: `bash scripts/verify-week4-pipeline.sh` với `BACKEND_BASE_URL` (mặc định `http://localhost:8080`), `ARTIFACT_DIR` và `WAIT_TIMEOUT_SECONDS` tùy chọn. Xem `summary.json` trước, rồi Gradle log/JUnit XML. Script chỉ đọc live API; generation/fallback được chứng minh bằng fixture Testcontainers/WireMock, không bởi active collection rỗng. Xem `scripts/W4-08-RUNBOOK.md` cho lịch, retention, webhook và dispatch.
 
 Khi job chậm, kiểm `alert_generation_jobs` theo `status`, `last_error`, `lease_until`, `quarantine_until`, `next_attempt_at` trên môi trường kiểm thử cô lập và kiểm worker/retry/DB. PENDING dùng lease/token fencing; READY dùng publication retry/backoff. Chỉ phục hồi hạ tầng rồi để scheduler chạy hoặc chứng minh trên fixture cô lập; không xóa key chống trùng, sửa snapshot hay sửa job thủ công. Quy trình xử lý dữ kiện bất hợp lệ vĩnh viễn và giới hạn 4000 ký tự còn chờ AI/Backend + Tech Lead quyết định.
+
+## Week 5 chat verification and rate-limit operations
+
+Ba endpoint chat chính tắc: `POST /api/v1/chat/sessions` (public, trả `session_token` một lần duy nhất), `POST /api/v1/chat/sessions/{sessionId}/messages` và `GET /api/v1/chat/sessions/{sessionId}/messages` (yêu cầu header `X-Session-Token`). Không có endpoint `/api/v1/chat/message` hoặc truyền token qua URL. Server chỉ lưu `token_hash` SHA-256 (Flyway V9) và giữ lịch sử tối đa 30 ngày không hoạt động (`CHAT_SESSION_RETENTION=30d`).
+
+`POST .../messages` áp dụng giới hạn phân tán Bucket4j + Redis: **10 câu hỏi/phút/phiên** (`CHAT_RATELIMIT_SESSION_LIMIT=10`) và **30 câu hỏi/phút/IP** (`CHAT_RATELIMIT_IP_LIMIT=30`) trong cửa sổ cố định 60 giây (`CHAT_RATELIMIT_WINDOW=60s`). Khi vượt ngưỡng, API trả `429 CHT_429_RATE_LIMITED` kèm header `Retry-After` và trường `retry_after_seconds` trước khi gọi Gemini hay ghi DB. Khi Redis không khả dụng, limiter **fail-closed** với `503 CHT_503_RATE_LIMITER_UNAVAILABLE`. Khi chạy sau Nginx reverse proxy, cấu hình `CHAT_RATELIMIT_TRUSTED_PROXIES` đúng địa chỉ IP/CIDR của proxy.
+
+Kiểm định đầu-cuối Tuần 5: chạy `bash scripts/verify-week5-pipeline.sh` (hoặc `bash .github/scripts/verify-week5-pipeline.sh`) với `BACKEND_BASE_URL`, `FRONTEND_BASE_URL`, `PLAYWRIGHT_MODULE` và `ARTIFACT_DIR` tùy chọn. Xem `.github/scripts/W5-08-RUNBOOK.md` cho chi tiết các cổng `G-01`–`G-05`, xử lý sự cố Redis/rate-limit và lịch chạy nightly (`02:40 UTC`).
