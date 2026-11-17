@@ -111,78 +111,108 @@ public class WeatherSyncService {
 
     private WeatherSyncResult runCycle() {
         DataSyncLogEntity syncLog = startLog();
-        if (apiKey == null || apiKey.isBlank()) {
-            return finishLog(
-                    syncLog,
-                    0,
-                    0,
-                    "FAILED",
-                    "OPENWEATHERMAP_API_KEY chưa được cấu hình trong môi trường — bỏ qua chu kỳ");
-        }
-
-        List<LocationEntity> stations = locationRepository.findByIsActiveTrue();
-        List<WeatherRecordEntity> batch = new ArrayList<>(stations.size());
-        List<String> failures = new ArrayList<>();
-        boolean rateLimited = false;
-
-        for (int i = 0; i < stations.size(); i++) {
-            LocationEntity station = stations.get(i);
-            try {
-                // RÀNG BUỘC TỌA ĐỘ (AGENTS.md mục 1): JTS Point.getX() = KINH ĐỘ, getY() = VĨ ĐỘ
-                OpenWeatherMapClient.OpenWeatherMapResponse response =
-                        client.fetchCurrentWeather(
-                                station.getGeom().getY(), station.getGeom().getX());
-                batch.add(toEntity(station, response.data(), response.rawJson()));
-            } catch (OpenWeatherMapRateLimitException e) {
-                log.warn(
-                        "Chu kỳ OWM bị rate limit tại trạm {} ({} / {}) — dừng an toàn phần còn lại",
-                        station.getCode(),
-                        i + 1,
-                        stations.size());
-                rateLimited = true;
-                break;
-            } catch (Exception e) {
-                log.warn(
-                        "Nạp thất bại trạm {} ({}): {}",
-                        station.getCode(),
-                        station.getName(),
-                        e.getMessage());
-                failures.add(station.getCode() + ": " + e.getMessage());
+        int savedRecords = 0;
+        try {
+            if (apiKey == null || apiKey.isBlank()) {
+                return finishLog(
+                        syncLog,
+                        0,
+                        0,
+                        "FAILED",
+                        "OPENWEATHERMAP_API_KEY chưa được cấu hình trong môi trường — bỏ qua chu kỳ");
             }
-            throttle(i, stations.size());
-        }
 
-        if (!batch.isEmpty()) {
-            weatherRecordRepository.saveAll(batch); // tận dụng jdbc.batch_size: 50
-        }
+            List<LocationEntity> stations = locationRepository.findByIsActiveTrue();
+            List<WeatherRecordEntity> batch = new ArrayList<>(stations.size());
+            List<String> failures = new ArrayList<>();
+            boolean rateLimited = false;
 
-        String status;
-        String errorMessage = null;
-        if (rateLimited) {
-            status = "FAILED";
-            errorMessage =
-                    "Rate limit OWM 429 — dừng an toàn sau "
-                            + batch.size()
-                            + "/"
-                            + stations.size()
-                            + " trạm (giữ nguyên dữ liệu chu kỳ trước)";
-        } else if (!failures.isEmpty()) {
-            status = "FAILED";
-            errorMessage =
-                    "Nạp một phần: "
-                            + failures.size()
-                            + " trạm lỗi ["
-                            + String.join("; ", failures)
-                            + "]";
-        } else if (stations.isEmpty()) {
-            status = "FAILED";
-            errorMessage = "Không có trạm active nào để đồng bộ";
-        } else {
-            // SUCCESS chỉ khi TOÀN BỘ trạm thành công (quyết định #3/#4, Mục 2 — giữ SUCCESS tinh
-            // sạch)
-            status = "SUCCESS";
+            for (int i = 0; i < stations.size(); i++) {
+                LocationEntity station = stations.get(i);
+                try {
+                    // RÀNG BUỘC TỌA ĐỘ (AGENTS.md mục 1): JTS Point.getX() = KINH ĐỘ, getY() = VĨ
+                    // ĐỘ
+                    OpenWeatherMapClient.OpenWeatherMapResponse response =
+                            client.fetchCurrentWeather(
+                                    station.getGeom().getY(), station.getGeom().getX());
+                    batch.add(toEntity(station, response.data(), response.rawJson()));
+                } catch (OpenWeatherMapRateLimitException e) {
+                    log.warn(
+                            "Chu kỳ OWM bị rate limit tại trạm {} ({} / {}) — dừng an toàn phần còn lại",
+                            station.getCode(),
+                            i + 1,
+                            stations.size());
+                    rateLimited = true;
+                    break;
+                } catch (Exception e) {
+                    log.warn(
+                            "Nạp thất bại trạm {} ({}): {}",
+                            station.getCode(),
+                            station.getName(),
+                            e.getMessage());
+                    failures.add(station.getCode() + ": " + e.getMessage());
+                }
+                throttle(i, stations.size());
+            }
+
+            if (!batch.isEmpty()) {
+                weatherRecordRepository.saveAll(batch); // tận dụng jdbc.batch_size: 50
+                savedRecords = batch.size();
+            }
+
+            String status;
+            String errorMessage = null;
+            if (rateLimited) {
+                status = "FAILED";
+                errorMessage =
+                        "Rate limit OWM 429 — dừng an toàn sau "
+                                + batch.size()
+                                + "/"
+                                + stations.size()
+                                + " trạm (giữ nguyên dữ liệu chu kỳ trước)";
+            } else if (!failures.isEmpty()) {
+                status = "FAILED";
+                errorMessage =
+                        "Nạp một phần: "
+                                + failures.size()
+                                + " trạm lỗi ["
+                                + String.join("; ", failures)
+                                + "]";
+            } else if (stations.isEmpty()) {
+                status = "FAILED";
+                errorMessage = "Không có trạm active nào để đồng bộ";
+            } else {
+                // SUCCESS chỉ khi TOÀN BỘ trạm thành công (quyết định #3/#4, Mục 2 — giữ SUCCESS
+                // tinh sạch)
+                status = "SUCCESS";
+            }
+            return finishLog(syncLog, savedRecords, stations.size(), status, errorMessage);
+        } catch (RuntimeException | Error ex) {
+            failLogOnUncaughtError(syncLog, savedRecords, ex);
+            throw ex;
         }
-        return finishLog(syncLog, batch.size(), stations.size(), status, errorMessage);
+    }
+
+    private void failLogOnUncaughtError(
+            DataSyncLogEntity syncLog, int processed, Throwable uncaught) {
+        if (syncLog == null || syncLog.getCompletedAt() != null) {
+            return;
+        }
+        String detail =
+                uncaught.getMessage() == null || uncaught.getMessage().isBlank()
+                        ? uncaught.getClass().getSimpleName()
+                        : uncaught.getClass().getSimpleName() + ": " + uncaught.getMessage();
+        try {
+            syncLog.setStatus("FAILED");
+            syncLog.setRecordsProcessed(processed);
+            syncLog.setErrorMessage("Lỗi hệ thống trong chu kỳ đồng bộ OWM — " + detail);
+            syncLog.setCompletedAt(OffsetDateTime.now());
+            dataSyncLogRepository.save(syncLog);
+        } catch (RuntimeException logEx) {
+            log.error(
+                    "Không thể cập nhật trạng thái FAILED cho data_sync_logs sau lỗi chu kỳ OWM: {}",
+                    logEx.getMessage());
+        }
     }
 
     private WeatherRecordEntity toEntity(

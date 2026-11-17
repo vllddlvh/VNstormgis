@@ -333,14 +333,56 @@ class WeatherSyncServiceTest {
     @Test
     void shouldNotEvaluateBeforeWeatherPersistenceSucceeds() {
         when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(station("HAN")));
-        when(dataSyncLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        List<String> savedStatuses = new ArrayList<>();
+        List<String> savedErrors = new ArrayList<>();
+        List<OffsetDateTime> savedCompletedAts = new ArrayList<>();
+        when(dataSyncLogRepository.save(any()))
+                .thenAnswer(
+                        inv -> {
+                            DataSyncLogEntity entity = inv.getArgument(0);
+                            savedStatuses.add(entity.getStatus());
+                            savedErrors.add(entity.getErrorMessage());
+                            savedCompletedAts.add(entity.getCompletedAt());
+                            return entity;
+                        });
         when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
         when(weatherRecordRepository.saveAll(any()))
                 .thenThrow(new IllegalStateException("write failed"));
 
-        assertThatThrownBy(() -> newService("test-key").triggerWeatherSync())
-                .isInstanceOf(IllegalStateException.class);
+        WeatherSyncService service = newService("test-key");
+        assertThatThrownBy(service::triggerWeatherSync)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("write failed");
 
+        assertThat(savedStatuses).containsExactly("RUNNING", "FAILED");
+        assertThat(savedCompletedAts.get(0)).isNull();
+        assertThat(savedCompletedAts.get(1)).isNotNull();
+        assertThat(savedErrors.get(1))
+                .contains("Lỗi hệ thống trong chu kỳ đồng bộ OWM")
+                .contains("IllegalStateException: write failed");
         verifyNoInteractions(thresholdEvaluationScheduler);
+    }
+
+    @Test
+    @DisplayName(
+            "W6-01: Lỗi bất ngờ khi đọc trạm hoặc khi ghi log FAILED vẫn giải phóng lock và giữ nguyên ngoại lệ gốc")
+    void shouldFailAuditLogAndReleaseLockOnUncaughtLookupErrorEvenWhenAuditSaveFails() {
+        when(locationRepository.findByIsActiveTrue())
+                .thenThrow(new IllegalStateException("postgis lookup failed"))
+                .thenReturn(List.of(station("HAN")));
+        when(dataSyncLogRepository.save(any()))
+                .thenAnswer(inv -> inv.getArgument(0))
+                .thenThrow(new RuntimeException("audit table locked"))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(client.fetchCurrentWeather(anyDouble(), anyDouble())).thenReturn(okResponse());
+
+        WeatherSyncService service = newService("test-key");
+        assertThatThrownBy(service::triggerWeatherSync)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("postgis lookup failed");
+
+        WeatherSyncResult recovery = service.triggerWeatherSync();
+        assertThat(recovery.status()).isEqualTo("SUCCESS");
+        assertThat(recovery.recordsProcessed()).isEqualTo(1);
     }
 }

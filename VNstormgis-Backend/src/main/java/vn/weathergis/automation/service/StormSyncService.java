@@ -114,63 +114,89 @@ public class StormSyncService {
 
     private StormSyncResult runCycle() {
         DataSyncLogEntity syncLog = startLog();
-
-        // 1. TẦNG 1 — danh sách sự kiện (thất bại → FAILED, KHÔNG chạy nhánh C — quyết định #9)
-        GdacsStormClient.GdacsEventFeed feed;
+        int processed = 0;
         try {
-            feed = client.fetchActiveTropicalCyclones();
-        } catch (GdacsClientException e) {
+            // 1. TẦNG 1 — danh sách sự kiện (thất bại → FAILED, KHÔNG chạy nhánh C — quyết định #9)
+            GdacsStormClient.GdacsEventFeed feed;
+            try {
+                feed = client.fetchActiveTropicalCyclones();
+            } catch (GdacsClientException e) {
+                return finishLog(
+                        syncLog,
+                        0,
+                        0,
+                        0,
+                        0,
+                        "FAILED",
+                        "Không đọc được danh sách GDACS: " + e.getMessage());
+            }
+
+            // 2. TẦNG 2 + nhánh A/B — upsert từng sự kiện + nạp quỹ đạo
+            int trackPointsInserted = 0;
+            List<String> skipped = new ArrayList<>(feed.skipReasons());
+            for (GdacsStormClient.GdacsEvent event : feed.events()) {
+                try {
+                    boolean belowThreshold = event.maxWindSpeedMs() < dissipateWindThresholdMs;
+                    StormEntity storm =
+                            upsertStorm(event, belowThreshold); // nhánh A/B (và B' khi yếu đi)
+                    trackPointsInserted +=
+                            persistTracks(
+                                    storm.getId(), client.fetchStormTrack(event), event.category());
+                    processed++;
+                } catch (Exception e) {
+                    // Parser phòng vệ từng sự kiện: 1 bão lỗi không sập cả chu kỳ (RSK-W2-02)
+                    log.warn("Nạp thất bại sự kiện {}: {}", event.eventId(), e.getMessage());
+                    skipped.add(event.eventId() + ": " + e.getMessage());
+                }
+            }
+
+            // 3. NHÁNH C — active trong CSDL nhưng vắng khỏi feed lượt này
+            int dissipatedCount = dissipateMissingStorms(feed.events());
+
+            // 4. SUCCESS ngay cả khi records=0 (0 bão toàn cầu là trạng thái bình thường — quyết
+            // định #9)
+            String errorMessage =
+                    skipped.isEmpty()
+                            ? null
+                            : "Bỏ qua "
+                                    + skipped.size()
+                                    + " sự kiện lỗi parse ["
+                                    + String.join("; ", skipped)
+                                    + "]";
             return finishLog(
                     syncLog,
-                    0,
-                    0,
-                    0,
-                    0,
-                    "FAILED",
-                    "Không đọc được danh sách GDACS: " + e.getMessage());
+                    processed,
+                    feed.events().size(),
+                    trackPointsInserted,
+                    dissipatedCount,
+                    "SUCCESS",
+                    errorMessage);
+        } catch (RuntimeException | Error ex) {
+            failLogOnUncaughtError(syncLog, processed, ex);
+            throw ex;
         }
+    }
 
-        // 2. TẦNG 2 + nhánh A/B — upsert từng sự kiện + nạp quỹ đạo
-        int processed = 0;
-        int trackPointsInserted = 0;
-        List<String> skipped = new ArrayList<>(feed.skipReasons());
-        for (GdacsStormClient.GdacsEvent event : feed.events()) {
-            try {
-                boolean belowThreshold = event.maxWindSpeedMs() < dissipateWindThresholdMs;
-                StormEntity storm =
-                        upsertStorm(event, belowThreshold); // nhánh A/B (và B' khi yếu đi)
-                trackPointsInserted +=
-                        persistTracks(
-                                storm.getId(), client.fetchStormTrack(event), event.category());
-                processed++;
-            } catch (Exception e) {
-                // Parser phòng vệ từng sự kiện: 1 bão lỗi không sập cả chu kỳ (RSK-W2-02)
-                log.warn("Nạp thất bại sự kiện {}: {}", event.eventId(), e.getMessage());
-                skipped.add(event.eventId() + ": " + e.getMessage());
-            }
+    private void failLogOnUncaughtError(
+            DataSyncLogEntity syncLog, int processed, Throwable uncaught) {
+        if (syncLog == null || syncLog.getCompletedAt() != null) {
+            return;
         }
-
-        // 3. NHÁNH C — active trong CSDL nhưng vắng khỏi feed lượt này
-        int dissipatedCount = dissipateMissingStorms(feed.events());
-
-        // 4. SUCCESS ngay cả khi records=0 (0 bão toàn cầu là trạng thái bình thường — quyết định
-        // #9)
-        String errorMessage =
-                skipped.isEmpty()
-                        ? null
-                        : "Bỏ qua "
-                                + skipped.size()
-                                + " sự kiện lỗi parse ["
-                                + String.join("; ", skipped)
-                                + "]";
-        return finishLog(
-                syncLog,
-                processed,
-                feed.events().size(),
-                trackPointsInserted,
-                dissipatedCount,
-                "SUCCESS",
-                errorMessage);
+        String detail =
+                uncaught.getMessage() == null || uncaught.getMessage().isBlank()
+                        ? uncaught.getClass().getSimpleName()
+                        : uncaught.getClass().getSimpleName() + ": " + uncaught.getMessage();
+        try {
+            syncLog.setStatus("FAILED");
+            syncLog.setRecordsProcessed(processed);
+            syncLog.setErrorMessage("Lỗi hệ thống trong chu kỳ đồng bộ GDACS — " + detail);
+            syncLog.setCompletedAt(OffsetDateTime.now());
+            dataSyncLogRepository.save(syncLog);
+        } catch (RuntimeException logEx) {
+            log.error(
+                    "Không thể cập nhật trạng thái FAILED cho data_sync_logs sau lỗi chu kỳ GDACS: {}",
+                    logEx.getMessage());
+        }
     }
 
     /** Nhánh A (insert) / B (update) / B' (gió dưới ngưỡng → dissipated). */

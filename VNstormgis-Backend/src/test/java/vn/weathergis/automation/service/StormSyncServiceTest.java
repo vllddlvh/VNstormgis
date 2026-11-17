@@ -393,4 +393,69 @@ class StormSyncServiceTest {
         first.join(5000);
         assertThat(first.isAlive()).isFalse();
     }
+
+    @Test
+    @DisplayName(
+            "W6-01: Ngoại lệ bất ngờ ở nhánh C chuyển RUNNING → FAILED kèm số bão đã xử lý và giải phóng guard")
+    void shouldTransitionAuditLogToFailedOnUncaughtExceptionAndReleaseGuard() {
+        when(client.fetchActiveTropicalCyclones())
+                .thenReturn(
+                        new GdacsStormClient.GdacsEventFeed(
+                                List.of(event("1001338", "CHAMPI-26", 30.0)), List.of()));
+        when(client.fetchStormTrack(any())).thenReturn(List.of(point("historical")));
+        when(stormRepository.findById("1001338")).thenReturn(Optional.empty());
+        stubStormSave();
+        stubTrackInsert(1);
+        when(stormRepository.findByStatusIgnoreCase("active"))
+                .thenThrow(new IllegalStateException("db connection lost"))
+                .thenReturn(List.of());
+
+        List<String> savedStatuses = new ArrayList<>();
+        List<Integer> savedCounts = new ArrayList<>();
+        List<String> savedErrors = new ArrayList<>();
+        List<OffsetDateTime> savedCompletedAts = new ArrayList<>();
+        when(dataSyncLogRepository.save(any()))
+                .thenAnswer(
+                        inv -> {
+                            DataSyncLogEntity entity = inv.getArgument(0);
+                            savedStatuses.add(entity.getStatus());
+                            savedCounts.add(entity.getRecordsProcessed());
+                            savedErrors.add(entity.getErrorMessage());
+                            savedCompletedAts.add(entity.getCompletedAt());
+                            return entity;
+                        });
+
+        StormSyncService service = newService(THRESHOLD_MS);
+        assertThatThrownBy(service::triggerStormSync)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("db connection lost");
+
+        assertThat(savedStatuses).containsExactly("RUNNING", "FAILED");
+        assertThat(savedCounts.get(1)).isEqualTo(1);
+        assertThat(savedCompletedAts.get(0)).isNull();
+        assertThat(savedCompletedAts.get(1)).isNotNull();
+        assertThat(savedErrors.get(1))
+                .contains("Lỗi hệ thống trong chu kỳ đồng bộ GDACS")
+                .contains("IllegalStateException: db connection lost");
+        verifyNoInteractions(cacheManagerProvider);
+
+        StormSyncResult recovery = service.triggerStormSync();
+        assertThat(recovery.status()).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    @DisplayName(
+            "W6-01: Lỗi phụ khi lưu trạng thái FAILED trong chu kỳ bão không che khuất ngoại lệ gốc")
+    void shouldPreserveOriginalExceptionWhenAuditFailSaveThrows() {
+        when(client.fetchActiveTropicalCyclones())
+                .thenThrow(new IllegalStateException("unexpected runtime failure"));
+        when(dataSyncLogRepository.save(any()))
+                .thenAnswer(inv -> inv.getArgument(0))
+                .thenThrow(new RuntimeException("audit write failed"));
+
+        StormSyncService service = newService(THRESHOLD_MS);
+        assertThatThrownBy(service::triggerStormSync)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("unexpected runtime failure");
+    }
 }
