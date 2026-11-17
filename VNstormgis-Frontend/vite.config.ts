@@ -39,7 +39,26 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
-    chunkSizeWarningLimit: 1000,
+    sourcemap: false,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("leaflet")) {
+              return "vendor-leaflet";
+            }
+            if (
+              id.includes("/react/") ||
+              id.includes("/react-dom/") ||
+              id.includes("/scheduler/")
+            ) {
+              return "vendor-react";
+            }
+            return "vendor-ui";
+          }
+        },
+      },
+    },
   },
 });

@@ -39,8 +39,8 @@ services:
     restart: unless-stopped
     command: >
       redis-server 
-      --maxmemory 128mb 
-      --maxmemory-policy allkeys-lru 
+      --maxmemory ${REDIS_MAXMEMORY:-256mb} 
+      --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-volatile-lru} 
       --appendonly yes
     ports:
       - "${REDIS_PORT:-6379}:6379"
