@@ -1,0 +1,135 @@
+name: Week 5 chat E2E nightly
+
+on:
+  # 02:40 UTC = 09:40 Vietnam time (UTC+7), 20 minutes after Week 4 nightly.
+  schedule:
+    - cron: "40 2 * * *"
+  workflow_dispatch:
+    inputs:
+      failure_probe:
+        description: "Controlled G-02 failure to verify notification and artifact retention"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: week5-chat-e2e
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ARTIFACT_DIR: ${{ github.workspace }}/artifacts/w5-08
+      BACKEND_BASE_URL: http://localhost:8080
+      WAIT_TIMEOUT_SECONDS: "180"
+      W5_FORCE_FAILURE_GATE: ${{ inputs.failure_probe && 'G02' || '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare evidence directory
+        run: mkdir -p "$ARTIFACT_DIR"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: VNstormgis-Frontend/package-lock.json
+      - name: Install frontend dependencies and JSON CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          (cd VNstormgis-Frontend && npm ci)
+      - name: Create job-owned PostGIS and Redis stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          env_file="$RUNNER_TEMP/w5-08-compose.env"
+          password="$(openssl rand -hex 24)"
+          echo "::add-mask::$password"
+          printf 'DB_NAME=w5_08_ci\nDB_USERNAME=w5_08_ci\nDB_PASSWORD=%s\nDB_PORT=5432\nREDIS_PORT=6379\n' "$password" > "$env_file"
+          chmod 600 "$env_file"
+          printf 'DB_NAME=w5_08_ci\nDB_USERNAME=w5_08_ci\nDB_PASSWORD=%s\nDB_HOST=localhost\nREDIS_HOST=localhost\n' "$password" >> "$GITHUB_ENV"
+          echo "W5_COMPOSE_ENV=$env_file" >> "$GITHUB_ENV"
+          docker compose --env-file "$env_file" -f VNstormgis-Deployment/docker-compose.yml up -d
+          for attempt in {1..45}; do
+            db="$(docker inspect --format '{{.State.Health.Status}}' weathergis-postgres 2>/dev/null || true)"
+            redis="$(docker inspect --format '{{.State.Health.Status}}' weathergis-redis 2>/dev/null || true)"
+            if [[ "$db" == healthy && "$redis" == healthy ]]; then exit 0; fi
+            sleep 2
+          done
+          echo 'PostGIS/Redis health timeout' >&2
+          exit 1
+      - name: Build smoke backend
+        working-directory: VNstormgis-Backend
+        run: timeout 15m ./gradlew bootJar -x test --no-daemon > "$ARTIFACT_DIR/bootstrap-gradle.log" 2>&1
+      - name: Launch smoke backend without external sync or Gemini
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          unset GEMINI_API_KEY OPENWEATHERMAP_API_KEY
+          export GEMINI_ENABLED=false
+          boot_jar="$(find VNstormgis-Backend/build/libs -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' -print -quit)"
+          test -n "$boot_jar"
+          java -jar "$boot_jar" \
+            --spring.profiles.active=dev \
+            --weathergis.sync.enabled=false \
+            --weathergis.alert.retry.enabled=false \
+            --weathergis.chat.session.cleanup.enabled=false \
+            > "$ARTIFACT_DIR/backend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/w5-08-backend.pid"
+      - name: Verify Week 5 pipeline
+        shell: bash
+        run: timeout --signal=TERM --kill-after=30s 65m bash .github/scripts/verify-week5-pipeline.sh
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w5-08-${{ github.run_id }}
+          path: |
+            artifacts/w5-08/
+            VNstormgis-Backend/build/test-results/test/
+            VNstormgis-Backend/build/reports/tests/test/
+            VNstormgis-Backend/build/reports/jacoco/test/
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Notify QA/DevOps of failure
+        if: failure()
+        env:
+          WEBHOOK_URL: ${{ secrets.W5_FAILURE_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$WEBHOOK_URL" ]]; then
+            echo 'W5_FAILURE_WEBHOOK_URL is unset; QA/DevOps notification is not configured' >&2
+            exit 1
+          fi
+          if [[ "$WEBHOOK_URL" != https://* ]]; then
+            echo 'W5_FAILURE_WEBHOOK_URL must use HTTPS' >&2
+            exit 1
+          fi
+          gate="$(jq -r '.gate // "pre-script"' "$ARTIFACT_DIR/summary.json" 2>/dev/null || echo pre-script)"
+          jq -n --arg run "$RUN_URL" --arg sha "$RUN_SHA" --arg gate "$gate" \
+            '{text:("W5-08 nightly failed: " + $run + " SHA=" + $sha + " gate=" + $gate + " artifacts=" + $run + "#artifacts")}' \
+            > "$RUNNER_TEMP/w5-08-notification.json"
+          curl --fail --silent --show-error --connect-timeout 5 --max-time 15 \
+            -H 'Content-Type: application/json' --data-binary @"$RUNNER_TEMP/w5-08-notification.json" \
+            "$WEBHOOK_URL" > /dev/null
+      - name: Stop job-owned backend and stack
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/w5-08-backend.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/w5-08-backend.pid")" 2>/dev/null || true
+          fi
+          if [[ -n "${W5_COMPOSE_ENV:-}" && -f "$W5_COMPOSE_ENV" ]]; then
+            timeout 60 docker compose --env-file "$W5_COMPOSE_ENV" -f VNstormgis-Deployment/docker-compose.yml down -v || true
+            rm -f "$W5_COMPOSE_ENV"
+          fi
