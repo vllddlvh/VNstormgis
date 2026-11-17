@@ -1,302 +1,431 @@
-/**
- * @file AiChatDrawer.tsx
- * @description Ngăn kéo trợ lý AI đối thoại tác chiến thiên tai (AI Weather Copilot Drawer).
- * Nút kích hoạt nổi góc dưới bên phải (z-1000) và khung trượt bên phải (z-1200) chuẩn San Rita.
- * Hỗ trợ các câu lệnh truy vấn phân tích trắc địa thời tiết và điều hướng bản đồ trực tiếp.
- *
- * @author VNstormgis Team - Frontend & AI Specialist
- * @version 1.0.0
- */
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, Send, Sparkles, X } from "lucide-react";
+import { useChatSession } from "@/hooks/useChatSession";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { Bot, X, Send, Sparkles, Navigation, Terminal } from "lucide-react";
-import { CoordinateTuple } from "@/types/map";
-
-export interface AiChatMessage {
-  id: string;
-  sender: "user" | "copilot";
-  content: string;
-  timestamp: string;
-  actionCoords?: CoordinateTuple;
-  actionLabel?: string;
-  zoom?: number;
+export interface ChatRequest {
+  question: string;
+  referenced_alert_id?: string;
+  alert_title?: string;
 }
 
-export interface AiChatDrawerProps {
-  isOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Callback điều hướng bản đồ đến tọa độ được AI gợi ý */
-  onNavigateToLocation: (coords: CoordinateTuple, zoom?: number) => void;
-  /** Prompt kích hoạt từ bên ngoài (ví dụ click từ Marker Popup) */
-  externalPrompt?: string | null;
-  /** Callback giải phóng prompt bên ngoài sau khi đã xử lý */
-  onClearExternalPrompt?: () => void;
+interface AiChatDrawerProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  externalRequest: ChatRequest | null;
+  onClearExternalRequest: () => void;
 }
 
-export const AiChatDrawer: React.FC<AiChatDrawerProps> = ({
-  isOpen: controlledOpen,
+const QUICK_PROMPTS = [
+  "Khu vực nào đang mưa lớn nhất?",
+  "Trạm nào đang có gió mạnh nhất?",
+  "Tình hình bão hiện nay ra sao?",
+  "Tình hình trạm Đà Nẵng?",
+];
+const formatTime = (value: string) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(value));
+
+export function AiChatDrawer({
+  isOpen,
   onOpenChange,
-  onNavigateToLocation,
-  externalPrompt,
-  onClearExternalPrompt,
-}) => {
-  const [localOpen, setLocalOpen] = useState(false);
-  const isOpen = controlledOpen ?? localOpen;
-  const setIsOpen = useCallback((open: boolean) => {
-    setLocalOpen(open);
-    onOpenChange?.(open);
+  externalRequest,
+  onClearExternalRequest,
+}: AiChatDrawerProps) {
+  const chat = useChatSession(isOpen);
+  const [input, setInput] = useState("");
+  const [alertReference, setAlertReference] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const count = [...input.trim()].length;
+  const canSend =
+    count > 0 && count <= 500 && !chat.busy && chat.secondsLeft === 0;
+  const state =
+    chat.secondsLeft > 0
+      ? "rate-limited"
+      : (chat.busy ??
+        (chat.error ? "error" : chat.session ? "ready" : "no-session"));
+
+  const close = useCallback(() => {
+    onOpenChange(false);
+    triggerRef.current?.focus();
   }, [onOpenChange]);
-  const [inputQuery, setInputQuery] = useState<string>("");
-  const [messages, setMessages] = useState<AiChatMessage[]>([
-    {
-      id: "msg-1",
-      sender: "copilot",
-      content:
-        "Hệ thống VN-AI Copilot đã sẵn sàng. Dữ liệu trạm khí tượng thủy văn WGS84 và lớp phản hồi Radar đã được đồng bộ. Đồng chí cần kiểm tra tình huống thiên tai tại khu vực nào?",
-      timestamp: "17:00",
-    },
-    {
-      id: "msg-2",
-      sender: "copilot",
-      content:
-        "CẢNH BÁO TÂM ĐIỂM: Vùng biển Đà Nẵng đang ghi nhận lượng mưa 85.4mm kèm gió giật cấp 7. Quần đảo Trường Sa chịu sóng lớn do bão số 3.",
-      timestamp: "17:05",
-      actionCoords: [16.0544, 108.2022],
-      actionLabel: "ĐỊNH VỊ TRẠM ĐÀ NẴNG",
-      zoom: 11,
-    },
-  ]);
 
-  // Tự động mở ngăn kéo và gửi prompt khi người dùng kích hoạt từ Popup Marker
   useEffect(() => {
-    if (externalPrompt) {
-      setIsOpen(true);
-      const query = externalPrompt;
-      onClearExternalPrompt?.();
-
-      const userMsg: AiChatMessage = {
-        id: `user-${Date.now()}`,
-        sender: "user",
-        content: query,
-        timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-      };
-
-      setMessages((prev) => [...prev, userMsg]);
-
-      setTimeout(() => {
-        const copilotMsg: AiChatMessage = {
-          id: `copilot-${Date.now()}`,
-          sender: "copilot",
-          content: `[PHÂN TÍCH KHÍ TƯỢNG TỨC THỜI]: Đã nhận dữ liệu không gian thời gian thực cho yêu cầu "${query}". Thông số trạm quan trắc PostGIS đang được đối soát với trạm lân cận. Tình trạng hoạt động bình thường, không ghi nhận dị thường số liệu.`,
-          timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        };
-        setMessages((prev) => [...prev, copilotMsg]);
-      }, 500);
+    if (externalRequest) {
+      setInput(externalRequest.question);
+      setAlertReference(
+        externalRequest.referenced_alert_id
+          ? {
+              id: externalRequest.referenced_alert_id,
+              title: externalRequest.alert_title ?? "Cảnh báo",
+            }
+          : null,
+      );
+      onClearExternalRequest();
+      inputRef.current?.focus();
     }
-  }, [externalPrompt, onClearExternalPrompt, setIsOpen]);
+  }, [externalRequest, onClearExternalRequest]);
 
-  const handleSendMessage = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!inputQuery.trim()) return;
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
-    const query = inputQuery.trim();
-    const userMsg: AiChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: "user",
-      content: query,
-      timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    setInputQuery("");
-
-    // Mô phỏng phản hồi AI tác chiến thời tiết theo từ khóa
-    setTimeout(() => {
-      let replyContent = "";
-      let replyCoords: CoordinateTuple | undefined;
-      let replyLabel: string | undefined;
-      let replyZoom: number | undefined;
-
-      const lower = query.toLowerCase();
-      if (lower.includes("đà nẵng") || lower.includes("dng")) {
-        replyContent =
-          "Trạm Khí tượng Đà Nẵng (DNG): Ghi nhận mưa to 85.4mm, gió Đông 54km/h. Cảnh báo nguy cơ ngập úng nội thị lưu vực sông Hàn.";
-        replyCoords = [16.0544, 108.2022];
-        replyLabel = "BAY TỚI TRẠM ĐÀ NẴNG";
-        replyZoom = 11;
-      } else if (lower.includes("bão") || lower.includes("yagi") || lower.includes("biển đông")) {
-        replyContent =
-          "Bão số 3 (YAGI) duy trì sức gió 165km/h (Cấp 14), áp suất tâm 935 hPa. Dự báo trong 48h tới di chuyển theo hướng Tây Tây Bắc tiến vào Vịnh Bắc Bộ.";
-        replyCoords = [18.2, 114.5];
-        replyLabel = "ĐỊNH VỊ TÂM BÃO BIỂN ĐÔNG";
-        replyZoom = 7;
-      } else if (
-        lower.includes("sài gòn") ||
-        lower.includes("hồ chí minh") ||
-        lower.includes("sgn")
-      ) {
-        replyContent =
-          "Trạm Tân Sơn Hòa (SGN): Mưa rất lớn 215mm kết hợp đỉnh triều cường sông Sài Gòn. Cấp độ rủi ro EXTREME (Cấp 5).";
-        replyCoords = [10.7967, 106.6633];
-        replyLabel = "BAY TỚI TP. HỒ CHÍ MINH";
-        replyZoom = 12;
-      } else {
-        replyContent = `Đã ghi nhận yêu cầu: "${query}". Toàn quốc hiện có 68 trạm quan trắc PostGIS đang được giám sát liên tục. Trọng điểm thời tiết đang tập trung tại Trung Bộ và Biển Đông.`;
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
       }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, close]);
 
-      const copilotMsg: AiChatMessage = {
-        id: `copilot-${Date.now()}`,
-        sender: "copilot",
-        content: replyContent,
-        timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
-        actionCoords: replyCoords,
-        actionLabel: replyLabel,
-        zoom: replyZoom,
-      };
+  useEffect(() => {
+    if (isOpen && historyRef.current)
+      historyRef.current.scrollTop = historyRef.current.scrollHeight;
+  }, [isOpen, chat.messages.length, chat.busy]);
 
-      setMessages((prev) => [...prev, copilotMsg]);
-    }, 600);
-  };
+  useEffect(() => {
+    if (
+      chat.error?.code === "CHT_404_ALERT_NOT_FOUND" ||
+      chat.error?.code === "CHT_400_INVALID_ALERT_ID"
+    ) {
+      setAlertReference(null);
+    }
+  }, [chat.error]);
 
-  const handleQuickPrompt = (promptText: string) => {
-    setInputQuery(promptText);
+  const submit = async () => {
+    if (!canSend) return;
+    const succeeded = await chat.send(input, alertReference?.id);
+    if (succeeded) {
+      setInput("");
+      setAlertReference(null);
+    }
   };
 
   return (
     <>
-      {/* 1. NÚT KÍCH HOẠT FLOATING BUTTON (GÓC DƯỚI PHẢI, Z-1000) */}
-      <div className="absolute bottom-4 right-4 z-[1000] font-mono select-none">
+      <div className="absolute bottom-4 right-4 z-[1000] select-none font-mono">
         <button
+          ref={triggerRef}
           id="btn-ai-copilot-trigger"
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-2 bg-[#161b13] border border-[#2d3329] hover:border-[#e2ffcc] text-[#dde2e4] hover:text-[#e2ffcc] transition-colors shadow-flat"
-          title="Mở trợ lý AI Copilot"
+          data-testid="ai-chat-trigger"
+          type="button"
+          aria-controls="ai-chat-drawer"
+          aria-expanded={isOpen}
+          onClick={() => (isOpen ? close() : onOpenChange(true))}
+          className="flex min-h-11 items-center gap-2 border border-charcoal bg-carbon px-3 py-2 text-topo shadow-flat hover:border-mint hover:text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
         >
-          <div className="relative">
-            <Bot className="w-4 h-4 text-[#e2ffcc]" />
-            <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[#e2ffcc] animate-ping" />
-          </div>
-          <span className="text-xs uppercase font-bold tracking-wider hidden sm:inline">
-            AI COPILOT
-          </span>
-          <span className="text-[9px] px-1 py-0.2 border border-[#2d3329] bg-[#1a2117] text-[#84907f]">
-            ONLINE
+          <Bot aria-hidden="true" className="h-4 w-4 text-mint" />
+          <span className="hidden text-xs font-bold uppercase tracking-wider sm:inline">
+            TRỢ LÝ AI
           </span>
         </button>
       </div>
-
-      {/* 2. NGĂN KÉO ĐỐI THOẠI TRƯỢT BÊN PHẢI (Z-1200) */}
       {isOpen && (
-        <div className="absolute top-0 right-0 w-80 sm:w-96 h-full bg-[#161b13] border-l border-[#2d3329] z-[1200] flex flex-col shadow-flat-lg font-mono text-[#dde2e4] select-none">
-          {/* Header Drawer */}
-          <div className="p-3 border-b border-[#2d3329] bg-[#1a2117] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#e2ffcc]" />
+        <aside
+          id="ai-chat-drawer"
+          data-testid="ai-chat-drawer"
+          data-chat-state={state}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Trợ lý AI thời tiết"
+          className="absolute inset-x-0 bottom-0 z-[1200] flex h-[75vh] max-h-[75vh] flex-col border-t border-charcoal bg-carbon font-mono text-topo shadow-flat-lg md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-full md:w-96 md:border-l md:border-t-0"
+        >
+          <header className="flex shrink-0 items-center justify-between border-b border-charcoal bg-gis-panel p-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Sparkles
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 text-mint"
+              />
               <div>
-                <div className="text-xs uppercase font-bold text-[#e2ffcc] tracking-wider">
-                  VN-AI WEATHER COPILOT
-                </div>
-                <div className="text-[9px] text-[#84907f]">MÔ HÌNH PHÂN TÍCH KHÍ TƯỢNG TỰ ĐỘNG</div>
+                <h2 className="text-xs font-bold text-mint">
+                  TRỢ LÝ AI THỜI TIẾT
+                </h2>
+                <p className="text-[10px] text-sage">
+                  Trả lời dựa trên dữ liệu hệ thống
+                </p>
               </div>
             </div>
             <button
               id="btn-ai-copilot-close"
-              onClick={() => setIsOpen(false)}
-              className="p-1 border border-[#2d3329] hover:border-[#e2ffcc] text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-              title="Đóng ngăn kéo AI"
+              data-testid="ai-chat-close"
+              type="button"
+              onClick={close}
+              aria-label="Đóng trợ lý AI"
+              className="flex min-h-11 min-w-11 items-center justify-center border border-charcoal text-sage hover:text-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
             >
-              <X className="w-4 h-4" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
-          </div>
-
-          {/* Quick Prompts Bar */}
-          <div className="p-2 border-b border-[#2d3329] bg-[#161b13] flex gap-1.5 overflow-x-auto text-[9px]">
-            <button
-              id="btn-prompt-danang"
-              onClick={() => handleQuickPrompt("Tình hình trạm Đà Nẵng?")}
-              className="px-2 py-1 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[#84907f] hover:text-[#e2ffcc] whitespace-nowrap transition-colors"
+          </header>
+          {chat.notice && (
+            <p
+              data-testid="ai-chat-session-notice"
+              role="status"
+              className="border-b border-sage p-2 text-xs text-sage"
             >
-              ⚡ ĐÀ NẴNG
-            </button>
-            <button
-              id="btn-prompt-yagi"
-              onClick={() => handleQuickPrompt("Tâm bão số 3 YAGI ở đâu?")}
-              className="px-2 py-1 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[#84907f] hover:text-[#e2ffcc] whitespace-nowrap transition-colors"
+              {chat.notice}
+            </p>
+          )}
+          {chat.error && (
+            <div
+              data-testid="ai-chat-error"
+              data-error-code={chat.error.code}
+              role="status"
+              className="border-b border-weather-warning p-3 text-xs text-weather-warning"
             >
-              🌀 BÃO BIỂN ĐÔNG
-            </button>
-            <button
-              id="btn-prompt-hcm"
-              onClick={() => handleQuickPrompt("Ngập lụt tại TP. Hồ Chí Minh?")}
-              className="px-2 py-1 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[#84907f] hover:text-[#e2ffcc] whitespace-nowrap transition-colors"
-            >
-              🌊 TP.HCM
-            </button>
-          </div>
-
-          {/* Message List */}
-          <div className="flex-1 p-3 space-y-3 overflow-y-auto">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`p-2.5 border text-xs space-y-1.5 ${
-                  msg.sender === "user"
-                    ? "border-[#2d3329] bg-[#1a2117] ml-6 text-right"
-                    : "border-[#2d3329] bg-[#161b13] mr-4 text-left"
-                }`}
+              <p>{chat.error.message}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    chat.messages.some((item) => item.status === "failed") ||
+                    !chat.session
+                  )
+                    void submit();
+                  else {
+                    chat.clearError();
+                    void chat.reload();
+                  }
+                }}
+                className="mt-2 min-h-11 border border-weather-warning px-3"
               >
-                <div className="flex items-center justify-between text-[9px] text-[#84907f]">
-                  <span className="uppercase font-bold text-[#e2ffcc]">
-                    {msg.sender === "user" ? "[KỸ SƯ VẬN HÀNH]" : "[AI COPILOT]"}
-                  </span>
-                  <span>{msg.timestamp}</span>
-                </div>
-                <div className="text-[#dde2e4] leading-relaxed text-[11px] whitespace-pre-wrap">
-                  {msg.content}
-                </div>
-                {msg.actionCoords && msg.actionLabel && (
-                  <button
-                    onClick={() => onNavigateToLocation(msg.actionCoords!, msg.zoom || 11)}
-                    className="w-full mt-2 py-1 px-2 border border-[#e2ffcc] bg-[#1a2117] hover:bg-[#e2ffcc] text-[#e2ffcc] hover:text-[#161b13] text-[9px] font-bold uppercase flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <Navigation className="w-3 h-3" />
-                    <span>{msg.actionLabel}</span>
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Terminal Input Form */}
-          <form
-            onSubmit={handleSendMessage}
-            className="p-2 border-t border-[#2d3329] bg-[#1a2117] flex items-center gap-1.5"
-          >
-            <div className="flex items-center gap-1 text-[#84907f] pl-1">
-              <Terminal className="w-3.5 h-3.5 text-[#e2ffcc]" />
-              <span className="text-xs">&gt;</span>
+                THỬ LẠI
+              </button>
             </div>
-            <input
-              id="input-ai-prompt"
-              type="text"
-              value={inputQuery}
-              onChange={(e) => setInputQuery(e.target.value)}
-              placeholder="Nhập lệnh truy vấn trắc địa..."
-              className="flex-1 bg-transparent border-none outline-none text-xs text-[#dde2e4] placeholder-[#84907f]"
-            />
-            <button
-              id="btn-ai-send"
-              type="submit"
-              className="p-1.5 border border-[#2d3329] hover:border-[#e2ffcc] text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-              title="Gửi truy vấn"
+          )}
+          <div
+            ref={historyRef}
+            data-testid="ai-chat-history"
+            aria-live="polite"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 pb-14 select-text"
+          >
+            {chat.busy === "loading-history" && (
+              <p role="status" className="text-xs text-sage">
+                Đang tải hội thoại…
+              </p>
+            )}
+            {!chat.busy &&
+              !chat.error &&
+              chat.messages.length === 0 &&
+              (chat.hasLoaded || !chat.session) && (
+                <div
+                  data-testid="ai-chat-empty"
+                  className="space-y-4 text-xs leading-relaxed"
+                >
+                  <p>
+                    Hỏi về mưa, gió, bão, trạm quan trắc hoặc cảnh báo đang hoạt
+                    động.
+                  </p>
+                  <div
+                    data-testid="ai-chat-quick-prompts"
+                    className="space-y-2"
+                  >
+                    {QUICK_PROMPTS.map((prompt, index) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        data-prompt-index={index}
+                        id={
+                          index === 3
+                            ? "btn-prompt-danang"
+                            : index === 2
+                              ? "btn-prompt-yagi"
+                              : index === 0
+                                ? "btn-prompt-hcm"
+                                : undefined
+                        }
+                        disabled={chat.secondsLeft > 0}
+                        onClick={() => {
+                          setInput(prompt);
+                          setAlertReference(null);
+                          inputRef.current?.focus();
+                        }}
+                        className="block min-h-11 w-full border border-charcoal px-3 py-2 text-left text-mint hover:bg-charcoal disabled:opacity-50"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-sage">
+                    Nguồn: OpenWeatherMap / GDACS · Chỉ mang tính tham khảo cộng
+                    đồng
+                  </p>
+                </div>
+              )}
+            {chat.messages.map((message) => (
+              <article
+                key={message.id}
+                data-testid="ai-chat-message"
+                data-sender={message.sender_type}
+                data-message-id={message.id}
+                data-fallback={String(message.is_fallback)}
+                data-status={message.status ?? "sent"}
+                className={`space-y-1.5 border border-charcoal p-3 text-xs ${message.sender_type === "user" ? "ml-6 bg-gis-panel" : "mr-4 bg-carbon"}`}
+              >
+                <div className="flex items-center justify-between gap-2 text-[10px] text-sage">
+                  <strong className="text-mint">
+                    {message.sender_type === "user" ? "[BẠN]" : "[TRỢ LÝ AI]"}
+                  </strong>
+                  <time>{formatTime(message.created_at)}</time>
+                </div>
+                <p className="whitespace-pre-wrap break-words leading-relaxed">
+                  {message.content}
+                </p>
+                {message.status === "failed" && (
+                  <div className="space-y-2 text-weather-warning">
+                    <p>CHƯA GỬI</p>
+                    <button
+                      type="button"
+                      disabled={Boolean(chat.busy) || chat.secondsLeft > 0}
+                      onClick={() => {
+                        setInput(message.content);
+                        inputRef.current?.focus();
+                        void chat
+                          .send(
+                            message.content,
+                            chat.error?.code === "CHT_404_ALERT_NOT_FOUND" ||
+                              chat.error?.code === "CHT_400_INVALID_ALERT_ID"
+                              ? undefined
+                              : (message.referenced_alert_id ?? undefined),
+                          )
+                          .then((succeeded) => {
+                            if (succeeded) {
+                              setInput("");
+                              setAlertReference(null);
+                            }
+                          });
+                      }}
+                      className="min-h-11 border border-weather-warning px-3 disabled:opacity-50"
+                    >
+                      THỬ LẠI
+                    </button>
+                  </div>
+                )}
+                {message.is_fallback && (
+                  <p
+                    data-testid="ai-chat-fallback-badge"
+                    className="text-[10px] text-sage"
+                  >
+                    Trả lời tự động từ dữ liệu hệ thống
+                  </p>
+                )}
+              </article>
+            ))}
+            {chat.busy === "sending" && (
+              <p
+                data-testid="ai-chat-loading"
+                role="status"
+                className="mr-4 border border-charcoal p-3 text-xs text-sage"
+              >
+                AI đang suy nghĩ...
+              </p>
+            )}
+            {chat.hasMore && (
+              <div className="space-y-2 text-xs text-sage">
+                <p>
+                  Hội thoại dài — đang hiển thị {chat.messages.length} tin nhắn
+                  đầu tiên.
+                </p>
+                <button
+                  data-testid="ai-chat-load-more"
+                  type="button"
+                  disabled={Boolean(chat.busy)}
+                  onClick={() => void chat.loadMore()}
+                  className="min-h-11 border border-sage px-3 text-mint"
+                >
+                  TẢI THÊM
+                </button>
+              </div>
+            )}
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit();
+            }}
+            className="shrink-0 space-y-2 border-t border-charcoal bg-gis-panel p-3"
+          >
+            {alertReference && (
+              <div
+                data-testid="ai-chat-alert-ref"
+                data-alert-id={alertReference.id}
+                className="flex items-center justify-between gap-2 border border-sage p-2 text-[10px]"
+              >
+                <span className="min-w-0 break-words">
+                  Đang hỏi về cảnh báo: {alertReference.title}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Bỏ cảnh báo tham chiếu"
+                  onClick={() => setAlertReference(null)}
+                  className="min-h-11 min-w-11 text-mint"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            {chat.secondsLeft > 0 && (
+              <p
+                data-testid="ai-chat-countdown"
+                role="status"
+                className="text-xs text-weather-warning"
+              >
+                Bạn đang gửi câu hỏi quá nhanh. Xin vui lòng chờ{" "}
+                {chat.secondsLeft} giây trước khi tiếp tục.
+              </p>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                ref={inputRef}
+                id="input-ai-prompt"
+                data-testid="ai-chat-input"
+                rows={2}
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    void submit();
+                  }
+                }}
+                placeholder="Nhập câu hỏi thời tiết…"
+                aria-label="Câu hỏi thời tiết"
+                className="min-h-11 max-h-24 min-w-0 flex-1 resize-none border border-charcoal bg-carbon p-2 text-xs text-topo placeholder:text-sage focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
+              />
+              <button
+                id="btn-ai-send"
+                data-testid="ai-chat-send"
+                type="submit"
+                disabled={!canSend}
+                aria-label="Gửi câu hỏi"
+                className="flex min-h-11 min-w-11 items-center justify-center border border-mint text-mint hover:bg-charcoal disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
+              >
+                <Send aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
+            <p
+              className={`text-right text-[10px] ${count > 500 ? "text-weather-warning" : "text-sage"}`}
             >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+              {count}/500
+            </p>
           </form>
-        </div>
+        </aside>
       )}
     </>
   );
-};
-
-export default AiChatDrawer;
+}

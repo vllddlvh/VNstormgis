@@ -20,6 +20,7 @@ export interface AlertPanelProps {
   onRefresh: () => void;
   onClose: () => void;
   onFlyTo: (alert: AlertFeature) => void;
+  onAskAi: (alert: AlertFeature) => void;
 }
 
 export function AlertPanel({
@@ -37,6 +38,7 @@ export function AlertPanel({
   onRefresh,
   onClose,
   onFlyTo,
+  onAskAi,
 }: AlertPanelProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -174,6 +176,7 @@ export function AlertPanel({
             alert={selectedAlert}
             mapReady={mapReady}
             onFlyTo={onFlyTo}
+            onAskAi={onAskAi}
           />
         ) : (
           <div data-testid="alert-list" className="space-y-3">

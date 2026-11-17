@@ -27,7 +27,10 @@ import { AlertPanel } from "@/components/dashboard/AlertPanel";
 import { useAlerts } from "@/hooks/useAlerts";
 import { ALERT_FOCUS_ZOOM, getAlertCoordinates } from "@/lib/alertUtils";
 import type { AlertFeature } from "@/types/alert";
-import { AiChatDrawer } from "@/components/dashboard/AiChatDrawer";
+import {
+  AiChatDrawer,
+  type ChatRequest,
+} from "@/components/dashboard/AiChatDrawer";
 import {
   CoordinateTuple,
   LayerVisibilityState,
@@ -132,7 +135,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     INITIAL_MOCK_STATIONS,
   );
   const [selectedRegion, setSelectedRegion] = useState<string>("ALL");
-  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
+  const [chatRequest, setChatRequest] = useState<ChatRequest | null>(null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // 3. Quản lý Telemetry tọa độ và mức zoom
@@ -148,8 +151,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   const [activeTab, setActiveTab] = useState<"operations" | "diagnostics">(
     "operations",
   );
-  const [activeTileId, setActiveTileId] =
-    useState<string>(DEFAULT_TILE_ID);
+  const [activeTileId, setActiveTileId] = useState<string>(DEFAULT_TILE_ID);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // 5. Quản lý Trạng thái các lớp chuyên đề
@@ -372,9 +374,22 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   );
 
   const handleAskAi = useCallback((station: StationMarkerData) => {
-    setAiPrompt(
-      `Kiểm tra tình hình thời tiết và cảnh báo tại trạm [${station.code}] ${station.name}`,
-    );
+    setChatRequest({
+      question: `Kiểm tra tình hình thời tiết và cảnh báo tại trạm [${station.code}] ${station.name}`,
+    });
+    setRightDrawer("chat");
+  }, []);
+
+  const handleAskAiAboutAlert = useCallback((alert: AlertFeature) => {
+    const name = alert.properties.location_name;
+    setChatRequest({
+      question: name
+        ? `Vì sao trạm ${name} lại phát cảnh báo này?`
+        : `Giải thích cảnh báo "${alert.properties.title || "Chưa có tiêu đề"}".`,
+      referenced_alert_id: alert.id,
+      alert_title: alert.properties.title || "Chưa có tiêu đề",
+    });
+    setRightDrawer("chat");
   }, []);
 
   const handleMapStateChange = useCallback(
@@ -624,6 +639,7 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
               onRefresh={alerts.refresh}
               onClose={handleCloseAlerts}
               onFlyTo={handleFlyToAlert}
+              onAskAi={handleAskAiAboutAlert}
             />
           )}
 
@@ -650,11 +666,8 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
           <AiChatDrawer
             isOpen={rightDrawer === "chat"}
             onOpenChange={handleChatOpenChange}
-            onNavigateToLocation={(coords, zoom) =>
-              handleFlyTo(coords, zoom || 11)
-            }
-            externalPrompt={aiPrompt}
-            onClearExternalPrompt={() => setAiPrompt(null)}
+            externalRequest={chatRequest}
+            onClearExternalRequest={() => setChatRequest(null)}
           />
         </main>
       ) : (

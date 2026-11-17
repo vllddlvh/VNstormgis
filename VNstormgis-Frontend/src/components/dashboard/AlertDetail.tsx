@@ -16,9 +16,15 @@ interface AlertDetailProps {
   alert: AlertFeature;
   mapReady: boolean;
   onFlyTo: (alert: AlertFeature) => void;
+  onAskAi: (alert: AlertFeature) => void;
 }
 
-export function AlertDetail({ alert, mapReady, onFlyTo }: AlertDetailProps) {
+export function AlertDetail({
+  alert,
+  mapReady,
+  onFlyTo,
+  onAskAi,
+}: AlertDetailProps) {
   const { detail, isLoading, error, retry } = useAlertDetail(alert.id);
   const canLocate = mapReady && getAlertCoordinates(alert) !== null;
   const locationReason = !mapReady
@@ -69,6 +75,15 @@ export function AlertDetail({ alert, mapReady, onFlyTo }: AlertDetailProps) {
           className="inline-flex min-h-10 items-center gap-2 border border-mint px-3 py-2 text-xs font-bold text-mint hover:bg-charcoal focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Navigation aria-hidden="true" className="h-4 w-4" /> XEM VỊ TRÍ
+        </button>
+        <button
+          type="button"
+          data-testid="alert-ask-ai"
+          data-alert-id={alert.id}
+          onClick={() => onAskAi(alert)}
+          className="ml-2 inline-flex min-h-11 items-center border border-mint px-3 py-2 text-xs font-bold text-mint hover:bg-charcoal focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint"
+        >
+          HỎI AI VỀ CẢNH BÁO NÀY
         </button>
         {locationReason && (
           <p id="alert-location-reason" className="text-xs text-sage">
