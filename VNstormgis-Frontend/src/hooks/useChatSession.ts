@@ -37,9 +37,29 @@ function readSession(): SessionKey | null {
 function problem(error: unknown): ChatProblemDetail | null {
   if (!axios.isAxiosError(error)) return null;
   const value: unknown = error.response?.data;
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as ChatProblemDetail)
-    : null;
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return null;
+  const record = value as Record<string, unknown>;
+  const invalidParams = Array.isArray(record.invalidParams)
+    ? record.invalidParams.filter(
+        (item): item is { field: string; message: string } =>
+          item !== null &&
+          typeof item === "object" &&
+          typeof item.field === "string" &&
+          typeof item.message === "string",
+      )
+    : undefined;
+  return {
+    status: typeof record.status === "number" ? record.status : undefined,
+    errorCode:
+      typeof record.errorCode === "string" ? record.errorCode : undefined,
+    detail: typeof record.detail === "string" ? record.detail : undefined,
+    retry_after_seconds:
+      typeof record.retry_after_seconds === "number"
+        ? record.retry_after_seconds
+        : undefined,
+    invalidParams,
+  };
 }
 
 function isExpired(error: unknown): boolean {

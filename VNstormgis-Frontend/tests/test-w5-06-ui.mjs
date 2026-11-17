@@ -193,6 +193,7 @@ await test("401 missing token also creates a fresh session", async () => {
 await test("validation, alert deletion, network and malformed response keep input", async () => {
   const scenarios = [
     { result: { status: 400, body: problem(400, "CHT_400_VALIDATION", { invalidParams: [{ field: "message", message: "Câu hỏi không hợp lệ" }] }) }, code: "CHT_400_VALIDATION" },
+    { result: { status: 400, body: problem(400, "CHT_400_VALIDATION", { invalidParams: { unexpected: true } }) }, code: "CHT_400_VALIDATION" },
     { result: { status: 400, body: problem(400, "CHT_400_INVALID_ALERT_ID") }, code: "CHT_400_INVALID_ALERT_ID" },
     { result: { status: 404, body: problem(404, "CHT_404_ALERT_NOT_FOUND") }, code: "CHT_404_ALERT_NOT_FOUND" },
     { result: { status: 500, body: problem(500, "COM_500_INTERNAL_ERROR") }, code: "COM_500_INTERNAL_ERROR" },
