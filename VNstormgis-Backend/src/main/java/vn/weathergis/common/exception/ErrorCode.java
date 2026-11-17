@@ -75,7 +75,39 @@ public enum ErrorCode {
     STORM_INVALID_STATUS(
             "STM_400_INVALID_STATUS",
             "Giá trị tham số status không hợp lệ (chấp nhận: active, dissipated, all)",
-            HttpStatus.BAD_REQUEST);
+            HttpStatus.BAD_REQUEST),
+
+    // Chat Domain errors (CHT_xxx) — khai báo đủ ma trận hợp đồng W5-01 §2.5 một lần;
+    // CHT_429_RATE_LIMITED / CHT_503_RATE_LIMITER_UNAVAILABLE được wire hành vi ở W5-05.
+    CHAT_VALIDATION("CHT_400_VALIDATION", "Dữ liệu câu hỏi không hợp lệ", HttpStatus.BAD_REQUEST),
+    CHAT_INVALID_ALERT_ID(
+            "CHT_400_INVALID_ALERT_ID",
+            "Mã định danh cảnh báo không đúng định dạng UUID",
+            HttpStatus.BAD_REQUEST),
+    CHAT_INVALID_SPATIAL_FILTER(
+            "CHT_400_INVALID_SPATIAL_FILTER",
+            "Bộ lọc không gian không hợp lệ",
+            HttpStatus.BAD_REQUEST),
+    CHAT_SESSION_TOKEN_MISSING(
+            "CHT_401_SESSION_TOKEN_MISSING",
+            "Thiếu token phiên hội thoại",
+            HttpStatus.UNAUTHORIZED),
+    CHAT_SESSION_NOT_FOUND(
+            "CHT_404_SESSION_NOT_FOUND", "Không tìm thấy phiên hội thoại", HttpStatus.NOT_FOUND),
+    CHAT_ALERT_NOT_FOUND(
+            "CHT_404_ALERT_NOT_FOUND",
+            "Không tìm thấy cảnh báo với mã định danh yêu cầu",
+            HttpStatus.NOT_FOUND),
+    CHAT_RATE_LIMITED(
+            "CHT_429_RATE_LIMITED", "Vượt hạn mức gửi câu hỏi", HttpStatus.TOO_MANY_REQUESTS),
+    CHAT_AI_UNAVAILABLE(
+            "CHT_503_AI_UNAVAILABLE",
+            "Hệ thống trợ lý AI tạm thời gián đoạn",
+            HttpStatus.SERVICE_UNAVAILABLE),
+    CHAT_RATE_LIMITER_UNAVAILABLE(
+            "CHT_503_RATE_LIMITER_UNAVAILABLE",
+            "Bộ phận hạn mức tạm thời gián đoạn",
+            HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String defaultMessage;

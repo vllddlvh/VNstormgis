@@ -53,6 +53,7 @@ public abstract class AbstractPostGisIntegrationTest {
         // Tắt @Scheduled Ingestion trong suite test — cấm phát request mạng thật ra OWM (Mục 7.6)
         registry.add("weathergis.sync.enabled", () -> "false");
         registry.add("weathergis.alert.retry.enabled", () -> "false");
+        registry.add("weathergis.chat.session.cleanup.enabled", () -> "false");
         registry.add("weathergis.cache.enabled", () -> String.valueOf(redisCacheEnabled));
     }
 }

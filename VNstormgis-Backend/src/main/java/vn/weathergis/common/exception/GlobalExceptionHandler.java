@@ -25,6 +25,8 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import vn.weathergis.alert.exception.AdminUnauthorizedException;
+import vn.weathergis.chat.exception.ChatException;
+import vn.weathergis.chat.exception.ChatValidationException;
 
 /**
  * Khung xử lý lỗi toàn cục theo chuẩn quốc tế RFC 7807 Problem Details. Đảm bảo mọi lỗi trả về từ
@@ -147,6 +149,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode status,
             WebRequest request) {
         log.warn("Unreadable request body: {}", ex.getMessage());
+        if (isChatRequest(request)) {
+            ProblemDetail problemDetail =
+                    ProblemDetail.forStatusAndDetail(
+                            HttpStatus.BAD_REQUEST,
+                            "Nội dung JSON không hợp lệ hoặc không đọc được");
+            problemDetail.setType(URI.create(ERROR_BASE_URI + "validation-error"));
+            problemDetail.setTitle("Dữ liệu không hợp lệ");
+            problemDetail.setProperty(
+                    "invalidParams",
+                    List.of(
+                            Map.of(
+                                    "field", "body",
+                                    "message", "Nội dung JSON không hợp lệ hoặc không đọc được")));
+            enrichProblemDetail(problemDetail, ErrorCode.CHAT_VALIDATION.getCode(), request);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
+        }
         return invalidParameterResponse(
                 "Nội dung JSON không hợp lệ hoặc không đọc được",
                 request,
@@ -197,6 +215,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                             ? pattern.toString()
                             : servletRequest.getRequest().getRequestURI();
             if (path != null) {
+                if (path.startsWith("/api/v1/chat/")) {
+                    return ErrorCode.CHAT_VALIDATION;
+                }
                 if (path.equals("/api/v1/alert-thresholds")
                         || path.startsWith("/api/v1/alert-thresholds/")) {
                     return alertThresholdCode;
@@ -207,6 +228,42 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             }
         }
         return defaultCode;
+    }
+
+    private boolean isChatRequest(WebRequest request) {
+        if (request instanceof ServletWebRequest servletRequest) {
+            Object pattern =
+                    servletRequest
+                            .getRequest()
+                            .getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+            String path =
+                    pattern != null
+                            ? pattern.toString()
+                            : servletRequest.getRequest().getRequestURI();
+            return path != null && path.startsWith("/api/v1/chat/");
+        }
+        return false;
+    }
+
+    /** Chat-domain failures (contract §2.5): RFC 7807 with CHT_* codes and friendly detail. */
+    @ExceptionHandler(ChatException.class)
+    public ResponseEntity<ProblemDetail> handleChatException(ChatException ex, WebRequest request) {
+        ErrorCode ec = ex.getErrorCode();
+        log.warn("Chat request rejected: errorCode={}", ec.getCode());
+        ProblemDetail problemDetail =
+                ProblemDetail.forStatusAndDetail(ec.getHttpStatus(), ex.getMessage());
+        problemDetail.setType(URI.create(ERROR_BASE_URI + ex.getTypeSlug()));
+        problemDetail.setTitle(ec.getDefaultMessage());
+        if (ex instanceof ChatValidationException validation) {
+            problemDetail.setProperty(
+                    "invalidParams",
+                    List.of(
+                            Map.of(
+                                    "field", validation.getField(),
+                                    "message", validation.getMessage())));
+        }
+        enrichProblemDetail(problemDetail, ec.getCode(), request);
+        return ResponseEntity.status(ec.getHttpStatus()).body(problemDetail);
     }
 
     @ExceptionHandler(AdminUnauthorizedException.class)

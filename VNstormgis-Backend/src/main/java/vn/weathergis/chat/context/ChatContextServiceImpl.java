@@ -75,9 +75,14 @@ public class ChatContextServiceImpl implements ChatContextService {
 
     @Override
     public ChatContextResult retrieve(ChatContextRequest request) {
+        return retrieve(
+                request, classifier.classify(request.message(), request.referencedAlertId()));
+    }
+
+    @Override
+    public ChatContextResult retrieve(
+            ChatContextRequest request, IntentClassification classification) {
         long startNanos = System.nanoTime();
-        IntentClassification classification =
-                classifier.classify(request.message(), request.referencedAlertId());
         Instant now = clock.instant();
         ChatContextResult result =
                 switch (classification.intent()) {

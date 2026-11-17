@@ -51,6 +51,12 @@ weathergis:
       base-backoff-ms: ${ALERT_RETRY_BASE_BACKOFF_MS:5000}
       max-backoff-ms: ${ALERT_RETRY_MAX_BACKOFF_MS:300000}
       batch-size: ${ALERT_RETRY_BATCH_SIZE:50}
+  chat:
+    session:
+      retention: ${CHAT_SESSION_RETENTION:30d}
+      cleanup:
+        enabled: ${CHAT_CLEANUP_ENABLED:true}
+        cron: ${CHAT_CLEANUP_CRON:0 0 3 * * *}
 
 management:
   endpoints:
