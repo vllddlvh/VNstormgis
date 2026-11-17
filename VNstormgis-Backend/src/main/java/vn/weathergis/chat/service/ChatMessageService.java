@@ -98,7 +98,8 @@ public class ChatMessageService {
                 throw new ChatAlertNotFoundException();
             }
 
-            ChatReplyResult reply = replyGenerator.generate(classification, context);
+            ChatReplyResult reply =
+                    replyGenerator.generate(classification, context, validated.message());
             if (reply instanceof ChatReplyResult.Unavailable) {
                 throw new ChatAiUnavailableException();
             }

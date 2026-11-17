@@ -35,13 +35,14 @@ import vn.weathergis.chat.service.ChatRequestParser;
 import vn.weathergis.chat.service.ChatSessionService;
 
 /**
- * Anonymous grounded chat API (W5-03, contract W5-01 v1.0 §2 — D1/D9/D10). Three canonical session
+ * Anonymous grounded chat API (contract W5-01 v1.0 §2 — D1/D9/D10). Three canonical session
  * endpoints only; the bearer token travels in the X-Session-Token header, never in URLs or bodies,
  * and is returned exactly once at creation.
  *
- * <p>INTERIM (until W5-04): the reply port is not wired to Gemini yet, so POST messages answers 503
- * CHT_503_AI_UNAVAILABLE for every accepted question — no reply content is generated or stored. The
- * 200 path is exercised only with a stubbed port in tests. Rate limiting is a documented no-op seam
+ * <p>Replies are fallback-first (D5): every accepted question answers 200 — verified grounded AI
+ * content when Gemini passes the guardrail, otherwise a deterministic Vietnamese template built
+ * only from PostGIS data ({@code is_fallback=true}). 503 CHT_503_AI_UNAVAILABLE remains only for
+ * the narrow branch where even a fallback cannot be built. Rate limiting is a documented no-op seam
  * until W5-05.
  */
 @Tag(
@@ -52,8 +53,11 @@ import vn.weathergis.chat.service.ChatSessionService;
                         + " W5-01 v1.0 (D1); không đường tắt /chat/message, không token trong URL."
                         + " Lỗi RFC 7807 với mã CHT_*; thành công bọc ApiResponse. Thời gian payload"
                         + " chat là UTC ISO 8601 (...Z); timestamp của envelope giữ offset máy chủ."
-                        + " TỚI W5-04: POST messages trả 503 CHT_503_AI_UNAVAILABLE (chưa nối Gemini);"
-                        + " rate limit là seam no-op tới W5-05.")
+                        + " POST messages áp dụng fallback-first (D5): câu hỏi hợp lệ luôn trả 200 —"
+                        + " trả lời AI đã kiểm chứng grounding hoặc template tiếng Việt tất định từ"
+                        + " dữ liệu PostGIS với is_fallback=true khi thiếu dữ liệu/ngoài phạm vi/AI"
+                        + " lỗi/vi phạm guardrail; 503 CHT_503_AI_UNAVAILABLE chỉ khi không dựng được"
+                        + " cả fallback. Rate limit là seam no-op tới W5-05.")
 @SecurityScheme(
         name = "X-Session-Token",
         type = SecuritySchemeType.APIKEY,
@@ -133,8 +137,14 @@ public class ChatController {
                             + " Trường lạ bị bỏ qua. Nội dung lưu sau strip. referenced_entities trả"
                             + " nguyên trạng từ factual context (không suy diễn từ câu hỏi). message_id"
                             + " là id bản ghi assistant đã lưu; created_at UTC (...Z)."
-                            + " TỚI W5-04: mọi câu hỏi hợp lệ trả 503 CHT_503_AI_UNAVAILABLE (chưa nối"
-                            + " Gemini, không bịa nội dung). Bảng lỗi: 400 CHT_400_VALIDATION /"
+                            + " Fallback-first (D5): mọi câu hỏi hợp lệ trả 200. is_fallback=false là"
+                            + " trả lời Gemini đã kiểm chứng từng số liệu/thực thể theo dữ kiện"
+                            + " PostGIS; is_fallback=true là template tiếng Việt tất định từ dữ liệu"
+                            + " hệ thống (thiếu dữ liệu, ngoài phạm vi, alert không còn snapshot,"
+                            + " Gemini disabled/lỗi/timeout/quota hoặc output vi phạm guardrail) —"
+                            + " không retry trong request, không bịa số. 503 CHT_503_AI_UNAVAILABLE"
+                            + " chỉ còn là nhánh hẹp khi không dựng được cả fallback. Bảng lỗi: 400"
+                            + " CHT_400_VALIDATION /"
                             + " CHT_400_INVALID_ALERT_ID / CHT_400_INVALID_SPATIAL_FILTER; 401"
                             + " CHT_401_SESSION_TOKEN_MISSING; 404 CHT_404_SESSION_NOT_FOUND (đồng nhất)"
                             + " / CHT_404_ALERT_NOT_FOUND; 429 CHT_429_RATE_LIMITED (W5-05, kèm"
@@ -150,8 +160,9 @@ public class ChatController {
         @ApiResponse(
                 responseCode = "200",
                 description =
-                        "Câu hỏi được chấp nhận; cặp tin nhắn đã ghi (is_fallback đánh dấu trả lời"
-                                + " tự động). Chỉ khả dụng khi port trả lời W5-04 hoạt động.",
+                        "Câu hỏi được chấp nhận; cặp tin nhắn đã ghi. is_fallback=true đánh dấu trả"
+                                + " lời template tất định từ dữ liệu hệ thống (D5 fallback-first);"
+                                + " is_fallback=false là trả lời AI đã kiểm chứng grounding.",
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -192,8 +203,9 @@ public class ChatController {
         @ApiResponse(
                 responseCode = "503",
                 description =
-                        "AI chưa sẵn sàng (CHT_503_AI_UNAVAILABLE, interim tới W5-04) hoặc rate"
-                                + " limiter outage (CHT_503_RATE_LIMITER_UNAVAILABLE, W5-05)",
+                        "Không dựng được cả fallback (CHT_503_AI_UNAVAILABLE, nhánh hẹp bất biến đầu"
+                                + " vào) hoặc rate limiter outage (CHT_503_RATE_LIMITER_UNAVAILABLE,"
+                                + " W5-05)",
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,

@@ -52,7 +52,7 @@ import vn.weathergis.common.exception.ErrorCode;
 /**
  * Orchestration contract §2.3/§3.2 (D4/D9/D10): validation → session auth → rate-limit seam →
  * intent/context → reply port (outside any transaction) → atomic pair write. Rejected requests
- * never touch history; the interim reply outcome is 503 with no invented content.
+ * never touch history; an Unavailable reply outcome is 503 with no invented content.
  */
 @ExtendWith(MockitoExtension.class)
 class ChatMessageServiceTest {
@@ -135,7 +135,8 @@ class ChatMessageServiceTest {
         when(sessionService.authenticate(SESSION_ID, "token-a")).thenReturn(session);
         when(classifier.classify("Câu hỏi mẫu", null)).thenReturn(classification);
         when(contextService.retrieve(validated, classification)).thenReturn(readyContext);
-        when(replyGenerator.generate(classification, readyContext)).thenReturn(reply);
+        when(replyGenerator.generate(classification, readyContext, "Câu hỏi mẫu"))
+                .thenReturn(reply);
         when(historyWriter.writePair(session, validated, (ChatReplyResult.Reply) reply))
                 .thenReturn(assistant);
     }
@@ -170,7 +171,7 @@ class ChatMessageServiceTest {
                 .acquire(new ChatRateLimitKey(TOKEN_HASH, "203.0.113.7", "203.0.113.7"));
         order.verify(classifier).classify("Câu hỏi mẫu", null);
         order.verify(contextService).retrieve(validated, classification);
-        order.verify(replyGenerator).generate(classification, readyContext);
+        order.verify(replyGenerator).generate(classification, readyContext, "Câu hỏi mẫu");
         order.verify(historyWriter).writePair(session, validated, reply);
     }
 
@@ -193,7 +194,7 @@ class ChatMessageServiceTest {
         when(sessionService.authenticate(SESSION_ID, "token-a")).thenReturn(session);
         when(classifier.classify("Câu hỏi mẫu", null)).thenReturn(classification);
         when(contextService.retrieve(validated, classification)).thenReturn(readyContext);
-        when(replyGenerator.generate(classification, readyContext))
+        when(replyGenerator.generate(classification, readyContext, "Câu hỏi mẫu"))
                 .thenReturn(new ChatReplyResult.Unavailable());
 
         assertThatThrownBy(
@@ -330,7 +331,8 @@ class ChatMessageServiceTest {
             when(classifier.classify(secretQuestion, null)).thenReturn(classification);
             when(contextService.retrieve(secretValidated, classification)).thenReturn(readyContext);
             ChatReplyResult.Reply reply = new ChatReplyResult.Reply(secretReply, false, 3);
-            when(replyGenerator.generate(classification, readyContext)).thenReturn(reply);
+            when(replyGenerator.generate(classification, readyContext, secretQuestion))
+                    .thenReturn(reply);
             when(historyWriter.writePair(session, secretValidated, reply)).thenReturn(assistant);
 
             service.sendMessage(SESSION_ID, secretToken, secretRaw, "203.0.113.7", null);

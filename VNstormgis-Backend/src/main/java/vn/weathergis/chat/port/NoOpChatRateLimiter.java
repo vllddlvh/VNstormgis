@@ -1,9 +1,9 @@
 package vn.weathergis.chat.port;
 
 /**
- * Default W5-03 limiter: allow everything. Safe because no Gemini call exists yet (every question
- * is interim 503, so no token budget is consumed). W5-05 MUST replace this bean with the approved
- * Bucket4j+Redis policy (10/min/session + 30/min/IP, fail-closed on Redis outage).
+ * Allow-all limiter seam kept for W5-05, which MUST replace this bean with the approved
+ * Bucket4j+Redis policy (10/min/session + 30/min/IP, fail-closed on Redis outage). The seam sits
+ * before intent/context and the reply port, so quota will be consumed before any Gemini call.
  */
 public class NoOpChatRateLimiter implements ChatRateLimiter {
 

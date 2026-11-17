@@ -3,9 +3,9 @@ package vn.weathergis.chat.exception;
 import vn.weathergis.common.exception.ErrorCode;
 
 /**
- * The reply dependency cannot produce even a deterministic fallback (contract §2.5). Between W5-03
- * and W5-04 the interim reply bean raises this for every question; no history is written and no
- * reply content is invented.
+ * The reply dependency cannot produce even a deterministic fallback (contract §2.5, W5-04 §3.3
+ * narrow branch: broken input invariants only). Provider faults and missing data yield a 200
+ * fallback instead. No history is written and no reply content is invented.
  */
 public class ChatAiUnavailableException extends ChatException {
 

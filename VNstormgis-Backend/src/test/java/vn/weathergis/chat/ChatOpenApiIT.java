@@ -41,5 +41,10 @@ class ChatOpenApiIT extends AbstractPostGisIntegrationTest {
         assertThat(json).contains("CHT_404_ALERT_NOT_FOUND");
         assertThat(json).contains("CHT_503_AI_UNAVAILABLE");
         assertThat(json).contains("CHT_429_RATE_LIMITED");
+        // W5-04: fallback-first replaces the interim 503 note; response shape stays stable.
+        assertThat(json).contains("fallback-first");
+        assertThat(json).contains("is_fallback=true");
+        assertThat(json).doesNotContain("TỚI W5-04");
+        assertThat(json.toLowerCase()).doesNotContain("interim");
     }
 }

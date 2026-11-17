@@ -85,7 +85,7 @@ class ChatSessionApiIT extends AbstractPostGisIntegrationTest {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         sessionService = new ChatSessionService(sessionRepository, tokenService, properties, clock);
         ChatReplyGenerator stubPort =
-                (classification, context) -> {
+                (classification, context, question) -> {
                     lastContext.set(context);
                     return portOutcome.get();
                 };
@@ -230,7 +230,8 @@ class ChatSessionApiIT extends AbstractPostGisIntegrationTest {
     }
 
     @Test
-    void interimUnavailableReplyWritesNoHistory() {
+    void unavailableReplyWritesNoHistory() {
+        // Narrow §3.3 branch: port cannot build even a fallback (W5-04 keeps the mapping).
         CreateSessionResponse session = newSession();
         portOutcome.set(new ChatReplyResult.Unavailable());
 

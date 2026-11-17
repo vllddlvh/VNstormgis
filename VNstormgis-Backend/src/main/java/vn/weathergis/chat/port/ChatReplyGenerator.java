@@ -4,12 +4,12 @@ import vn.weathergis.chat.context.ChatContextResult;
 import vn.weathergis.chat.intent.IntentClassification;
 
 /**
- * Reply-generation seam handed to W5-04 (contract §3.2). W5-03 ships an interim bean that returns
- * {@link ChatReplyResult.Unavailable} (HTTP 503, no history, no invented content); W5-04 replaces
- * it with Gemini + guardrail + deterministic template. The orchestrator calls this port OUTSIDE any
- * database transaction.
+ * Reply-generation seam (contract §3.2, W5-04). The orchestrator calls this port OUTSIDE any
+ * database transaction. {@code question} is the validated user text; it travels to the prompt as
+ * neutralized data only (contract §4.1) and is never logged or stored by the generator.
  */
 public interface ChatReplyGenerator {
 
-    ChatReplyResult generate(IntentClassification classification, ChatContextResult context);
+    ChatReplyResult generate(
+            IntentClassification classification, ChatContextResult context, String question);
 }
