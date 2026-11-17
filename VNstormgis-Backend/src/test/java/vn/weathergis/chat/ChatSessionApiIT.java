@@ -34,7 +34,6 @@ import vn.weathergis.chat.intent.IntentClassifier;
 import vn.weathergis.chat.port.ChatRateLimiter;
 import vn.weathergis.chat.port.ChatReplyGenerator;
 import vn.weathergis.chat.port.ChatReplyResult;
-import vn.weathergis.chat.port.NoOpChatRateLimiter;
 import vn.weathergis.chat.repository.ChatMessageRepository;
 import vn.weathergis.chat.repository.ChatSessionRepository;
 import vn.weathergis.chat.service.ChatHistoryWriter;
@@ -89,7 +88,7 @@ class ChatSessionApiIT extends AbstractPostGisIntegrationTest {
                     lastContext.set(context);
                     return portOutcome.get();
                 };
-        ChatRateLimiter noOp = new NoOpChatRateLimiter();
+        ChatRateLimiter noOp = key -> {};
         messageService =
                 new ChatMessageService(
                         validator,

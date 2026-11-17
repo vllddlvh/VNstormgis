@@ -77,8 +77,7 @@ public enum ErrorCode {
             "Giá trị tham số status không hợp lệ (chấp nhận: active, dissipated, all)",
             HttpStatus.BAD_REQUEST),
 
-    // Chat Domain errors (CHT_xxx) — khai báo đủ ma trận hợp đồng W5-01 §2.5 một lần;
-    // CHT_429_RATE_LIMITED / CHT_503_RATE_LIMITER_UNAVAILABLE được wire hành vi ở W5-05.
+    // Chat Domain errors (CHT_xxx) — hợp đồng W5-01 §2.5.
     CHAT_VALIDATION("CHT_400_VALIDATION", "Dữ liệu câu hỏi không hợp lệ", HttpStatus.BAD_REQUEST),
     CHAT_INVALID_ALERT_ID(
             "CHT_400_INVALID_ALERT_ID",

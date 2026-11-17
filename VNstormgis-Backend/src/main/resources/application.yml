@@ -31,6 +31,14 @@ spring:
   flyway:
     enabled: false
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
+      timeout: ${REDIS_TIMEOUT:500ms}
+
 server:
   port: 8080
   shutdown: graceful
@@ -52,6 +60,11 @@ weathergis:
       max-backoff-ms: ${ALERT_RETRY_MAX_BACKOFF_MS:300000}
       batch-size: ${ALERT_RETRY_BATCH_SIZE:50}
   chat:
+    ratelimit:
+      session-limit: ${CHAT_RATELIMIT_SESSION_LIMIT:10}
+      ip-limit: ${CHAT_RATELIMIT_IP_LIMIT:30}
+      window: ${CHAT_RATELIMIT_WINDOW:60s}
+      trusted-proxies: ${CHAT_RATELIMIT_TRUSTED_PROXIES:}
     session:
       retention: ${CHAT_SESSION_RETENTION:30d}
       cleanup:

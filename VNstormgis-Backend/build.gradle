@@ -53,6 +53,8 @@ dependencies {
     //    KHÔNG thêm spring-boot-starter-cache / @EnableCaching: tầng cache là programmatic
     //    (quyết định #2/#14) — RedisCacheManager dùng trực tiếp qua GeoJsonCacheService.
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'com.bucket4j:bucket4j-core:8.10.1'
+    implementation 'com.bucket4j:bucket4j-redis:8.10.1'
 
     // 7. Developer Productivity Tools
     compileOnly 'org.projectlombok:lombok:1.18.32'

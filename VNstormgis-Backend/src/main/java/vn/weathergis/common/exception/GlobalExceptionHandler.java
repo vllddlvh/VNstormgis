@@ -26,6 +26,7 @@ import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import vn.weathergis.alert.exception.AdminUnauthorizedException;
 import vn.weathergis.chat.exception.ChatException;
+import vn.weathergis.chat.exception.ChatRateLimitedException;
 import vn.weathergis.chat.exception.ChatValidationException;
 
 /**
@@ -262,8 +263,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                     "field", validation.getField(),
                                     "message", validation.getMessage())));
         }
+        if (ex instanceof ChatRateLimitedException limited) {
+            problemDetail.setProperty("retry_after_seconds", limited.getRetryAfterSeconds());
+        }
         enrichProblemDetail(problemDetail, ec.getCode(), request);
-        return ResponseEntity.status(ec.getHttpStatus()).body(problemDetail);
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ec.getHttpStatus());
+        if (ex instanceof ChatRateLimitedException limited) {
+            response.header("Retry-After", Long.toString(limited.getRetryAfterSeconds()));
+        }
+        return response.body(problemDetail);
     }
 
     @ExceptionHandler(AdminUnauthorizedException.class)

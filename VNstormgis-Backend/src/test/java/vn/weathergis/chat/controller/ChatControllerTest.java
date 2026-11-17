@@ -30,7 +30,8 @@ import vn.weathergis.chat.dto.CreateSessionResponse;
 import vn.weathergis.chat.dto.SendMessageResponse;
 import vn.weathergis.chat.exception.ChatAiUnavailableException;
 import vn.weathergis.chat.exception.ChatAlertNotFoundException;
-import vn.weathergis.chat.exception.ChatException;
+import vn.weathergis.chat.exception.ChatRateLimitedException;
+import vn.weathergis.chat.exception.ChatRateLimiterUnavailableException;
 import vn.weathergis.chat.exception.ChatSessionNotFoundException;
 import vn.weathergis.chat.exception.ChatSessionTokenMissingException;
 import vn.weathergis.chat.exception.ChatValidationException;
@@ -136,6 +137,22 @@ class ChatControllerTest {
     }
 
     @Test
+    void joinsAllForwardedForHeadersBeforeIpResolution() throws Exception {
+        stubSend(reply());
+        mockMvc.perform(
+                        post(MESSAGES)
+                                .header("X-Session-Token", "token-a")
+                                .header("X-Forwarded-For", "198.51.100.1")
+                                .header("X-Forwarded-For", "10.0.0.1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"message\":\"x\"}"))
+                .andExpect(status().isOk());
+        verify(messageService)
+                .sendMessage(
+                        eq(SESSION_ID), eq("token-a"), any(), any(), eq("198.51.100.1,10.0.0.1"));
+    }
+
+    @Test
     void missingTokenHeaderIs401WithRfc7807Shape() throws Exception {
         when(messageService.sendMessage(eq(SESSION_ID), isNull(), any(), any(), any()))
                 .thenThrow(new ChatSessionTokenMissingException());
@@ -237,9 +254,9 @@ class ChatControllerTest {
     }
 
     @Test
-    void rateLimitedBranchHasNoRetryAfterHeaderUntilW505() throws Exception {
+    void rateLimitedBranchHasMatchingRetryAfterHeaderAndExtension() throws Exception {
         when(messageService.sendMessage(eq(SESSION_ID), eq("token-a"), any(), any(), any()))
-                .thenThrow(new ChatException(ErrorCode.CHAT_RATE_LIMITED, "rate-limited", "chờ"));
+                .thenThrow(new ChatRateLimitedException("session", 37));
 
         mockMvc.perform(
                         post(MESSAGES)
@@ -248,6 +265,26 @@ class ChatControllerTest {
                                 .content("{\"message\":\"x\"}"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.errorCode").value("CHT_429_RATE_LIMITED"))
+                .andExpect(header().string("Retry-After", "37"))
+                .andExpect(jsonPath("$.retry_after_seconds").value(37))
+                .andExpect(
+                        jsonPath("$.detail")
+                                .value(org.hamcrest.Matchers.containsString("chờ 37 giây")))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void limiterOutageHas503WithoutRetryAfter() throws Exception {
+        when(messageService.sendMessage(eq(SESSION_ID), eq("token-a"), any(), any(), any()))
+                .thenThrow(new ChatRateLimiterUnavailableException());
+
+        mockMvc.perform(
+                        post(MESSAGES)
+                                .header("X-Session-Token", "token-a")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"message\":\"x\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.errorCode").value("CHT_503_RATE_LIMITER_UNAVAILABLE"))
                 .andExpect(header().doesNotExist("Retry-After"));
     }
 

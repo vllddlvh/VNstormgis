@@ -37,7 +37,8 @@ import vn.weathergis.chat.dto.SendMessageRequest;
 import vn.weathergis.chat.dto.SendMessageResponse;
 import vn.weathergis.chat.exception.ChatAiUnavailableException;
 import vn.weathergis.chat.exception.ChatAlertNotFoundException;
-import vn.weathergis.chat.exception.ChatException;
+import vn.weathergis.chat.exception.ChatRateLimitedException;
+import vn.weathergis.chat.exception.ChatRateLimiterUnavailableException;
 import vn.weathergis.chat.exception.ChatSessionNotFoundException;
 import vn.weathergis.chat.exception.ChatValidationException;
 import vn.weathergis.chat.intent.ChatIntent;
@@ -262,14 +263,27 @@ class ChatMessageServiceTest {
     void rateLimitRejectionBlocksContextReplyAndWrite() {
         when(validator.validate(raw)).thenReturn(validated);
         when(sessionService.authenticate(SESSION_ID, "token-a")).thenReturn(session);
-        org.mockito.Mockito.doThrow(
-                        new ChatException(ErrorCode.CHAT_RATE_LIMITED, "rate-limited", "chờ"))
+        org.mockito.Mockito.doThrow(new ChatRateLimitedException("session", 7))
                 .when(rateLimiter)
                 .acquire(any(ChatRateLimitKey.class));
 
         assertThatThrownBy(
                         () -> service.sendMessage(SESSION_ID, "token-a", raw, "203.0.113.7", null))
-                .isInstanceOf(ChatException.class);
+                .isInstanceOf(ChatRateLimitedException.class);
+        verifyNoInteractions(classifier, contextService, replyGenerator, historyWriter);
+    }
+
+    @Test
+    void rateLimiterOutageBlocksContextReplyAndWrite() {
+        when(validator.validate(raw)).thenReturn(validated);
+        when(sessionService.authenticate(SESSION_ID, "token-a")).thenReturn(session);
+        org.mockito.Mockito.doThrow(new ChatRateLimiterUnavailableException())
+                .when(rateLimiter)
+                .acquire(any(ChatRateLimitKey.class));
+
+        assertThatThrownBy(
+                        () -> service.sendMessage(SESSION_ID, "token-a", raw, "203.0.113.7", null))
+                .isInstanceOf(ChatRateLimiterUnavailableException.class);
         verifyNoInteractions(classifier, contextService, replyGenerator, historyWriter);
     }
 

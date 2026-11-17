@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -42,8 +43,7 @@ import vn.weathergis.chat.service.ChatSessionService;
  * <p>Replies are fallback-first (D5): every accepted question answers 200 — verified grounded AI
  * content when Gemini passes the guardrail, otherwise a deterministic Vietnamese template built
  * only from PostGIS data ({@code is_fallback=true}). 503 CHT_503_AI_UNAVAILABLE remains only for
- * the narrow branch where even a fallback cannot be built. Rate limiting is a documented no-op seam
- * until W5-05.
+ * the narrow branch where even a fallback cannot be built. POST messages has Redis-backed quota.
  */
 @Tag(
         name = "7. Hội Thoại AI Thụ Động (Chat)",
@@ -57,7 +57,8 @@ import vn.weathergis.chat.service.ChatSessionService;
                         + " trả lời AI đã kiểm chứng grounding hoặc template tiếng Việt tất định từ"
                         + " dữ liệu PostGIS với is_fallback=true khi thiếu dữ liệu/ngoài phạm vi/AI"
                         + " lỗi/vi phạm guardrail; 503 CHT_503_AI_UNAVAILABLE chỉ khi không dựng được"
-                        + " cả fallback. Rate limit là seam no-op tới W5-05.")
+                        + " cả fallback. POST messages giới hạn 10 câu/phút/phiên và 30 câu/phút/IP."
+                        + " Redis gián đoạn trả 503, không ghi lịch sử.")
 @SecurityScheme(
         name = "X-Session-Token",
         type = SecuritySchemeType.APIKEY,
@@ -125,8 +126,8 @@ public class ChatController {
     @Operation(
             summary = "Gửi câu hỏi trong phiên (X-Session-Token)",
             description =
-                    "Thứ tự xử lý: validation body → xác thực session/token → rate limit (seam"
-                            + " no-op tới W5-05) → intent/context (W5-02) → port sinh trả lời (W5-04)"
+                    "Thứ tự xử lý: validation body → xác thực session/token → rate limit Redis"
+                            + " (10/60s phiên + 30/60s IP, fixed window) → intent/context (W5-02) → port sinh trả lời (W5-04)"
                             + " → ghi atomic cặp user+assistant → response. Request 400/401/404/429/503"
                             + " KHÔNG ghi lịch sử. Body ≤ 8 KiB (8192 byte, kiểm cả Content-Length lẫn"
                             + " chunked); message bắt buộc 1–500 code point sau strip() Unicode, từ"
@@ -147,9 +148,9 @@ public class ChatController {
                             + " CHT_400_VALIDATION /"
                             + " CHT_400_INVALID_ALERT_ID / CHT_400_INVALID_SPATIAL_FILTER; 401"
                             + " CHT_401_SESSION_TOKEN_MISSING; 404 CHT_404_SESSION_NOT_FOUND (đồng nhất)"
-                            + " / CHT_404_ALERT_NOT_FOUND; 429 CHT_429_RATE_LIMITED (W5-05, kèm"
+                            + " / CHT_404_ALERT_NOT_FOUND; 429 CHT_429_RATE_LIMITED (kèm"
                             + " Retry-After giây); 503 CHT_503_AI_UNAVAILABLE /"
-                            + " CHT_503_RATE_LIMITER_UNAVAILABLE (W5-05); 500 COM_500_INTERNAL_ERROR."
+                            + " CHT_503_RATE_LIMITER_UNAVAILABLE; 500 COM_500_INTERNAL_ERROR."
                             + " Ví dụ lỗi 400 [FIXTURE]: {\"type\":\"https://weathergis.vn/errors/"
                             + "validation-error\",\"title\":\"Dữ liệu câu hỏi không hợp lệ\",\"status\""
                             + ":400,\"detail\":\"Câu hỏi vượt quá 500 ký tự\",\"instance\":\"/api/v1/"
@@ -195,7 +196,11 @@ public class ChatController {
         @ApiResponse(
                 responseCode = "429",
                 description =
-                        "Vượt hạn mức (CHT_429_RATE_LIMITED) — hành vi + Retry-After thuộc W5-05",
+                        "Vượt hạn mức POST messages (CHT_429_RATE_LIMITED): Retry-After là giây"
+                                + " tối thiểu cần chờ, extension retry_after_seconds cùng giá trị."
+                                + " Không ghi lịch sử. Ví dụ [FIXTURE]: Retry-After: 37;"
+                                + " {\"errorCode\":\"CHT_429_RATE_LIMITED\",\"retry_after_seconds\":37,"
+                                + "\"detail\":\"Bạn đang gửi câu hỏi quá nhanh. Xin vui lòng chờ 37 giây trước khi tiếp tục.\"}",
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -203,9 +208,9 @@ public class ChatController {
         @ApiResponse(
                 responseCode = "503",
                 description =
-                        "Không dựng được cả fallback (CHT_503_AI_UNAVAILABLE, nhánh hẹp bất biến đầu"
-                                + " vào) hoặc rate limiter outage (CHT_503_RATE_LIMITER_UNAVAILABLE,"
-                                + " W5-05)",
+                        "Không dựng được cả fallback (CHT_503_AI_UNAVAILABLE) hoặc Redis rate"
+                                + " limiter gián đoạn (CHT_503_RATE_LIMITER_UNAVAILABLE, fail-closed);"
+                                + " không ghi lịch sử",
                 content =
                         @Content(
                                 mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -238,7 +243,7 @@ public class ChatController {
                         sessionToken,
                         raw,
                         request.getRemoteAddr(),
-                        request.getHeader("X-Forwarded-For"));
+                        String.join(",", Collections.list(request.getHeaders("X-Forwarded-For"))));
         return ResponseEntity.ok(vn.weathergis.common.api.ApiResponse.ok(data));
     }
 

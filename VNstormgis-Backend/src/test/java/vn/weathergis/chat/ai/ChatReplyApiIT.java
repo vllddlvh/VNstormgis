@@ -36,6 +36,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import vn.weathergis.alert.ai.GeminiProperties;
+import vn.weathergis.chat.port.ChatRateLimiter;
 import vn.weathergis.chat.port.ChatReplyGenerator;
 import vn.weathergis.chat.port.ChatReplyResult;
 import vn.weathergis.common.AbstractPostGisIntegrationTest;
@@ -66,6 +67,12 @@ class ChatReplyApiIT extends AbstractPostGisIntegrationTest {
         @Primary
         Clock w504FixedClock() {
             return Clock.fixed(NOW, ZoneOffset.UTC);
+        }
+
+        @Bean
+        @Primary
+        ChatRateLimiter w504AllowAllLimiter() {
+            return key -> {};
         }
     }
 
