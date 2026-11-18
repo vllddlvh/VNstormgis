@@ -18,6 +18,9 @@ import {
   MapPin,
   Layers,
   Wrench,
+  Search,
+  LocateFixed,
+  Mail,
 } from "lucide-react";
 import { StatusBadge, StatusType } from "@/components/common/StatusBadge";
 import { CoordinateTuple } from "@/types/map";
@@ -48,6 +51,14 @@ export interface HeaderNavbarProps {
   isFullscreen: boolean;
   /** Callback toggle toàn màn hình */
   onToggleFullscreen: () => void;
+  /** Callback mở tìm kiếm nhanh tỉnh/trạm (Ctrl+K) */
+  onOpenSearch?: () => void;
+  /** Callback định vị vị trí hiện tại của người dùng */
+  onLocateMe?: () => void;
+  /** Cờ đang định vị GPS */
+  isLocatingMe?: boolean;
+  /** Callback mở hộp thoại đăng ký nhận thông báo qua Email */
+  onOpenSubscribe?: () => void;
 }
 
 export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
@@ -63,6 +74,10 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   onTabChange,
   isFullscreen,
   onToggleFullscreen,
+  onOpenSearch,
+  onLocateMe,
+  isLocatingMe = false,
+  onOpenSubscribe,
 }) => {
   return (
     <header className="h-14 px-4 bg-[#161b13] border-b border-[#2d3329] flex items-center justify-between z-[1100] select-none font-mono text-[#dde2e4]">
@@ -80,15 +95,15 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
               VNstormgis
             </span>
             <span className="text-[9px] uppercase px-1.5 py-0.2 border border-[#2d3329] bg-[#1a2117] text-[#84907f]">
-              OPS CENTER // W1-12
+              TRỰC BAN KHÍ TƯỢNG
             </span>
           </div>
           <span className="text-[9px] text-[#84907f] uppercase tracking-tight mt-0.5 hidden sm:inline">
-            HỆ THỐNG GIÁM SÁT THỜI TIẾT &amp; CẢNH BÁO BÃO LŨ VIỆT NAM
+            BẢN ĐỒ THEO DÕI THỜI TIẾT &amp; CẢNH BÁO BÃO LŨ VIỆT NAM
           </span>
         </div>
 
-        {/* Bộ nút chuyển đổi Tab: Tác Chiến Bản Đồ vs Kiểm Định Hạ Tầng */}
+        {/* Bộ nút chuyển đổi Tab: Bản Đồ Giám Sát vs Trạng Thái Hệ Thống */}
         <div className="hidden md:flex items-center border border-[#2d3329] bg-[#161b13] ml-2 p-0.5">
           <button
             id="btn-tab-operations"
@@ -100,7 +115,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
             }`}
           >
             <Layers className="w-3 h-3" />
-            <span>TÁC CHIẾN (GIS OPS)</span>
+            <span>BẢN ĐỒ GIÁM SÁT</span>
           </button>
           <button
             id="btn-tab-diagnostics"
@@ -112,28 +127,28 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
             }`}
           >
             <Wrench className="w-3 h-3" />
-            <span>KIỂM ĐỊNH (DIAGNOSTICS)</span>
+            <span>TRẠNG THÁI HỆ THỐNG</span>
           </button>
         </div>
       </div>
 
-      {/* 2. KHỐI GIỮA: ĐỒNG HỒ TELEMETRY TRẮC ĐỊA THỜI GIAN THỰC */}
+      {/* 2. KHỐI GIỮA: THÔNG TIN VỊ TRÍ BẢN ĐỒ THỜI GIAN THỰC */}
       <div className="hidden lg:flex items-center gap-4 text-[10px] text-[#84907f] border border-[#2d3329] bg-[#1a2117] px-3 py-1">
         <div className="flex items-center gap-1.5">
           <MapPin className="w-3 h-3 text-[#e2ffcc]" />
-          <span>TÂM KHUNG NHÌN:</span>
+          <span>TÂM BẢN ĐỒ:</span>
           <span className="text-[#dde2e4] font-bold">{formatCoordinate(mapCenter, 4)}</span>
         </div>
         <span className="text-[#2d3329]">|</span>
         <div>
-          <span>MỨC ZOOM:</span> <span className="text-[#e2ffcc] font-bold">Z{mapZoom}</span>
+          <span>MỨC PHÓNG:</span> <span className="text-[#e2ffcc] font-bold">Mức {mapZoom}</span>
         </div>
         {cursorCoords && (
           <>
             <span className="text-[#2d3329]">|</span>
             <div className="flex items-center gap-1.5">
               <Compass className="w-3 h-3 text-[#84907f]" />
-              <span>CON TRỎ:</span>
+              <span>VỊ TRÍ CHUỘT:</span>
               <span className="text-[#e2ffcc] font-bold">{formatCoordinate(cursorCoords, 4)}</span>
             </div>
           </>
@@ -141,19 +156,67 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       </div>
 
       {/* 3. KHỐI PHẢI: HUY HIỆU KẾT NỐI & CÁC NÚT TÁC VỤ NHANH */}
-      <div className="flex items-center gap-2">
-        <StatusBadge
-          status={backendStatus}
-          label={backendStatus === "online" ? "SPRING BOOT 3.3 // ACTIVE" : "BACKEND OFFLINE"}
-          subLabel={stationCount ? `${stationCount} TRẠM POSTGIS` : undefined}
-        />
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {onOpenSearch && (
+          <button
+            id="btn-header-search"
+            type="button"
+            onClick={onOpenSearch}
+            className="px-2 py-1.5 border border-[#2d3329] bg-[#1a2117] hover:border-[#e2ffcc] text-[#dde2e4] hover:text-[#e2ffcc] transition-colors flex items-center gap-1.5 text-[10px]"
+            title="Tìm kiếm nhanh Tỉnh/Thành phố hoặc Trạm đo (Ctrl+K)"
+          >
+            <Search className="w-3.5 h-3.5 text-[#e2ffcc]" />
+            <span className="hidden xl:inline">TÌM TRẠM</span>
+            <span className="hidden 2xl:inline text-[9px] text-[#84907f] border border-[#2d3329] px-1">
+              ⌘K
+            </span>
+          </button>
+        )}
+
+        {onLocateMe && (
+          <button
+            id="btn-header-my-location"
+            type="button"
+            onClick={onLocateMe}
+            className="px-2 py-1.5 border border-[#2d3329] bg-[#1a2117] hover:border-[#e2ffcc] text-[#dde2e4] hover:text-[#e2ffcc] transition-colors flex items-center gap-1.5 text-[10px]"
+            title="Định vị vị trí hiện tại của tôi (GPS + Phân tích PostGIS)"
+          >
+            <LocateFixed
+              className={`w-3.5 h-3.5 text-[#e2ffcc] ${isLocatingMe ? "animate-spin" : ""}`}
+            />
+            <span className="hidden xl:inline font-bold text-[#e2ffcc]">
+              VỊ TRÍ CỦA TÔI
+            </span>
+          </button>
+        )}
+
+        {onOpenSubscribe && (
+          <button
+            id="btn-header-subscribe"
+            type="button"
+            onClick={onOpenSubscribe}
+            className="px-2 py-1.5 border border-[#e2ffcc]/70 bg-[#1a2117] hover:bg-[#e2ffcc] text-[#e2ffcc] hover:text-[#161b13] transition-colors flex items-center gap-1.5 text-[10px] font-bold uppercase"
+            title="Đăng ký nhận thông báo cảnh báo thiên tai qua Email"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">NHẬN EMAIL</span>
+          </button>
+        )}
+
+        <div className="hidden md:block">
+          <StatusBadge
+            status={backendStatus}
+            label={backendStatus === "online" ? "MÁY CHỦ HOẠT ĐỘNG" : "MẤT KẾT NỐI MÁY CHỦ"}
+            subLabel={stationCount ? `${stationCount} TRẠM ĐO` : undefined}
+          />
+        </div>
 
         {/* Nút reset khung nhìn về toàn cảnh Việt Nam */}
         <button
           id="btn-header-recenter"
           onClick={onResetView}
           className="p-1.5 border border-[#2d3329] bg-[#1a2117] hover:border-[#e2ffcc] text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-          title="Định vị về trung tâm Việt Nam (16.047°N, 108.206°E, Z6)"
+          title="Đưa bản đồ về toàn cảnh Việt Nam"
         >
           <Compass className="w-3.5 h-3.5" />
         </button>
@@ -164,7 +227,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
           onClick={onRefreshHealth}
           disabled={isRefreshing}
           className="p-1.5 border border-[#2d3329] bg-[#1a2117] hover:border-[#e2ffcc] text-[#84907f] hover:text-[#e2ffcc] transition-colors disabled:opacity-50"
-          title="Làm mới kết nối máy chủ"
+          title="Tải lại dữ liệu thời tiết và cảnh báo mới nhất"
         >
           <RefreshCw
             className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#e2ffcc]" : ""}`}

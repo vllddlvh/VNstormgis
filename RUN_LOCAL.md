@@ -1,69 +1,137 @@
-# Chạy VNstormgis end to end trên máy cá nhân
+# Hướng dẫn chạy VNstormgis End-to-End trên máy cá nhân
 
-Hướng dẫn này chạy ứng dụng theo luồng **PostGIS/Redis → Spring Boot API → Vite/React → trình duyệt**. Thực hiện các lệnh từ thư mục gốc của repo, trừ nơi ghi rõ `cd`. Cần ba cửa sổ terminal để giữ backend và frontend chạy đồng thời.
+Tài liệu này hướng dẫn chi tiết từng bước để khởi chạy toàn bộ hệ thống **VNstormgis** (Hệ thống bản đồ theo dõi thời tiết & cảnh báo bão lũ Việt Nam) trên máy cá nhân của bạn.
 
-## 1. Chuẩn bị
+---
 
-- Docker Desktop đang chạy, có `docker compose`.
-- JDK 21 (`java -version`), Node.js 20 hoặc 22 và npm (`node -v`, `npm -v`). Nếu máy có nhiều JDK, chọn JDK 21 qua `JAVA_HOME` trước khi chạy Gradle.
-- `curl` để kiểm tra API; `jq` để đọc JSON và chạy các script kiểm định của repo.
-- Kết nối mạng ở lần chạy đầu để tải Docker images và dependencies của Gradle/npm.
-- Khóa OpenWeatherMap hợp lệ nếu muốn xem **dữ liệu thời tiết thực**. Backend vẫn chạy và 68 trạm vẫn được seed khi chưa có khóa.
+## 1. Tổng quan luồng hoạt động
 
-Nếu chưa có `.env.local`, tạo cấu hình local một lần:
+Khi chạy đầy đủ (End-to-End), hệ thống gồm 4 thành phần kết nối với nhau theo luồng:
+
+1. **Cơ sở dữ liệu, Bộ nhớ đệm & Hộp thư cục bộ (Docker):**
+   - **PostgreSQL 16 + PostGIS 3.4** (cổng `5432`): Lưu trữ tọa độ 39 điểm quan trắc đang hoạt động, lịch sử thời tiết, quỹ đạo bão, cảnh báo, đăng ký email và lịch sử hội thoại.
+   - **Redis 7.2** (cổng `6379`): Lưu bộ nhớ đệm (cache) cho bản đồ và kiểm soát giới hạn tần suất hỏi đáp AI (Rate Limit).
+   - **Mailpit** (SMTP cổng `1025`, giao diện Web cổng `8025`): Hộp thư thử nghiệm cục bộ giúp bạn nhận mã xác thực OTP 6 chữ số, liên kết 1-click và email cảnh báo bão lũ ngay tại `http://localhost:8025` mà không cần cấu hình Gmail thật.
+2. **Máy chủ Backend (Spring Boot 3.3 / Java 21 — cổng `8080`):**
+   - Tự động tạo bảng, nạp sẵn 39 điểm quan trắc (qua Flyway), đồng bộ dữ liệu thời tiết từ **OpenWeatherMap** và dữ liệu bão quốc tế từ **GDACS**, phát sinh cảnh báo và cung cấp REST API / GeoJSON.
+3. **Giao diện Frontend (React 18 + Vite 5 — cổng `5173`):**
+   - Hiển thị bản đồ số tương tác (Leaflet), các lớp mưa/gió/bão, bảng cảnh báo và Trợ lý AI thời tiết. Mọi yêu cầu `/api` và `/actuator` từ cổng `5173` được Vite tự động chuyển tiếp sang Backend ở cổng `8080`.
+
+> **Lưu ý:** Tất cả các lệnh dưới đây đều được chạy từ **thư mục gốc của dự án (`VNstormgis/`)**, trừ những bước có ghi rõ lệnh `cd`.
+
+---
+
+## 2. Chuẩn bị công cụ cần thiết
+
+Trước khi bắt đầu, hãy đảm bảo máy của bạn đã cài đặt:
+
+- **Docker Desktop**: Đang bật và hoạt động (`docker info` và `docker compose version` chạy không báo lỗi).
+- **Java JDK 21**: Kiểm tra bằng lệnh `java -version`.
+  - *Mẹo trên macOS:* Nếu máy cài nhiều phiên bản Java, bạn có thể chuyển nhanh sang JDK 21 trong cửa sổ Terminal bằng lệnh:
+    ```bash
+    export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+    ```
+- **Node.js (phiên bản 20 hoặc 22) & npm**: Kiểm tra bằng `node -v` và `npm -v`.
+- **`curl` và `jq`**: Dùng để kiểm tra nhanh phản hồi API trên Terminal (`brew install jq` trên macOS hoặc `sudo apt install jq` trên Ubuntu).
+- **API Key của OpenWeatherMap** *(khuyên dùng)*: Đăng ký miễn phí tại [openweathermap.org](https://openweathermap.org/api) để lấy dữ liệu thời tiết thực tế của 39 điểm quan trắc. Nếu chưa có khóa này, hệ thống vẫn khởi động được và hiển thị danh mục điểm quan trắc trên bản đồ.
+
+---
+
+## 3. Tạo file cấu hình môi trường (`.env.local`)
+
+Ở lần chạy đầu tiên, hãy tạo file cấu hình cục bộ từ file mẫu:
 
 ```bash
 cp VNstormgis-Deployment/env/.env.example VNstormgis-Deployment/env/.env.local
 ```
 
-Mở `VNstormgis-Deployment/env/.env.local` và thay `INTERNAL_SYNC_SECRET` bằng một chuỗi riêng. Điền `OPENWEATHERMAP_API_KEY` hợp lệ để đồng bộ thời tiết; thay `ADMIN_API_KEY` nếu sẽ dùng API quản trị ngưỡng. Giữ `DB_HOST=localhost`, `REDIS_HOST=localhost` khi backend chạy trên máy. Không commit `.env.local` hoặc đưa khóa thật vào mã nguồn.
+Mở file `VNstormgis-Deployment/env/.env.local` bằng trình soạn thảo bất kỳ và kiểm tra/cập nhật các thông số sau:
 
-Profile `dev` của backend tự nạp file này khi lệnh Gradle được chạy **từ `VNstormgis-Backend/`**. Docker Compose không tự tìm file ở đường dẫn đó, nên các lệnh Compose bên dưới luôn có `--env-file`. Nếu một volume PostgreSQL cũ dùng mật khẩu khác, hãy đặt `DB_PASSWORD` khớp với mật khẩu của volume đó; đổi biến môi trường không đổi mật khẩu đã lưu trong database.
+| Biến môi trường | Ý nghĩa & Cách điền |
+| :--- | :--- |
+| `DB_HOST` / `REDIS_HOST` | Giữ nguyên là `localhost` khi chạy Backend trực tiếp trên máy. |
+| `DB_PASSWORD` | Mật khẩu cơ sở dữ liệu local (mặc định trong file mẫu đã có sẵn). |
+| `INTERNAL_SYNC_SECRET` | Đặt một chuỗi bí mật bất kỳ (ví dụ: `my-local-sync-secret-2026`) để gọi lệnh đồng bộ dữ liệu thủ công. |
+| `OPENWEATHERMAP_API_KEY` | Điền API Key OpenWeatherMap của bạn để tải số liệu mưa, gió, nhiệt độ thực tế. |
+| `ADMIN_API_KEY` | Chuỗi khóa quản trị để thêm/sửa/xóa ngưỡng cảnh báo qua API (có thể đặt chuỗi bất kỳ). |
+| `GEMINI_ENABLED` | Mặc định là `false`. Khi để `false`, cả tính năng **Cảnh báo** và **Trợ lý AI** vẫn hoạt động đầy đủ bằng cơ chế tự động tổng hợp tiếng Việt trực tiếp từ dữ liệu trạm đo trong PostGIS. Nếu muốn dùng mô hình Gemini thật, đổi thành `true` và điền thêm `GEMINI_API_KEY` cùng `GEMINI_MODEL` (ví dụ `gemini-2.5-flash`). |
 
-## 2. Khởi động PostGIS và Redis (terminal 1)
+> **Bảo mật:** File `.env.local` đã được cấu hình trong `.gitignore`, tuyệt đối không commit file chứa khóa thật lên Git.
+
+---
+
+## 4. Chạy hệ thống End-to-End (3 cửa sổ Terminal)
+
+Đây là cách chạy thuận tiện nhất trên máy cá nhân để vừa theo dõi log trực tiếp vừa thao tác nhanh.
+
+### Bước 1 — Khởi động PostGIS và Redis (Terminal 1)
+
+Chạy lệnh sau từ thư mục gốc của dự án:
 
 ```bash
 docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml up -d
-docker inspect --format '{{.State.Health.Status}}' weathergis-postgres weathergis-redis
 ```
 
-Chờ cả hai dòng đều là `healthy`. Compose chỉ chạy database và cache; backend và frontend chạy ở hai terminal tiếp theo.
+Kiểm tra trạng thái của 2 container:
 
-## 3. Khởi động backend (terminal 2)
+```bash
+docker inspect --format '{{.Name}}: {{.State.Health.Status}}' weathergis-postgres weathergis-redis
+```
+
+Đợi vài giây cho đến khi cả hai đều hiển thị là **`healthy`**.
+
+---
+
+### Bước 2 — Khởi động máy chủ Backend (Terminal 2)
+
+Mở cửa sổ **Terminal thứ 2**, chuyển vào thư mục `VNstormgis-Backend` và chạy ứng dụng với cấu hình `dev`:
 
 ```bash
 cd VNstormgis-Backend
+export JAVA_HOME=$(/usr/libexec/java_home -v 21) # Chỉ cần trên macOS nếu mặc định chưa phải JDK 21
 ./gradlew bootRun --args='--spring.profiles.active=dev'
 ```
 
-Lần chạy đầu Gradle có thể tải dependencies. Flyway tự tạo schema, chạy migrations và seed 68 trạm. Chờ log `Started WeatherGisApplication`; giữ terminal này mở. API dùng `http://localhost:8080`, Swagger UI ở `http://localhost:8080/swagger-ui.html`.
+- Lần chạy đầu tiên Gradle sẽ tải các thư viện cần thiết (mất khoảng 1–2 phút).
+- Khi khởi động, Flyway sẽ tự động tạo toàn bộ bảng dữ liệu và thiết lập **39 điểm quan trắc đang hoạt động** gồm 34 điểm đại diện đơn vị cấp tỉnh và 5 điểm hải đảo, bao gồm Hoàng Sa và Trường Sa. Migration V11 giữ điểm cũ ở trạng thái ngừng theo dõi để tra cứu lịch sử.
+- Khi thấy dòng log **`Started WeatherGisApplication`**, máy chủ đã sẵn sàng tại `http://localhost:8080`. Giữ nguyên cửa sổ Terminal 2 này đang chạy.
 
-Trên macOS, nếu `java -version` đang hiện bản khác nhưng JDK 21 đã cài, chạy `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` trong terminal 2 trước lệnh Gradle.
-
-Từ một terminal khác, kiểm tra API:
+Bạn có thể quay lại **Terminal 1** để kiểm tra nhanh xem Backend đã phản hồi chưa:
 
 ```bash
 curl -fsS http://localhost:8080/actuator/health | jq -r '.status'
 curl -fsS 'http://localhost:8080/api/v1/locations?format=json' | jq '.data | length'
 ```
 
-Kết quả mong đợi là `UP` và `68` trên database mới. Nếu database đã có dữ liệu riêng, số trạm có thể khác.
+Kết quả `UP` và `39` xác nhận backend sẵn sàng và API trả đủ danh mục điểm quan trắc đang hoạt động.
+- Tài liệu Swagger UI trực quan có thể xem tại: `http://localhost:8080/swagger-ui.html`.
 
-## 4. Đồng bộ dữ liệu thực (terminal 1)
+---
 
-Backend tự đồng bộ theo lịch (thời tiết sau khoảng 20 giây, bão sau khoảng 60 giây từ lúc khởi động). Để chạy ngay và xem kết quả, nạp secret vào **terminal gọi `curl`** rồi gọi endpoint nội bộ:
+### Bước 3 — Đồng bộ dữ liệu thời tiết & bão thực tế (Terminal 1)
+
+Sau khi khởi động, Backend có bộ lập lịch tự động tải dữ liệu thời tiết (sau ~20 giây) và dữ liệu bão (sau ~60 giây). Tuy nhiên, bạn có thể kích hoạt đồng bộ ngay lập tức tại **Terminal 1** bằng các lệnh sau:
 
 ```bash
+# Nạp biến INTERNAL_SYNC_SECRET từ file .env.local vào Terminal hiện tại
 set -a
 source VNstormgis-Deployment/env/.env.local
 set +a
-curl -fsS -X POST -H "X-Internal-Secret: ${INTERNAL_SYNC_SECRET}" http://localhost:8080/api/v1/internal/sync/weather | jq '.data | {status, recordsProcessed, totalStations, errorMessage}'
-curl -fsS -X POST -H "X-Internal-Secret: ${INTERNAL_SYNC_SECRET}" http://localhost:8080/api/v1/internal/sync/storms | jq '.data | {status, stormsProcessed, stormsOnFeed, errorMessage}'
+
+# 1. Kích hoạt đồng bộ thời tiết từ OpenWeatherMap cho 39 điểm quan trắc
+curl -fsS -X POST -H "X-Internal-Secret: ${INTERNAL_SYNC_SECRET}" \
+  http://localhost:8080/api/v1/internal/sync/weather | jq '.data | {status, recordsProcessed, totalStations, errorMessage}'
+
+# 2. Kích hoạt đồng bộ thông tin bão từ hệ thống cảnh báo quốc tế GDACS
+curl -fsS -X POST -H "X-Internal-Secret: ${INTERNAL_SYNC_SECRET}" \
+  http://localhost:8080/api/v1/internal/sync/storms | jq '.data | {status, stormsProcessed, stormsOnFeed, errorMessage}'
 ```
 
-Nếu lịch đồng bộ đang chạy, endpoint có thể trả `409`; chờ lượt đó xong rồi thử lại. Đồng bộ thời tiết cần khóa OpenWeatherMap hợp lệ và truy cập được API bên ngoài. Nguồn GDACS có thể không có bão đang hoạt động, nên `stormsProcessed=0` không tự nó là lỗi.
+> **Lưu ý:**
+> - Nếu hệ thống báo mã lỗi `409`, nghĩa là tiến trình tự động của Backend đang chạy đồng bộ rồi; bạn chỉ cần đợi khoảng 15–20 giây là xong.
+> - Nếu hiện tại trên thế giới/Biển Đông không có cơn bão nhiệt đới nào đang hoạt động trên nguồn GDACS, `stormsProcessed: 0` là hoàn toàn bình thường.
 
-Kiểm tra dữ liệu API mà bản đồ đọc:
+Kiểm tra dữ liệu GeoJSON mà bản đồ sẽ hiển thị:
 
 ```bash
 curl -fsS http://localhost:8080/api/v1/weather/current | jq '{type, count: (.features | length)}'
@@ -71,85 +139,117 @@ curl -fsS http://localhost:8080/api/v1/storms | jq '{type, count: (.features | l
 curl -fsS http://localhost:8080/api/v1/alerts/active | jq '{type, count: (.features | length)}'
 ```
 
-Thời tiết `count > 0` xác nhận đã có bản ghi thực. Danh sách bão hoặc cảnh báo rỗng là hợp lệ nếu hiện không có bão hay ngưỡng bị vượt. Cảnh báo được tạo từ dữ liệu vi phạm ngưỡng; khi Gemini chưa bật, backend có thể dùng nội dung fallback.
+---
 
-## 5. Khởi động frontend và kiểm tra trên trình duyệt (terminal 3)
+### Bước 4 — Khởi động giao diện Frontend (Terminal 3)
+
+Mở cửa sổ **Terminal thứ 3**, chuyển vào thư mục `VNstormgis-Frontend` và chạy lệnh:
 
 ```bash
 cd VNstormgis-Frontend
-npm ci
+npm ci        # Chỉ cần chạy ở lần đầu tiên hoặc khi cập nhật thư viện
 npm run dev
 ```
 
-Chỉ cần `npm ci` ở lần cài đầu hoặc khi lockfile thay đổi.
+Mở trình duyệt web và truy cập địa chỉ hiển thị trên Terminal (thường là **`http://localhost:5173`**).
 
-Mở URL Vite in trên terminal (thường là `http://localhost:5173`). Vite chuyển `/api` và `/actuator` đến backend cổng 8080.
+---
 
-1. Mở **KIỂM ĐỊNH (DIAGNOSTICS)**: phải thấy `SPRING BOOT 3.3 ACTIVE` và số trạm PostGIS.
-2. Mở **TÁC CHIẾN (GIS OPS)**: xem các lớp trạm và thời tiết; bấm **CẢNH BÁO** để xem danh sách cảnh báo thực hoặc trạng thái rỗng.
-3. Nếu có banner lỗi backend, bấm **LÀM MỚI KẾT NỐI** sau khi sửa lỗi. Chỉ nhìn thấy marker chưa chứng minh kết nối thành công, vì UI có dữ liệu trạm mẫu khi tải API thất bại.
+## 5. Trải nghiệm và kiểm tra các tính năng trên trình duyệt
 
-Ngăn chat AI (`AiChatDrawer`) đã kết nối API thật (`/api/v1/chat/sessions`, `/api/v1/chat/sessions/{id}/messages` với header `X-Session-Token` và lưu trữ `vnstormgis.chat.session` trong `localStorage`). Khi `GEMINI_ENABLED=false` (mặc định), cả luồng cảnh báo tự động lẫn trợ lý hội thoại đều hoạt động đầy đủ ở chế độ **fallback tất định** (`is_fallback=true`, dựng câu trả lời tiếng Việt trực tiếp từ dữ liệu PostGIS). Khi bật `GEMINI_ENABLED=true` kèm `GEMINI_API_KEY` và `GEMINI_MODEL` qua biến môi trường, đầu ra của Gemini được kiểm chứng qua guardrail ngữ pháp đóng trước khi hiển thị/lưu.
+Khi mở `http://localhost:5173`, bạn có thể kiểm tra toàn bộ luồng tính năng:
 
-## 6. Kiểm định và dừng ứng dụng
+1. **Thanh trạng thái góc trên bên phải:**
+   - Hiển thị **`MÁY CHỦ HOẠT ĐỘNG | 39 TRẠM ĐO`**.
+   - Nếu thấy thông báo mất kết nối máy chủ, hãy nhấn nút **`LÀM MỚI KẾT NỐI`** sau khi Backend đã khởi động xong.
+2. **Bảng `LỚP HIỂN THỊ BẢN ĐỒ` (góc trên bên phải):**
+   - **Kiểu nền bản đồ:** Chuyển đổi giữa *Tiêu chuẩn*, *Bản dự phòng* và *Nền tối* (giúp nhìn rõ vùng mưa và mũi tên gió).
+   - **Ranh giới lãnh thổ:** Bật/tắt đường biên giới đất liền, vùng biển Việt Nam và vùng theo dõi hai quần đảo Hoàng Sa, Trường Sa.
+   - **Các lớp dữ liệu thời tiết:** Bật/tắt *Lượng mưa tại trạm*, *Trạm đo thời tiết*, *Bão & Áp thấp nhiệt đới*, *Vùng mưa lớn (Radar)*, *Hướng gió & Sức gió*, *Lớp mây vệ tinh*.
+   - **Lọc trạm theo vùng:** Lọc nhanh các trạm thuộc *Bắc Bộ*, *Trung Bộ*, *Tây Nguyên*, *Nam Bộ* hoặc *Biển Đảo*.
+3. **Xem chi tiết từng trạm đo & Biểu đồ lịch sử 24h:**
+   - Nhấp vào bất kỳ biểu tượng trạm nào trên bản đồ (ví dụ `HAN`, `DNG`, `SGN`, `HSA`, `TSA`) để xem nhiệt độ, lượng mưa 1 giờ/3 giờ, tốc độ gió, độ ẩm, áp suất.
+   - Nhấn **`🔍 PHÓNG TO`** để đưa bản đồ lại gần trạm, **`🤖 HỎI AI`** để hỏi trợ lý về trạm đó, **`📈 LỊCH SỬ 24H`** để mở biểu đồ diễn biến mưa/gió/nhiệt độ 24h–7 ngày, hoặc **`✉️ BÁO EMAIL`** để đăng ký nhận cảnh báo cho khu vực này.
+4. **Tìm kiếm nhanh Tỉnh/Trạm (`Ctrl+K` / nút `TÌM TRẠM`) & `VỊ TRÍ CỦA TÔI`:**
+   - Nhấn **`Ctrl+K`** (hoặc `Cmd+K` trên macOS / nút **`TÌM TRẠM`** trên thanh đầu trang) để tìm nhanh tỉnh/thành có dấu hoặc không dấu (`da nang`, `truong sa`, `HAN`).
+   - Nhấn **`VỊ TRÍ CỦA TÔI`** để định vị GPS trình duyệt (hoặc nhập tọa độ tùy chỉnh), xem phân tích không gian PostGIS trực tiếp (trạm gần nhất, thời tiết hiện tại, khoảng cách tới bão active và cảnh báo trong bán kính 100 km).
+5. **Đăng ký nhận thông báo cảnh báo qua Email (`NHẬN EMAIL`):**
+   - Chọn giám sát theo **Tỉnh / Trạm đo** hoặc **Tọa độ GPS**, cấu hình bán kính (25–200 km) và mức độ tối thiểu (`INFO` → `CRITICAL`).
+   - Mở **`http://localhost:8025`** (hộp thư Mailpit local) để lấy mã OTP 6 chữ số (hoặc bấm liên kết xác thực 1-click trong email), sau đó có thể nhấn **`GỬI EMAIL KIỂM TRA NGAY`** để nhận bản tin đối chứng số liệu thực tế PostGIS.
+6. **Bảng `CẢNH BÁO` (nút góc trên bên trái bản đồ) & Thanh tin chạy bên dưới:**
+   - Xem danh sách các cảnh báo đang hoạt động khi có chỉ số thời tiết vượt ngưỡng.
+   - Nhấp vào một cảnh báo để xem chi tiết số liệu đo thực tế lúc phát hiện, nhấn **`XEM VỊ TRÍ`** để bay tới trạm đó, hoặc **`HỎI AI VỀ CẢNH BÁO NÀY`**.
+7. **Ngăn `TRỢ LÝ AI` (nút góc dưới bên phải bản đồ):**
+   - Chọn một câu hỏi gợi ý sẵn (ví dụ: *"Khu vực nào đang mưa lớn nhất?"*, *"Trạm nào đang có gió mạnh nhất?"*) hoặc nhập câu hỏi bất kỳ bằng tiếng Việt.
+   - Hệ thống tự động tạo phiên hội thoại ẩn danh (lưu trong `localStorage`) và trả lời dựa trên số liệu thực tế từ cơ sở dữ liệu.
+8. **Tab `TRẠNG THÁI HỆ THỐNG` (thanh điều hướng trên cùng):**
+   - Kiểm tra tình trạng kết nối API, xem 5 trạm đo mẫu trả về từ máy chủ, và trải nghiệm **Bản đồ mẫu** minh họa đầy đủ 6 cấp độ cảnh báo trạm đo cùng đường đi lịch sử/dự báo của bão.
 
-Kiểm tra mã nguồn, từ thư mục gốc (backend tests cần Docker/Testcontainers):
+---
 
-```bash
-(cd VNstormgis-Backend && ./gradlew spotlessCheck test)
-(cd VNstormgis-Frontend && npm run type-check && npm run lint && npm run build)
-```
+## 6. Tuỳ chọn: Chạy trọn bộ bằng 1 lệnh Docker Compose (`fullstack`)
 
-Sau khi đã có dữ liệu thời tiết, có thể chạy `bash scripts/verify-week3-pipeline.sh` để kiểm định tích hợp nghiêm ngặt. Script này kỳ vọng 68 trạm và tạm dừng/khởi động lại Redis để kiểm tra phục hồi; không dùng làm smoke test đầu tiên trên database trống.
-`bash scripts/verify-week2-pipeline.sh` cũng gọi các API đồng bộ thực và cần `INTERNAL_SYNC_SECRET` đã export cùng khóa OpenWeatherMap hợp lệ.
-
-Để dừng: nhấn `Ctrl+C` ở terminal frontend và backend, rồi từ thư mục gốc chạy:
-
-```bash
-docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml stop
-```
-
-`stop` giữ lại dữ liệu trong Docker volumes để lần sau tiếp tục. Nếu cổng `5432`, `6379` hoặc `8080` đã bị chiếm, giải phóng cổng hoặc chỉnh cấu hình tương ứng trước khi chạy. Backend và Vite proxy hiện cùng dùng cổng 8080; biến `SERVER_PORT` và `VITE_API_BASE_URL` trong file mẫu chưa đổi hai cấu hình này.
-
-## 7. Nếu chưa thấy dữ liệu
-
-- Container chưa `healthy`: kiểm tra `docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml ps` và log của `db`/`redis`. Nếu PostgreSQL báo sai mật khẩu trên volume cũ, đối chiếu lại `DB_PASSWORD` với mật khẩu đã dùng khi tạo volume.
-- Đồng bộ trả `401`: `INTERNAL_SYNC_SECRET` trong shell gọi `curl` phải giống file backend đã nạp. Nếu vừa sửa file, khởi động lại backend rồi `source` lại file ở terminal 1.
-- `weather/current` có `count=0`: xem `status` và `errorMessage` từ lệnh đồng bộ; kiểm tra khóa OpenWeatherMap và kết nối mạng.
-- UI báo `BACKEND OFFLINE`: xác nhận backend còn chạy tại `http://localhost:8080/actuator/health`, rồi bấm **LÀM MỚI KẾT NỐI**. Dùng đúng URL mà Vite in ra nếu cổng 5173 đang bị chiếm.
-
-## Week 4 alert verification and recovery
-
-Dùng Java 21, PostGIS/Redis như trên. `GET /api/v1/alert-thresholds`, `GET /api/v1/alerts/active`, `GET /api/v1/alerts/{id}` là public; POST/PUT/PATCH/DELETE threshold cần `X-Admin-Api-Key` từ `ADMIN_API_KEY`. `GEMINI_ENABLED=false` (mặc định) cho phép fallback offline; chỉ bật live khi đã cấu hình `GEMINI_API_KEY` và `GEMINI_MODEL` qua môi trường. Model mặc định rỗng; lần smoke `gemini-3.1-flash-lite` ngày 2026-11-07 không phải default. Swagger UI: `/swagger-ui/index.html`; OpenAPI: `/v3/api-docs`. Không dùng backend cũ còn chạy để đại diện cho jar vừa build.
-
-Local gate: `bash scripts/verify-week4-pipeline.sh` với `BACKEND_BASE_URL` (mặc định `http://localhost:8080`), `ARTIFACT_DIR` và `WAIT_TIMEOUT_SECONDS` tùy chọn. Xem `summary.json` trước, rồi Gradle log/JUnit XML. Script chỉ đọc live API; generation/fallback được chứng minh bằng fixture Testcontainers/WireMock, không bởi active collection rỗng. Xem `scripts/W4-08-RUNBOOK.md` cho lịch, retention, webhook và dispatch.
-
-Khi job chậm, kiểm `alert_generation_jobs` theo `status`, `last_error`, `lease_until`, `quarantine_until`, `next_attempt_at` trên môi trường kiểm thử cô lập và kiểm worker/retry/DB. PENDING dùng lease/token fencing; READY dùng publication retry/backoff. Chỉ phục hồi hạ tầng rồi để scheduler chạy hoặc chứng minh trên fixture cô lập; không xóa key chống trùng, sửa snapshot hay sửa job thủ công. Quy trình xử lý dữ kiện bất hợp lệ vĩnh viễn và giới hạn 4000 ký tự còn chờ AI/Backend + Tech Lead quyết định.
-
-## Week 5 chat verification and rate-limit operations
-
-Ba endpoint chat chính tắc: `POST /api/v1/chat/sessions` (public, trả `session_token` một lần duy nhất), `POST /api/v1/chat/sessions/{sessionId}/messages` và `GET /api/v1/chat/sessions/{sessionId}/messages` (yêu cầu header `X-Session-Token`). Không có endpoint `/api/v1/chat/message` hoặc truyền token qua URL. Server chỉ lưu `token_hash` SHA-256 (Flyway V9) và giữ lịch sử tối đa 30 ngày không hoạt động (`CHAT_SESSION_RETENTION=30d`).
-
-`POST .../messages` áp dụng giới hạn phân tán Bucket4j + Redis: **10 câu hỏi/phút/phiên** (`CHAT_RATELIMIT_SESSION_LIMIT=10`) và **30 câu hỏi/phút/IP** (`CHAT_RATELIMIT_IP_LIMIT=30`) trong cửa sổ cố định 60 giây (`CHAT_RATELIMIT_WINDOW=60s`). Khi vượt ngưỡng, API trả `429 CHT_429_RATE_LIMITED` kèm header `Retry-After` và trường `retry_after_seconds` trước khi gọi Gemini hay ghi DB. Khi Redis không khả dụng, limiter **fail-closed** với `503 CHT_503_RATE_LIMITER_UNAVAILABLE`. Khi chạy sau Nginx reverse proxy, cấu hình `CHAT_RATELIMIT_TRUSTED_PROXIES` đúng địa chỉ IP/CIDR của proxy.
-
-Kiểm định đầu-cuối Tuần 5: chạy `bash scripts/verify-week5-pipeline.sh` (hoặc `bash .github/scripts/verify-week5-pipeline.sh`) với `BACKEND_BASE_URL`, `FRONTEND_BASE_URL`, `PLAYWRIGHT_MODULE` và `ARTIFACT_DIR` tùy chọn. Xem `.github/scripts/W5-08-RUNBOOK.md` cho chi tiết các cổng `G-01`–`G-05`, xử lý sự cố Redis/rate-limit và lịch chạy nightly (`02:40 UTC`).
-
-## Week 6 SIT, 500-CCU load testing and security audit
-
-Tuần 6 bổ sung bộ kiểm thử tích hợp toàn hệ thống (`SystemIntegrationAndEdgeCaseIT`), bộ lọc bảo mật OWASP (`SecurityHeadersFilter` + `SecurityHeadersAndOwaspIT`), kịch bản kiểm thử tải 500 người dùng đồng thời (`.github/scripts/run-load-test-500ccu.mjs` & `.github/scripts/load-test-500ccu.k6.js`), đóng gói Docker Multi-Stage (`VNstormgis-Deployment/docker/backend/Dockerfile`, `VNstormgis-Deployment/docker/frontend/Dockerfile`), cấu hình Nginx Reverse Proxy (`VNstormgis-Deployment/nginx/`) và công cụ kiểm toán bảo mật tự động (`.github/scripts/security-audit-week6.sh`).
-
-Để chạy cổng kiểm định tổng hợp Tuần 6 (`G-01` → `G-06`):
-
-```bash
-BACKEND_BASE_URL=http://127.0.0.1:8080 \
-ARTIFACT_DIR=/tmp/w6-07-verify \
-bash scripts/verify-week6-pipeline.sh
-```
-
-Để khởi chạy trọn bộ 4 container (`db`, `redis`, `backend`, `web` Nginx) bằng Docker Compose:
+Nếu bạn muốn kiểm tra chế độ đóng gói sản phẩm hoàn chỉnh (gồm 4 container: `db`, `redis`, `backend`, và `web` Nginx chạy ở cổng `80`), hãy tắt `bootRun` và `npm run dev` rồi chạy:
 
 ```bash
 docker compose --profile fullstack --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml up -d --build
 ```
 
-Xem `.github/scripts/W6-07-RUNBOOK.md` cho chi tiết ngưỡng chịu tải 500 CCU (`P95 <= 100ms`, `Avg < 50ms`, `0% 5xx`), quy trình kiểm toán bảo mật và lịch chạy nightly (`03:00 UTC`).
+Sau khi build xong, mở trình duyệt tại địa chỉ **`http://localhost`** (cổng 80).
+
+Để tắt chế độ `fullstack`:
+
+```bash
+docker compose --profile fullstack --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml down
+```
+
+---
+
+## 7. Chạy kiểm thử chất lượng mã nguồn (Quality Gate)
+
+Để kiểm tra toàn bộ định dạng mã nguồn, Unit/Integration Test (Backend cần Docker đang chạy để khởi tạo Testcontainers) và kiểm tra kiểu dữ liệu/build của Frontend, chạy lệnh sau từ thư mục gốc:
+
+```bash
+(cd VNstormgis-Backend && ./gradlew spotlessCheck test) && \
+  (cd VNstormgis-Frontend && npm run type-check && npm run lint && npm run build)
+```
+
+Ngoài ra, dự án có sẵn các kịch bản kiểm định tự động theo từng phần (chạy khi Backend đang bật ở cổng `8080`):
+
+- Kiểm định luồng đồng bộ thời tiết & PostGIS: `bash scripts/verify-week2-pipeline.sh`
+- Kiểm định luồng bão, Redis Cache & khả năng chịu lỗi: `bash scripts/verify-week3-pipeline.sh`
+- Kiểm định luồng cảnh báo tự động: `bash scripts/verify-week4-pipeline.sh`
+- Kiểm định luồng Trợ lý AI & giới hạn tần suất (Rate Limit): `bash .github/scripts/verify-week5-pipeline.sh`
+- Kiểm định tổng hợp, chịu tải 500 người dùng đồng thời (500 CCU) & bảo mật: `bash .github/scripts/verify-week6-pipeline.sh`
+- Kiểm định tổng thể Go-Live (Tuần 7, bao gồm sao lưu/phục hồi DR & Email Subscription): `bash .github/scripts/verify-week7-golive.sh`
+- Xem hướng dẫn triển khai Production & vận hành chi tiết tại [OPERATIONS.md](OPERATIONS.md).
+
+---
+
+## 8. Dừng ứng dụng và Xử lý sự cố thường gặp
+
+### Cách dừng ứng dụng
+1. Nhấn `Ctrl + C` tại cửa sổ Terminal đang chạy **Frontend** (Terminal 3) và **Backend** (Terminal 2).
+2. Dừng các container cơ sở dữ liệu (vẫn giữ nguyên dữ liệu đã lưu cho lần chạy sau):
+   ```bash
+   docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml stop
+   ```
+
+### Xử lý sự cố thường gặp (Troubleshooting)
+
+- **Lỗi `UnsupportedClassVersionError` hoặc báo sai phiên bản Java khi chạy `./gradlew`:**
+  - Nguyên nhân: Terminal đang dùng Java cũ (ví dụ Java 8, 11 hoặc 17) thay vì JDK 21.
+  - Cách sửa: Chạy `export JAVA_HOME=$(/usr/libexec/java_home -v 21)` trước khi gọi `./gradlew`.
+- **Backend không kết nối được PostgreSQL do sai mật khẩu (`password authentication failed`):**
+  - Nguyên nhân: Docker volume từ lần chạy cũ đã được khởi tạo với một mật khẩu khác với `DB_PASSWORD` hiện tại trong `.env.local`.
+  - Cách sửa: Chỉnh lại `DB_PASSWORD` trong `.env.local` cho khớp, hoặc xóa volume cũ để tạo mới từ đầu bằng lệnh:
+    ```bash
+    docker compose --env-file VNstormgis-Deployment/env/.env.local -f VNstormgis-Deployment/docker-compose.yml down -v
+    ```
+- **Gọi lệnh đồng bộ (`/api/v1/internal/sync/...`) bị báo lỗi `401 Unauthorized`:**
+  - Nguyên nhân: Giá trị `INTERNAL_SYNC_SECRET` trong cửa sổ Terminal gọi `curl` chưa khớp với giá trị mà Backend đã nạp lúc khởi động.
+  - Cách sửa: Nếu bạn vừa sửa `.env.local`, hãy khởi động lại Backend ở Terminal 2 và chạy lại `set -a && source VNstormgis-Deployment/env/.env.local && set +a` ở Terminal 1.
+- **Bản đồ hiển thị thông báo `MẤT KẾT NỐI MÁY CHỦ`:**
+  - Kiểm tra xem `http://localhost:8080/actuator/health` đã trả về `{"status":"UP"}` chưa, sau đó bấm nút **`LÀM MỚI KẾT NỐI`** trên giao diện web.
+- **Số liệu thời tiết trên bản đồ hiển thị `Chưa có số liệu thời tiết mới`:**
+  - Kiểm tra xem bạn đã điền `OPENWEATHERMAP_API_KEY` hợp lệ vào `VNstormgis-Deployment/env/.env.local` chưa, sau đó chạy lại lệnh đồng bộ thời tiết ở **Bước 3**.

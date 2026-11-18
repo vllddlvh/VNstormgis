@@ -192,6 +192,19 @@ class WeatherApiIT extends AbstractPostGisIntegrationTest {
     }
 
     @Test
+    void shouldKeepHistoricalWeatherForRetiredStationOutOfCurrentMap() throws Exception {
+        insertRecord("QNM", OffsetDateTime.now(ZoneOffset.UTC), 27.0, 2.0, "Rain", "mưa nhỏ");
+
+        mockMvc.perform(get(CURRENT_URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.features.length()").value(0));
+        mockMvc.perform(get(HISTORY_URL).param("location_code", "QNM"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.code").value("QNM"))
+                .andExpect(jsonPath("$.data.readings.length()").value(1));
+    }
+
+    @Test
     @DisplayName("TC-16: DB chưa có bản ghi thời tiết → 200 FeatureCollection rỗng, không crash")
     void shouldReturnEmptyFeatureCollectionWhenNoWeatherRecords() throws Exception {
         mockMvc.perform(get(CURRENT_URL).accept(MediaType.APPLICATION_JSON))
@@ -240,7 +253,7 @@ class WeatherApiIT extends AbstractPostGisIntegrationTest {
 
     @Test
     @DisplayName(
-            "TC-11: DISTINCT ON @ 68×672 dòng dùng idx_weather_records_loc_time (không Seq Scan bảng)")
+            "TC-11: DISTINCT ON @ 39×672 dòng dùng idx_weather_records_loc_time (không Seq Scan bảng)")
     void shouldUseCompositeIndexForDistinctOn() {
         jdbcTemplate.execute(
                 """
@@ -257,7 +270,7 @@ class WeatherApiIT extends AbstractPostGisIntegrationTest {
 
         Integer rows =
                 jdbcTemplate.queryForObject("SELECT count(*) FROM weather_records", Integer.class);
-        assertThat(rows).isEqualTo(68 * 672);
+        assertThat(rows).isEqualTo(39 * 672);
 
         String plan = explainDistinctOnQuery();
 

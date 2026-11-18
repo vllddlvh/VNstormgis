@@ -1,0 +1,118 @@
+# ==============================================================================
+# HỆ THỐNG WEBGIS GIÁM SÁT MƯA GIÓ BÃO TÍCH HỢP AI AGENT (VNSTORMGIS)
+# CẤU HÌNH MÔI TRƯỜNG SẢN XUẤT (PRODUCTION PROFILE — TASK W7-02)
+# ==============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:db}:${DB_PORT:5432}/${DB_NAME:weather_gis_db}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: WeatherGisProdHikariPool
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN:5}
+      idle-timeout: 300000
+      connection-timeout: 10000
+      max-lifetime: 1800000
+      auto-commit: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    schemas: public
+    table: flyway_schema_history
+    validate-on-migrate: true
+    out-of-order: false
+    clean-disabled: true
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        highlight_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
+      timeout: ${REDIS_TIMEOUT:500ms}
+
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
+logging:
+  level:
+    root: INFO
+    vn.weathergis: INFO
+    org.hibernate.SQL: WARN
+    org.flywaydb: INFO
+    com.zaxxer.hikari: INFO
+
+management:
+  health:
+    mail:
+      enabled: ${MAIL_HEALTH_ENABLED:false}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+weathergis:
+  sync:
+    enabled: ${SYNC_ENABLED:true}
+    weather-rate-ms: ${WEATHER_SYNC_RATE_MS:900000}
+    weather-initial-delay-ms: 15000
+    throttle-ms: 100
+    storm-rate-ms: ${STORM_SYNC_RATE_MS:1800000}
+    storm-initial-delay-ms: 45000
+    storm-dissipate-wind-ms: 17.2
+  external:
+    owm:
+      base-url: ${OWM_BASE_URL:https://api.openweathermap.org}
+      connect-timeout-ms: 3000
+      read-timeout-ms: 5000
+      api-key: ${OPENWEATHERMAP_API_KEY:}
+    gdacs:
+      base-url: ${GDACS_BASE_URL:https://www.gdacs.org}
+      search-path: /gdacsapi/api/Events/geteventlist/search
+      track-path: /gdacsapi/api/polygons/getgeometry
+      connect-timeout-ms: 3000
+      read-timeout-ms: 10000
+  internal:
+    sync-secret: ${INTERNAL_SYNC_SECRET:}
+  admin:
+    api-key: ${ADMIN_API_KEY:}
+  cache:
+    enabled: ${REDIS_CACHE_ENABLED:true}
+  mail:
+    enabled: ${MAIL_ENABLED:true}
+    from: ${MAIL_FROM:no-reply@weathergis.vn}
+    from-name: ${MAIL_FROM_NAME:VNstormgis Cảnh Báo Khí Tượng}
+    public-web-url: ${PUBLIC_WEB_URL:https://weathergis.vn}
+    public-api-url: ${PUBLIC_API_URL:https://weathergis.vn}

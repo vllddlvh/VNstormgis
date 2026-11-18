@@ -3,9 +3,11 @@ package vn.weathergis.location.service.impl;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.weathergis.common.api.GeoJsonFeature;
@@ -16,7 +18,10 @@ import vn.weathergis.common.exception.ResourceNotFoundException;
 import vn.weathergis.location.domain.LocationEntity;
 import vn.weathergis.location.dto.LocationNearbyResponse;
 import vn.weathergis.location.dto.LocationResponse;
+import vn.weathergis.location.dto.SpatialPointContextResponse;
 import vn.weathergis.location.repository.LocationRepository;
+import vn.weathergis.location.repository.SpatialPointContextRepository;
+import vn.weathergis.location.repository.SpatialPointContextRepository.StationWeatherPair;
 import vn.weathergis.location.service.LocationService;
 
 /** Hiện thực hóa logic nghiệp vụ quản lý trạm quan trắc. */
@@ -25,10 +30,24 @@ import vn.weathergis.location.service.LocationService;
 public class LocationServiceImpl implements LocationService {
 
     private static final Logger log = LoggerFactory.getLogger(LocationServiceImpl.class);
+    private static final double VN_MIN_LNG = 100.0;
+    private static final double VN_MAX_LNG = 118.5;
+    private static final double VN_MIN_LAT = 6.0;
+    private static final double VN_MAX_LAT = 24.5;
+
     private final LocationRepository locationRepository;
+    private final SpatialPointContextRepository spatialPointContextRepository;
 
     public LocationServiceImpl(LocationRepository locationRepository) {
+        this(locationRepository, null);
+    }
+
+    @Autowired
+    public LocationServiceImpl(
+            LocationRepository locationRepository,
+            SpatialPointContextRepository spatialPointContextRepository) {
         this.locationRepository = locationRepository;
+        this.spatialPointContextRepository = spatialPointContextRepository;
     }
 
     @Override
@@ -95,17 +114,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     public List<LocationNearbyResponse> getNearbyLocations(
             double longitude, double latitude, double radiusKm) {
-        if (longitude < -180.0 || longitude > 180.0) {
-            throw new InvalidParameterException(
-                    "Kinh độ (longitude) phải nằm trong khoảng [-180, 180]");
-        }
-        if (latitude < -90.0 || latitude > 90.0) {
-            throw new InvalidParameterException("Vĩ độ (latitude) phải nằm trong khoảng [-90, 90]");
-        }
-        if (radiusKm <= 0.0 || radiusKm > 2000.0) {
-            throw new InvalidParameterException(
-                    "Bán kính tìm kiếm (radiusKm) phải lớn hơn 0 và nhỏ hơn hoặc bằng 2000 km");
-        }
+        validateSpatialSearchParams(longitude, latitude, radiusKm);
 
         double radiusMeters = radiusKm * 1000.0;
         List<Object[]> rawList =
@@ -125,5 +134,53 @@ public class LocationServiceImpl implements LocationService {
                                         ((Number) row[5]).doubleValue(),
                                         Math.round(((Number) row[6]).doubleValue() * 10.0) / 10.0))
                 .toList();
+    }
+
+    @Override
+    public SpatialPointContextResponse getSpatialPointContext(
+            double longitude, double latitude, double radiusKm) {
+        validateSpatialSearchParams(longitude, latitude, radiusKm);
+        if (spatialPointContextRepository == null) {
+            throw new IllegalStateException("SpatialPointContextRepository chưa được khởi tạo");
+        }
+
+        boolean withinVietnamBounds =
+                longitude >= VN_MIN_LNG
+                        && longitude <= VN_MAX_LNG
+                        && latitude >= VN_MIN_LAT
+                        && latitude <= VN_MAX_LAT;
+
+        Optional<StationWeatherPair> stationWeather =
+                spatialPointContextRepository.findNearestStationWithWeather(longitude, latitude);
+        var nearestStorm =
+                spatialPointContextRepository.findNearestActiveStorm(longitude, latitude);
+        var nearbyAlerts =
+                spatialPointContextRepository.findNearbyActiveAlerts(
+                        longitude, latitude, radiusKm * 1000.0);
+
+        return new SpatialPointContextResponse(
+                longitude,
+                latitude,
+                radiusKm,
+                withinVietnamBounds,
+                stationWeather.map(StationWeatherPair::station).orElse(null),
+                stationWeather.map(StationWeatherPair::weatherSnapshot).orElse(null),
+                nearestStorm.orElse(null),
+                nearbyAlerts);
+    }
+
+    private static void validateSpatialSearchParams(
+            double longitude, double latitude, double radiusKm) {
+        if (!Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
+            throw new InvalidParameterException(
+                    "Kinh độ (longitude) phải nằm trong khoảng [-180, 180]");
+        }
+        if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0) {
+            throw new InvalidParameterException("Vĩ độ (latitude) phải nằm trong khoảng [-90, 90]");
+        }
+        if (!Double.isFinite(radiusKm) || radiusKm <= 0.0 || radiusKm > 2000.0) {
+            throw new InvalidParameterException(
+                    "Bán kính tìm kiếm (radiusKm) phải lớn hơn 0 và nhỏ hơn hoặc bằng 2000 km");
+        }
     }
 }

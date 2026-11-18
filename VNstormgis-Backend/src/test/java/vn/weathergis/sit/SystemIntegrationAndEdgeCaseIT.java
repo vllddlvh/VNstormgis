@@ -86,9 +86,10 @@ class SystemIntegrationAndEdgeCaseIT extends AbstractPostGisIntegrationTest {
     private static final String GEMINI_KEY = "w602-gemini-key";
     private static final String OWM_KEY = "w602-owm-key";
 
-    private static final String WEATHER_CACHE_KEY = "weathergis:cache:weather_current::geojson";
+    private static final String WEATHER_CACHE_KEY = "weathergis:cache:weather_current_v2::geojson";
     private static final String STORMS_CACHE_KEY = "weathergis:cache:active_storms::geojson:active";
-    private static final String LOCATIONS_CACHE_KEY = "weathergis:cache:locations::geojson||true|";
+    private static final String LOCATIONS_CACHE_KEY =
+            "weathergis:cache:locations_v2::geojson||true|";
 
     private static final int REDIS_PORT = availablePort();
     private static final GenericContainer<?> REDIS =

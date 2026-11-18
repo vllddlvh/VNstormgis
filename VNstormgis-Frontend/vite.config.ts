@@ -13,6 +13,7 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true, // Cho phép lắng nghe trên tất cả địa chỉ mạng nội bộ
+    allowedHosts: [".trycloudflare.com", "localhost", "127.0.0.1"],
     strictPort: false,
     proxy: {
       // Reverse Proxy chuyển tiếp lời gọi API sang Backend Spring Boot

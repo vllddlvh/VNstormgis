@@ -8,7 +8,14 @@
  */
 
 import React from "react";
-import { Plus, Minus, Compass, Maximize2, Minimize2 } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Compass,
+  Maximize2,
+  Minimize2,
+  LocateFixed,
+} from "lucide-react";
 
 export interface MapNavigationControlsProps {
   /** Callback phóng to bản đồ */
@@ -17,6 +24,10 @@ export interface MapNavigationControlsProps {
   onZoomOut: () => void;
   /** Callback đưa về tâm toàn cảnh lãnh thổ Việt Nam */
   onResetCenter: () => void;
+  /** Callback định vị vị trí hiện tại của người dùng */
+  onLocateMe?: () => void;
+  /** Cờ đang xác định vị trí GPS */
+  isLocatingMe?: boolean;
   /** Trạng thái toàn màn hình */
   isFullscreen?: boolean;
   /** Callback bật/tắt toàn màn hình */
@@ -27,6 +38,8 @@ export const MapNavigationControls: React.FC<MapNavigationControlsProps> = ({
   onZoomIn,
   onZoomOut,
   onResetCenter,
+  onLocateMe,
+  isLocatingMe = false,
   isFullscreen,
   onToggleFullscreen,
 }) => {
@@ -61,6 +74,20 @@ export const MapNavigationControls: React.FC<MapNavigationControlsProps> = ({
       >
         <Compass className="w-4 h-4 text-[#e2ffcc]" />
       </button>
+
+      {/* Nút Định vị Vị trí hiện tại của tôi (GPS) */}
+      {onLocateMe && (
+        <button
+          id="btn-nav-my-location"
+          onClick={onLocateMe}
+          className="w-8 h-8 bg-[#161b13] border border-[#2d3329] hover:border-[#e2ffcc] text-[#e2ffcc] flex items-center justify-center transition-colors shadow-flat"
+          title="Định vị vị trí hiện tại của tôi (GPS)"
+        >
+          <LocateFixed
+            className={`w-4 h-4 ${isLocatingMe ? "animate-spin" : ""}`}
+          />
+        </button>
+      )}
 
       {/* Nút Chế độ Toàn màn hình nếu có callback */}
       {onToggleFullscreen && (

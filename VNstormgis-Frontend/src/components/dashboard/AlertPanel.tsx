@@ -103,7 +103,7 @@ export function AlertPanel({
             </button>
           ) : (
             <span className="text-[10px] text-sage">
-              Asia/Ho_Chi_Minh (UTC+7)
+              Giờ Việt Nam (UTC+7)
             </span>
           )}
           <button
@@ -165,7 +165,7 @@ export function AlertPanel({
           )}
           {lastSuccessfulFetchAt && (
             <p className="mb-4 text-[10px] text-sage">
-              Lần tải thành công của trình duyệt:{" "}
+              Cập nhật gần nhất lúc:{" "}
               {formatAlertTime(lastSuccessfulFetchAt)}
             </p>
           )}

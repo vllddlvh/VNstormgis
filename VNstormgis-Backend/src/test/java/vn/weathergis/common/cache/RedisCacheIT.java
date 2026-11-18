@@ -94,11 +94,11 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
     private static final String ACTIVE_ID = "teststorm01";
 
     private static final String CACHE_KEY_SCAN = "weathergis:cache:*";
-    private static final String WEATHER_KEY = "weathergis:cache:weather_current::geojson";
+    private static final String WEATHER_KEY = "weathergis:cache:weather_current_v2::geojson";
     private static final String STORMS_KEY = "weathergis:cache:active_storms::geojson:active";
-    private static final String LOCATIONS_ALL_KEY = "weathergis:cache:locations::geojson||true|";
+    private static final String LOCATIONS_ALL_KEY = "weathergis:cache:locations_v2::geojson||true|";
     private static final String LOCATIONS_NORTH_KEY =
-            "weathergis:cache:locations::geojson|Bắc Bộ|true|";
+            "weathergis:cache:locations_v2::geojson|Bắc Bộ|true|";
 
     private static final int REDIS_HOST_PORT = findAvailablePort();
     private static final GenericContainer<?> REDIS =
@@ -283,8 +283,8 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
                 .as("lặp lại hai filter đã gọi không được sinh key thứ ba")
                 .hasSize(2);
         assertThat(readTree(again).get("features"))
-                .as("V3 seed 68 trạm — cache phải trả dữ liệu thật, không rỗng")
-                .isNotEmpty();
+                .as("Danh mục 34 điểm đại diện cấp tỉnh và 5 điểm hải đảo")
+                .hasSize(39);
         assertNoFallback();
     }
 
@@ -306,6 +306,9 @@ class RedisCacheIT extends AbstractPostGisIntegrationTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get(WEATHER_URL).param("format", "json").accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+        mockMvc.perform(get(LOCATIONS_URL).param("format", "json"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(39));
         mockMvc.perform(get(STORMS_URL + "/" + ACTIVE_ID).accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
         mockMvc.perform(get(STORMS_URL + "/" + ACTIVE_ID + "/track")).andExpect(status().isOk());

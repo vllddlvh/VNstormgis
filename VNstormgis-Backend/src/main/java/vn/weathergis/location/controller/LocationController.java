@@ -22,13 +22,14 @@ import vn.weathergis.common.cache.CacheRegions;
 import vn.weathergis.common.cache.GeoJsonCacheService;
 import vn.weathergis.location.dto.LocationNearbyResponse;
 import vn.weathergis.location.dto.LocationResponse;
+import vn.weathergis.location.dto.SpatialPointContextResponse;
 import vn.weathergis.location.service.LocationService;
 
 /** Bộ điều khiển RESTful API quản lý trạm quan trắc khí tượng và địa không gian. */
 @Tag(
         name = "1. Trạm Quan Trắc Trắc Địa (Locations)",
         description =
-                "Truy vấn mạng lưới 68 điểm trắc địa quốc gia (63 tỉnh/thành phố và 5 trạm hải đảo) "
+                "Truy vấn các điểm quan trắc đại diện 34 đơn vị cấp tỉnh và 5 điểm hải đảo "
                         + "hỗ trợ định dạng kép JSON / GeoJSON RFC 7946 và truy vấn không gian PostGIS ST_DistanceSphere.")
 @RestController
 @RequestMapping("/api/v1/locations")
@@ -233,5 +234,53 @@ public class LocationController {
         return ResponseEntity.ok(
                 vn.weathergis.common.api.ApiResponse.ok(
                         nearby, "Tìm thấy " + nearby.size() + " trạm lân cận"));
+    }
+
+    /**
+     * Phân tích không gian PostGIS toàn diện tại một tọa độ bất kỳ (ví dụ: Vị trí hiện tại GPS).
+     */
+    @Operation(
+            summary = "Phân tích tình huống địa không gian tại tọa độ (Vị trí hiện tại của tôi)",
+            description =
+                    "Truy vấn PostGIS KNN GiST (`<->`) và `ST_DistanceSphere` để trả về trạm quan trắc gần nhất, "
+                            + "dữ liệu thời tiết thực tế mới nhất của trạm đó, khoảng cách tới tâm bão active gần nhất "
+                            + "và các cảnh báo active trong bán kính quét quanh vị trí người dùng.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "Phân tích không gian tại tọa độ thành công",
+                content =
+                        @Content(
+                                schema =
+                                        @Schema(
+                                                implementation =
+                                                        vn.weathergis.common.api.ApiResponse
+                                                                .class))),
+        @ApiResponse(
+                responseCode = "400",
+                description = "Tọa độ hoặc bán kính không hợp lệ (RFC 7807)",
+                content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    @GetMapping("/at-point")
+    public ResponseEntity<vn.weathergis.common.api.ApiResponse<SpatialPointContextResponse>>
+            getSpatialPointContext(
+                    @Parameter(description = "Kinh độ tâm WGS84 [-180, 180]", example = "108.2022")
+                            @RequestParam("lng")
+                            double longitude,
+                    @Parameter(description = "Vĩ độ tâm WGS84 [-90, 90]", example = "16.0544")
+                            @RequestParam("lat")
+                            double latitude,
+                    @Parameter(
+                                    description =
+                                            "Bán kính quét cảnh báo tính bằng Kilometers (mặc định 100km, tối đa 2000km)",
+                                    example = "100.0")
+                            @RequestParam(name = "radiusKm", defaultValue = "100.0")
+                            double radiusKm) {
+
+        SpatialPointContextResponse context =
+                locationService.getSpatialPointContext(longitude, latitude, radiusKm);
+        return ResponseEntity.ok(
+                vn.weathergis.common.api.ApiResponse.ok(
+                        context, "Phân tích không gian tại vị trí thành công"));
     }
 }

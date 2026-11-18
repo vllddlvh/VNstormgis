@@ -143,7 +143,7 @@ export const STORM_WATCH_BBOX = {
 } as const;
 
 /** Nhãn hộp theo dõi để in ra UI — dẫn xuất từ hằng trên, KHÔNG hardcode cặp số thứ hai. */
-export const STORM_WATCH_BBOX_LABEL = `lng ${STORM_WATCH_BBOX.minLng}–${STORM_WATCH_BBOX.maxLng}, lat ${STORM_WATCH_BBOX.minLat}–${STORM_WATCH_BBOX.maxLat}`;
+export const STORM_WATCH_BBOX_LABEL = `Kinh độ ${STORM_WATCH_BBOX.minLng}°Đ–${STORM_WATCH_BBOX.maxLng}°Đ, Vĩ độ ${STORM_WATCH_BBOX.minLat}°B–${STORM_WATCH_BBOX.maxLat}°B`;
 
 /** Gán nhãn ngắn cho popup/danh sách: "Tropical Cyclone CHAMPI-26" -> "CHAMPI-26". */
 export function shortStormLabel(name: string): string {

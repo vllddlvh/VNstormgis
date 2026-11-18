@@ -106,7 +106,29 @@ public enum ErrorCode {
     CHAT_RATE_LIMITER_UNAVAILABLE(
             "CHT_503_RATE_LIMITER_UNAVAILABLE",
             "Bộ phận hạn mức tạm thời gián đoạn",
-            HttpStatus.SERVICE_UNAVAILABLE);
+            HttpStatus.SERVICE_UNAVAILABLE),
+
+    // Email Subscription Domain errors (SUB_xxx)
+    SUBSCRIPTION_VALIDATION(
+            "SUB_400_VALIDATION",
+            "Dữ liệu đăng ký nhận cảnh báo email không hợp lệ",
+            HttpStatus.BAD_REQUEST),
+    SUBSCRIPTION_INVALID_TOKEN(
+            "SUB_400_INVALID_TOKEN",
+            "Mã xác thực hoặc liên kết hủy đăng ký không hợp lệ hoặc đã hết hạn",
+            HttpStatus.BAD_REQUEST),
+    SUBSCRIPTION_NOT_ACTIVE(
+            "SUB_400_NOT_ACTIVE",
+            "Đăng ký chưa được kích hoạt xác thực email",
+            HttpStatus.BAD_REQUEST),
+    SUBSCRIPTION_NOT_FOUND(
+            "SUB_404_NOT_FOUND",
+            "Không tìm thấy đăng ký nhận cảnh báo email",
+            HttpStatus.NOT_FOUND),
+    SUBSCRIPTION_RATE_LIMITED(
+            "SUB_429_RATE_LIMITED",
+            "Gửi yêu cầu quá tần suất cho phép, vui lòng thử lại sau ít phút",
+            HttpStatus.TOO_MANY_REQUESTS);
 
     private final String code;
     private final String defaultMessage;

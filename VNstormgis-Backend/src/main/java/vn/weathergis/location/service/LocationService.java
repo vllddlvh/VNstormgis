@@ -5,6 +5,7 @@ import java.util.UUID;
 import vn.weathergis.common.api.GeoJsonFeatureCollection;
 import vn.weathergis.location.dto.LocationNearbyResponse;
 import vn.weathergis.location.dto.LocationResponse;
+import vn.weathergis.location.dto.SpatialPointContextResponse;
 
 /** Giao diện dịch vụ nghiệp vụ quản lý trạm quan trắc địa không gian. */
 public interface LocationService {
@@ -19,5 +20,8 @@ public interface LocationService {
     LocationResponse getLocationByCode(String code);
 
     List<LocationNearbyResponse> getNearbyLocations(
+            double longitude, double latitude, double radiusKm);
+
+    SpatialPointContextResponse getSpatialPointContext(
             double longitude, double latitude, double radiusKm);
 }

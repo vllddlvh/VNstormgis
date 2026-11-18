@@ -49,10 +49,13 @@ out/
 # ==============================================================================
 *.env
 *.env.local
+*.env.prod
 *.env.*.local
 !*.env.example
 deployment/env/.env.local
 deployment/env/.env.prod
+VNstormgis-Deployment/env/.env.local
+VNstormgis-Deployment/env/.env.prod
 
 # Private Keys & Certificates
 *.pem

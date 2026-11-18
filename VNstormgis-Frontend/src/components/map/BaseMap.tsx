@@ -152,6 +152,16 @@ export interface BaseMapProps {
   onFlyToStation?: (station: StationMarkerData) => void;
   /** Callback khi người dùng nhấn nút Hỏi AI về trạm trên popup */
   onAskAi?: (station: StationMarkerData) => void;
+  /** Callback mở biểu đồ lịch sử thời tiết 24h của trạm */
+  onViewHistory?: (station: StationMarkerData) => void;
+  /** Callback mở đăng ký nhận cảnh báo Email cho trạm */
+  onSubscribeStation?: (station: StationMarkerData) => void;
+  /** Tọa độ vị trí hiện tại của người dùng (GPS hoặc tùy chỉnh) [lat, lng] */
+  userLocation?: {
+    coordinates: CoordinateTuple;
+    accuracyMeters?: number | null;
+    label?: string;
+  } | null;
   /** Lớp CSS bổ sung */
   className?: string;
 }
@@ -170,12 +180,16 @@ interface StationPopupContentProps {
   station: StationMarkerData;
   onFlyToStation?: (station: StationMarkerData) => void;
   onAskAi?: (station: StationMarkerData) => void;
+  onViewHistory?: (station: StationMarkerData) => void;
+  onSubscribeStation?: (station: StationMarkerData) => void;
 }
 
 const StationPopupContent: React.FC<StationPopupContentProps> = ({
   station,
   onFlyToStation,
   onAskAi,
+  onViewHistory,
+  onSubscribeStation,
 }) => {
   const severityInfo = SEVERITY_CONFIG[station.severity];
   return (
@@ -184,7 +198,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
       <div className="flex items-center justify-between border-b border-[#2d3329] pb-1.5">
         <div className="flex items-center gap-1.5 truncate">
           <span className="font-bold text-[#e2ffcc] text-xs">
-            [{station.code} // {station.name.toUpperCase()}]
+            {station.name.toUpperCase()} ({station.code})
           </span>
         </div>
         <span
@@ -199,14 +213,14 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
         </span>
       </div>
 
-      {/* Vùng địa lý & Trạng thái trắc địa */}
+      {/* Vùng địa lý & Trạng thái trạm */}
       <div className="flex items-center justify-between text-[10px] text-[#84907f]">
         <span className="uppercase">
-          VÙNG: <strong className="text-[#dde2e4]">{station.region}</strong>
+          KHU VỰC: <strong className="text-[#dde2e4]">{station.region}</strong>
         </span>
         <span className="text-[#e2ffcc] flex items-center gap-1">
           <span className="w-1.5 h-1.5 bg-[#e2ffcc] inline-block" />
-          HOẠT ĐỘNG
+          ĐANG HOẠT ĐỘNG
         </span>
       </div>
 
@@ -235,7 +249,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
             </div>
             <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
               <span className="text-[8px] text-[#84907f] block uppercase">
-                MƯA 1H / 3H
+                LƯỢNG MƯA (1 GIỜ / 3 GIỜ)
               </span>
               <span
                 className={`font-bold ${
@@ -255,7 +269,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
             </div>
             <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
               <span className="text-[8px] text-[#84907f] block uppercase">
-                GIÓ / GIẬT
+                TỐC ĐỘ GIÓ / GIÓ GIẬT
               </span>
               <span className="font-bold text-[#dde2e4]">
                 {station.weather.wind_speed !== null
@@ -281,7 +295,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
             </div>
             <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
               <span className="text-[8px] text-[#84907f] block uppercase">
-                ĐỘ ẨM
+                ĐỘ ẨM KHÔNG KHÍ
               </span>
               <span className="font-bold text-[#dde2e4]">
                 {station.weather.humidity !== null
@@ -291,7 +305,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
             </div>
             <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
               <span className="text-[8px] text-[#84907f] block uppercase">
-                ÁP SUẤT
+                ÁP SUẤT KHÍ QUYỂN
               </span>
               <span className="font-bold text-[#dde2e4]">
                 {station.weather.pressure !== null
@@ -301,7 +315,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
             </div>
             <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
               <span className="text-[8px] text-[#84907f] block uppercase">
-                ĐỘ CAO ĐỊA HÌNH
+                ĐỘ CAO SO VỚI MỰC NƯỚC BIỂN
               </span>
               <span className="font-bold text-[#dde2e4]">
                 {station.elevationM !== undefined
@@ -314,7 +328,7 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
           {/* Thời điểm đo + nguồn cấp dữ liệu (BR-RULE-006) */}
           <div className="pt-1.5 border-t border-[#2d3329] flex justify-between text-[9px] text-[#84907f]">
             <span>
-              ĐO LƯỜNG:{" "}
+              CẬP NHẬT LÚC:{" "}
               <strong className="text-[#e2ffcc]">
                 {new Date(station.weather.recorded_at).toLocaleTimeString(
                   "vi-VN",
@@ -334,10 +348,10 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
       ) : (
         <>
           <div className="text-[10px] text-[#84907f] border border-[#2d3329] bg-[#1a2117] p-1.5">
-            [CHƯA CÓ BẢN GHI THỜI TIẾT] — trạm chờ chu kỳ nạp OWM kế tiếp.
+            Chưa có số liệu thời tiết mới — đang chờ đợt cập nhật tiếp theo.
           </div>
           <div className="pt-1.5 border-t border-[#2d3329] flex items-center justify-between text-[9px] text-[#84907f]">
-            <span>ĐỘ CAO ĐỊA HÌNH:</span>
+            <span>ĐỘ CAO SO VỚI MỰC NƯỚC BIỂN:</span>
             <span className="text-[#dde2e4]">
               {station.elevationM !== undefined
                 ? `${station.elevationM} m`
@@ -347,15 +361,15 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
         </>
       )}
 
-      {/* Tọa độ trắc địa chuẩn WGS84 */}
+      {/* Tọa độ địa lý */}
       <div className="pt-1.5 border-t border-[#2d3329] flex items-center justify-between text-[9px] text-[#84907f]">
-        <span>TỌA ĐỘ WGS84:</span>
+        <span>TỌA ĐỘ ĐỊA LÝ:</span>
         <span className="text-[#e2ffcc] font-mono">
           {formatCoordinate(station.coordinates, 4)}
         </span>
       </div>
 
-      {/* QuickActions: Phóng to khu vực & Hỏi AI về trạm này */}
+      {/* QuickActions: Phóng to, Hỏi AI, Biểu đồ 24h & Đăng ký Email */}
       <div className="pt-2 border-t border-[#2d3329] grid grid-cols-2 gap-1.5">
         <button
           id={`btn-flyto-${station.code.toLowerCase()}`}
@@ -383,6 +397,32 @@ const StationPopupContent: React.FC<StationPopupContentProps> = ({
         >
           <span>🤖 HỎI AI</span>
         </button>
+        {onViewHistory && (
+          <button
+            id={`btn-history-${station.code.toLowerCase()}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewHistory(station);
+            }}
+            className="py-1 px-1.5 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[9px] text-[#38bdf8] hover:text-[#e2ffcc] flex items-center justify-center gap-1 transition-colors uppercase font-bold"
+            title={`Xem biểu đồ diễn biến thời tiết 24h trạm ${station.name}`}
+          >
+            <span>📈 LỊCH SỬ 24H</span>
+          </button>
+        )}
+        {onSubscribeStation && (
+          <button
+            id={`btn-sub-${station.code.toLowerCase()}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSubscribeStation(station);
+            }}
+            className="py-1 px-1.5 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[9px] text-[#e2ffcc] flex items-center justify-center gap-1 transition-colors uppercase font-bold"
+            title={`Đăng ký nhận cảnh báo Email khu vực ${station.name}`}
+          >
+            <span>✉️ BÁO EMAIL</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -404,10 +444,27 @@ export const BaseMap: React.FC<BaseMapProps> = ({
   onMapReady,
   onFlyToStation,
   onAskAi,
+  onViewHistory,
+  onSubscribeStation,
+  userLocation = null,
   className = "",
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const [internalTileId, setInternalTileId] = useState<string>(activeTileId);
+
+  const userLocationIcon = useMemo(
+    () =>
+      L.divIcon({
+        className: "user-gps-marker-container",
+        html: `<div style="position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center;">
+          <span style="position:absolute;inset:0;border:2px solid #e2ffcc;background:rgba(226,255,204,0.22);"></span>
+          <span style="width:10px;height:10px;background:#e2ffcc;border:2px solid #161b13;display:inline-block;"></span>
+        </div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      }),
+    [],
+  );
 
   // Đồng bộ nguồn bản đồ nếu prop thay đổi
   useEffect(() => {
@@ -457,11 +514,19 @@ export const BaseMap: React.FC<BaseMapProps> = ({
           station={station}
           onFlyToStation={onFlyToStation}
           onAskAi={onAskAi}
+          onViewHistory={onViewHistory}
+          onSubscribeStation={onSubscribeStation}
         />,
       );
     }
     return content;
-  }, [stations, onFlyToStation, onAskAi]);
+  }, [
+    stations,
+    onFlyToStation,
+    onAskAi,
+    onViewHistory,
+    onSubscribeStation,
+  ]);
 
   const handleInternalMapReady = (map: L.Map) => {
     mapRef.current = map;
@@ -512,7 +577,7 @@ export const BaseMap: React.FC<BaseMapProps> = ({
         {/* LỚP 01: VÙNG MƯA RADAR PHẢN HỒI (SIMULATED RADAR CELLS) */}
         {layerVisibility.radar && (
           <>
-            {/* Phản hồi mưa lớn khu vực Đà Nẵng - Thừa Thiên Huế */}
+            {/* Phản hồi mưa lớn khu vực Đà Nẵng - Huế */}
             <Circle
               center={[16.15, 108.1]}
               radius={75000}
@@ -606,6 +671,35 @@ export const BaseMap: React.FC<BaseMapProps> = ({
               </Marker>
             );
           })}
+
+        {/* LỚP 06: VỊ TRÍ HIỆN TẠI CỦA TÔI (GPS / CUSTOM POINT + ACCURACY RING) */}
+        {userLocation && (
+          <>
+            <Circle
+              center={userLocation.coordinates}
+              radius={Math.max(userLocation.accuracyMeters ?? 300, 150)}
+              pathOptions={{
+                color: "#e2ffcc",
+                weight: 1.5,
+                fillColor: "#e2ffcc",
+                fillOpacity: 0.14,
+                dashArray: "4, 4",
+              }}
+            />
+            <Marker position={userLocation.coordinates} icon={userLocationIcon}>
+              <Popup className="san-rita-popup">
+                <div className="p-2.5 bg-[#161b13] text-[#dde2e4] font-mono text-[10px] space-y-1 min-w-[200px]">
+                  <div className="font-bold text-[#e2ffcc] uppercase">
+                    📍 {userLocation.label || "VỊ TRÍ HIỆN TẠI CỦA TÔI"}
+                  </div>
+                  <div className="text-[#84907f]">
+                    Tọa độ: {formatCoordinate(userLocation.coordinates, 4)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          </>
+        )}
       </MapContainer>
 
       {/* Empty state — chỉ khi API thành công mà payload rỗng (quyết định #8).

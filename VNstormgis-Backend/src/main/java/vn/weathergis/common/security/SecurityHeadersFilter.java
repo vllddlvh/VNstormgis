@@ -38,10 +38,17 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
         setIfAbsent(response, HEADER_FRAME_OPTIONS, "DENY");
         setIfAbsent(response, HEADER_REFERRER_POLICY, "strict-origin-when-cross-origin");
         setIfAbsent(
-                response, HEADER_PERMISSIONS_POLICY, "geolocation=(), microphone=(), camera=()");
+                response,
+                HEADER_PERMISSIONS_POLICY,
+                "geolocation=(self), microphone=(), camera=()");
 
         String uri = request.getRequestURI();
-        if (uri != null && (uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs"))) {
+        if (uri != null
+                && (uri.startsWith("/swagger-ui")
+                        || uri.startsWith("/v3/api-docs")
+                        || ("GET".equalsIgnoreCase(request.getMethod())
+                                && (uri.equals("/api/v1/subscriptions/verify")
+                                        || uri.equals("/api/v1/subscriptions/unsubscribe"))))) {
             setIfAbsent(response, HEADER_CSP, SWAGGER_CSP_VALUE);
         } else {
             setIfAbsent(response, HEADER_CSP, API_CSP_VALUE);

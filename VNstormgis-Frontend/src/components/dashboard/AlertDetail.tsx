@@ -58,12 +58,12 @@ export function AlertDetail({
           {properties.location_code ? ` [${properties.location_code}]` : ""}
         </p>
         <p className="text-[11px] text-sage">
-          Phát:{" "}
+          Thời điểm phát cảnh báo:{" "}
           {formatAlertTime(
             detail ? detail.triggered_at : properties.triggered_at,
           )}
         </p>
-        <p className="break-all text-[10px] text-sage">ID: {alert.id}</p>
+        <p className="break-all text-[10px] text-sage">Mã cảnh báo: {alert.id}</p>
         <button
           type="button"
           data-testid="alert-flyto"
@@ -118,12 +118,12 @@ export function AlertDetail({
         <>
           {detail.is_fallback && (
             <p className="border-l-2 border-sage pl-3 text-xs text-sage">
-              Nội dung theo mẫu từ dữ kiện hệ thống
+              Bản tin tự động tổng hợp từ số liệu đo thực tế tại trạm
             </p>
           )}
           <section className="space-y-2 border-t border-charcoal pt-4">
             <h4 className="text-[11px] font-bold uppercase text-mint">
-              Nguyên nhân kích hoạt
+              Lý do phát cảnh báo
             </h4>
             <p className="whitespace-pre-wrap break-words">
               {detail.trigger_reason || "Chưa có nguyên nhân được lưu"}
@@ -145,7 +145,7 @@ export function AlertDetail({
             data-testid="alert-factual-snapshot"
           >
             <h4 className="text-[11px] font-bold uppercase text-mint">
-              Dữ kiện lúc phát hiện
+              Số liệu đo thực tế lúc phát cảnh báo
             </h4>
             {snapshot ? (
               <>
@@ -157,12 +157,12 @@ export function AlertDetail({
                       : ""}
                   </p>
                   <p className="text-sage">
-                    Đánh giá: {formatAlertTime(snapshot.evaluated_at)}
+                    Thời điểm ghi nhận: {formatAlertTime(snapshot.evaluated_at)}
                   </p>
                 </div>
                 {snapshot.violations.length === 0 && (
                   <p className="text-xs text-sage">
-                    Không có dữ kiện vi phạm được lưu
+                    Không có chỉ số vượt ngưỡng nào được lưu
                   </p>
                 )}
                 <ol className="space-y-3">
@@ -193,10 +193,10 @@ export function AlertDetail({
                         {violation.unit || "Chưa có đơn vị"}
                       </p>
                       <p className="text-sage">
-                        Số đo · toán tử · ngưỡng tại thời điểm phát hiện
+                        Giải thích: [Số đo thực tế] [So sánh] [Ngưỡng cảnh báo]
                       </p>
                       <p className="text-sage">
-                        Thời điểm nguồn:{" "}
+                        Thời gian đo tại trạm:{" "}
                         {formatAlertTime(violation.source_timestamp)}
                       </p>
                       {(violation.storm_name || violation.storm_id) && (
@@ -212,12 +212,12 @@ export function AlertDetail({
                 </ol>
               </>
             ) : (
-              <p className="text-xs text-sage">Không có dữ kiện gốc</p>
+              <p className="text-xs text-sage">Không có dữ kiện gốc được lưu</p>
             )}
           </section>
           <details className="border-t border-charcoal pt-4 text-xs">
             <summary className="cursor-pointer py-2 text-sage focus-visible:outline focus-visible:outline-2 focus-visible:outline-mint">
-              Liên kết hiện tại (có thể đã thay đổi)
+              Thông tin đối chiếu hiện tại (nhấn để mở rộng)
             </summary>
             <div className="space-y-2 pt-2">
               <p className="break-words">

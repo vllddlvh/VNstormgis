@@ -219,6 +219,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 if (path.startsWith("/api/v1/chat/")) {
                     return ErrorCode.CHAT_VALIDATION;
                 }
+                if (path.equals("/api/v1/subscriptions")
+                        || path.startsWith("/api/v1/subscriptions/")) {
+                    return ErrorCode.SUBSCRIPTION_VALIDATION;
+                }
                 if (path.equals("/api/v1/alert-thresholds")
                         || path.startsWith("/api/v1/alert-thresholds/")) {
                     return alertThresholdCode;

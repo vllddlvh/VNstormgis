@@ -17,7 +17,7 @@
 #
 # Tùy biến qua biến môi trường (mặc định trong ngoặc):
 #   BACKEND_BASE_URL (http://localhost:8080) · DB_CONTAINER (weathergis-postgres)
-#   DB_USER (gis_user) · DB_NAME (weather_gis_db) · EXPECTED_STATIONS (68)
+#   DB_USER (gis_user) · DB_NAME (weather_gis_db) · EXPECTED_STATIONS (39)
 #   LATENCY_BUDGET_MS (50) · FRESHNESS_SECONDS (600) · SKIP_SYNC (0)
 #
 # Exit code: 0 <=> Pass 100% · 1 <=> có FAIL hoặc preflight hỏng
@@ -30,7 +30,7 @@ BACKEND_BASE_URL="${BACKEND_BASE_URL:-http://localhost:8080}"
 DB_CONTAINER="${DB_CONTAINER:-weathergis-postgres}"
 DB_USER="${DB_USER:-gis_user}"
 DB_NAME="${DB_NAME:-weather_gis_db}"
-EXPECTED_STATIONS="${EXPECTED_STATIONS:-68}"
+EXPECTED_STATIONS="${EXPECTED_STATIONS:-39}"
 LATENCY_BUDGET_MS="${LATENCY_BUDGET_MS:-50}"
 FRESHNESS_SECONDS="${FRESHNESS_SECONDS:-600}"
 SYNC_TIMEOUT_S="${SYNC_TIMEOUT_S:-300}"
@@ -223,7 +223,7 @@ log "BƯỚC 3/7 — POSTGIS: weather_records, data_sync_logs, storms"
 check "locations: đúng $EXPECTED_STATIONS trạm active" \
     eq "$(db "SELECT count(*) FROM locations WHERE is_active = true")" "$EXPECTED_STATIONS"
 check "weather_records phủ đủ $EXPECTED_STATIONS trạm (DISTINCT location_id)" \
-    eq "$(db "SELECT count(DISTINCT location_id) FROM weather_records")" "$EXPECTED_STATIONS"
+    eq "$(db "SELECT count(DISTINCT w.location_id) FROM weather_records w JOIN locations l ON l.id = w.location_id WHERE l.is_active")" "$EXPECTED_STATIONS"
 
 check "data_sync_logs: lượt OWM mới nhất = SUCCESS" \
     eq "$(db "SELECT status FROM data_sync_logs WHERE source='OPENWEATHERMAP' ORDER BY started_at DESC LIMIT 1")" "SUCCESS"
@@ -254,7 +254,7 @@ else
 fi
 
 # =============================================================================
-# BƯỚC 4 — GEOJSON RFC 7946 + ĐỐI CHIẾU 68 MÃ TRẠM (README Bước 3)
+# BƯỚC 4 — GEOJSON RFC 7946 + ĐỐI CHIẾU MÃ TRẠM ĐANG HOẠT ĐỘNG (README Bước 3)
 # =============================================================================
 log "BƯỚC 4/7 — GET /api/v1/weather/current: SCHEMA GEOJSON RFC 7946"
 
@@ -285,7 +285,7 @@ check "recorded_at định dạng ISO-8601" \
 db "SELECT code FROM locations WHERE is_active = true ORDER BY code" \
     | sed '/^$/d' > "$TMP_DIR/codes.db"
 jq -r '.features[].properties.code' "$GEO" 2>/dev/null | sort > "$TMP_DIR/codes.api" || true
-check "68 mã trạm khớp tuyệt đối CSDL ↔ GeoJSON payload" \
+check "$EXPECTED_STATIONS mã trạm khớp tuyệt đối CSDL ↔ GeoJSON payload" \
     diff -q "$TMP_DIR/codes.db" "$TMP_DIR/codes.api"
 
 # =============================================================================

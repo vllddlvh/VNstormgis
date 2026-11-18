@@ -1,0 +1,160 @@
+# ==============================================================================
+# W7-02: PRODUCTION DOCKER COMPOSE ORCHESTRATION
+# Usage:
+#   docker compose --env-file VNstormgis-Deployment/env/.env.prod \
+#     -f VNstormgis-Deployment/docker-compose.prod.yml up -d --build
+# ==============================================================================
+
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: weathergis-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-weather_gis_db}
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgis_prod_data:/var/lib/postgresql/data
+    networks:
+      - weathergis-prod-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME} -d ${DB_NAME:-weather_gis_db}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: weathergis-redis-prod
+    restart: always
+    command: >
+      redis-server
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
+      --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-volatile-lru}
+      --appendonly yes
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - weathergis-prod-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    image: ${BACKEND_IMAGE:-vnstormgis-backend:latest}
+    build:
+      context: ..
+      dockerfile: VNstormgis-Deployment/docker/backend/Dockerfile
+    container_name: weathergis-backend-prod
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-weather_gis_db}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_CACHE_ENABLED: ${REDIS_CACHE_ENABLED:-true}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY:-}
+      GEMINI_ENABLED: ${GEMINI_ENABLED:-true}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      INTERNAL_SYNC_SECRET: ${INTERNAL_SYNC_SECRET:?INTERNAL_SYNC_SECRET is required}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+      CHAT_RATELIMIT_TRUSTED_PROXIES: ${CHAT_RATELIMIT_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,127.0.0.1}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@weathergis.vn}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-https://weathergis.vn}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://weathergis.vn}
+    networks:
+      - weathergis-prod-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/actuator/health/liveness || curl -fsS http://127.0.0.1:8080/actuator/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "25m"
+        max-file: "5"
+
+  web:
+    image: ${FRONTEND_IMAGE:-vnstormgis-web:latest}
+    build:
+      context: ..
+      dockerfile: VNstormgis-Deployment/docker/frontend/Dockerfile
+    container_name: weathergis-web-prod
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - weathergis-prod-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  postgis_prod_data:
+    name: weathergis_postgis_prod_data
+    driver: local
+  redis_prod_data:
+    name: weathergis_redis_prod_data
+    driver: local
+
+networks:
+  weathergis-prod-net:
+    name: weathergis-prod-net
+    driver: bridge

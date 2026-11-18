@@ -349,7 +349,7 @@ class SecurityHeadersAndOwaspIT extends AbstractPostGisIntegrationTest {
         assertThat(response.getHeader(SecurityHeadersFilter.HEADER_REFERRER_POLICY))
                 .isEqualTo("strict-origin-when-cross-origin");
         assertThat(response.getHeader(SecurityHeadersFilter.HEADER_PERMISSIONS_POLICY))
-                .isEqualTo("geolocation=(), microphone=(), camera=()");
+                .isEqualTo("geolocation=(self), microphone=(), camera=()");
         assertThat(response.getHeader(SecurityHeadersFilter.HEADER_CSP)).isEqualTo(expectedCsp);
     }
 

@@ -42,7 +42,7 @@ class RuleBasedIntentClassifierTest {
     }
 
     private void stations(LocationEntity... entities) {
-        when(locationRepository.findAll()).thenReturn(List.of(entities));
+        when(locationRepository.findByIsActiveTrue()).thenReturn(List.of(entities));
     }
 
     private void storms(StormEntity... entities) {

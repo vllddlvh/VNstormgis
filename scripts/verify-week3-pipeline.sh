@@ -19,7 +19,7 @@
 # Tùy biến qua biến môi trường (mặc định trong ngoặc):
 #   BACKEND_BASE_URL (http://localhost:8080) · REDIS_CONTAINER (weathergis-redis)
 #   DB_CONTAINER (weathergis-postgres) · DB_USER (gis_user) · DB_NAME (weather_gis_db)
-#   FRONTEND_DIR (VNstormgis-Frontend) · EXPECTED_STATIONS (68)
+#   FRONTEND_DIR (VNstormgis-Frontend) · EXPECTED_STATIONS (39)
 #   LATENCY_BUDGET_MS (5) · HIT_SAMPLES (5) · OUTAGE_BUDGET_MS (2000)
 #   WEATHER_TTL_MIN (840) · WEATHER_TTL_MAX (900)
 #   STORM_TTL_MIN (1740) · STORM_TTL_MAX (1800) · SKIP_DEGRADATION (0)
@@ -38,7 +38,7 @@ DB_CONTAINER="${DB_CONTAINER:-weathergis-postgres}"
 DB_USER="${DB_USER:-gis_user}"
 DB_NAME="${DB_NAME:-weather_gis_db}"
 FRONTEND_DIR="${FRONTEND_DIR:-VNstormgis-Frontend}"
-EXPECTED_STATIONS="${EXPECTED_STATIONS:-68}"
+EXPECTED_STATIONS="${EXPECTED_STATIONS:-39}"
 LATENCY_BUDGET_MS="${LATENCY_BUDGET_MS:-5}"
 HIT_SAMPLES="${HIT_SAMPLES:-5}"
 OUTAGE_BUDGET_MS="${OUTAGE_BUDGET_MS:-2000}"
@@ -409,7 +409,7 @@ log "BƯỚC 4/7 — REDIS CACHE (W3-08 số chuẩn: HIT 2,029 / 1,169 ms)"
 
 W_URL="$BACKEND_BASE_URL/api/v1/weather/current"
 S_URL="$BACKEND_BASE_URL/api/v1/storms?status=active"
-W_KEY="weathergis:cache:weather_current::geojson"
+W_KEY="weathergis:cache:weather_current_v2::geojson"
 S_KEY="weathergis:cache:active_storms::geojson:active"
 
 # Xóa key cũ trước khi prime để TTL đo được là TTL mới — script tái chạy nhiều lần
@@ -433,7 +433,7 @@ check "TTL active_storms ${S_TTL}s ∈ (${STORM_TTL_MIN}, ${STORM_TTL_MAX}] — 
     ttl_ok "$S_TTL" "$STORM_TTL_MIN" "$STORM_TTL_MAX"
 
 # Payload vẫn đúng sau khi qua cache (không lạc shape miss<->hit) — đối chiếu #4 W3-08:
-# byte-identical đã được W3-08 chứng minh bằng sha256; ở đây kiểm cấu trúc + đủ 68 trạm.
+# byte-identical đã được W3-08 chứng minh bằng sha256; ở đây kiểm cấu trúc + đủ số trạm đang hoạt động.
 GEO_W="$TMP_DIR/cached-weather.geojson"
 CODE=$(get "$W_URL" "$GEO_W")
 check "/weather/current qua cache → HTTP 200" eq "$CODE" "200"

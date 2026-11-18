@@ -1,210 +1,272 @@
-# Vietnam Weather & Storm Monitoring WebGIS with Grounded AI Warning Agent
+# VNstormgis — Hệ Thống WebGIS Giám Sát Mưa Gió Bão Tích Hợp AI Agent Cảnh Báo
 
-## Hệ Thống WebGIS Giám Sát Mưa Gió Bão Tích Hợp AI Agent Cảnh Báo
+[![Release](https://img.shields.io/badge/release-v1.0.0-brightgreen.svg)](OPERATIONS.md)
+[![Java](https://img.shields.io/badge/Java-21%20LTS-ed8b00.svg)](VNstormgis-Backend/build.gradle)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-6db33f.svg)](VNstormgis-Backend/build.gradle)
+[![PostGIS](https://img.shields.io/badge/PostgreSQL%2016-PostGIS%203.4-336791.svg)](VNstormgis-Deployment/docker-compose.yml)
+[![Redis](https://img.shields.io/badge/Redis-7.2-dc382d.svg)](VNstormgis-Deployment/docker-compose.yml)
+[![React](https://img.shields.io/badge/React%2018-TypeScript%205-61dafb.svg)](VNstormgis-Frontend/package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-## 1. Giới Thiệu Dự Án (Project Overview)
-
-**VNstormgis** là giải pháp nền tảng công nghệ toàn diện phục vụ giám sát lượng mưa, gió giật, bão lũ và cảnh báo thiên tai sớm tại Việt Nam. Hệ thống tích hợp sâu giữa công nghệ bản đồ số địa không gian (WebGIS) và mô hình ngôn ngữ lớn (Grounded AI Warning Agent) nhằm hỗ trợ người dân và cơ quan quản lý tra cứu, cập nhật thông tin chuẩn xác theo thời gian thực.
-
-### Công Nghệ Chủ Đạo (Core Tech Stack)
-
-- **Backend:** Spring Boot 3.3.x, Java 21 LTS, Hibernate Spatial 6, JTS Topology Suite, Flyway.
-- **Spatial Database & Cache:** PostgreSQL 16 + PostGIS 3.4, Redis 7.2.
-- **Frontend:** React 18, TypeScript 5.x, Vite, Tailwind CSS, Leaflet 1.9 (`react-leaflet`).
-- **AI & LLM:** Google Gemini API kết hợp Grounding kỹ thuật kiểm soát ảo giác (Anti-hallucination).
-- **DevOps & Hạ Tầng:** Docker Multi-stage, Docker Compose, Nginx Reverse Proxy, GitHub Actions CI/CD.
+> **Vietnam Weather & Storm Monitoring WebGIS with Grounded AI Warning Agent (`v1.0.0`)**  
+> Nền tảng bản đồ số địa không gian thời gian thực phục vụ giám sát mưa lớn, gió giật, xoáy thuận nhiệt đới và cảnh báo thiên tai sớm trên toàn lãnh thổ & vùng biển Việt Nam — kết hợp cơ chế **AI Grounding chống ảo giác số liệu**.
 
 ---
 
-## 2. Cấu Trúc Monorepo (Monorepo Layout)
+## Mục Lục
 
-Dự án được tổ chức theo mô hình **Monorepo**:
+1. [Giới Thiệu Dự Án](#1-giới-thiệu-dự-án)
+2. [Tính Năng Trọng Tâm](#2-tính-năng-trọng-tâm)
+3. [Kiến Trúc Hệ Thống & Công Nghệ](#3-kiến-trúc-hệ-thống--công-nghệ)
+4. [Cấu Trúc Kho Mã Nguồn (Monorepo)](#4-cấu-trúc-kho-mã-nguồn-monorepo)
+5. [Hướng Dẫn Khởi Chạy Nhanh (Quick Start)](#5-hướng-dẫn-khởi-chạy-nhanh-quick-start)
+6. [Danh Mục RESTful API (`/api/v1`)](#6-danh-mục-restful-api-apiv1)
+7. [Chỉ Số Kiểm Định Chất Lượng, Chịu Tải & Bảo Mật](#7-chỉ-số-kiểm-định-chất-lượng-chịu-tải--bảo-mật)
+8. [Lệnh Kiểm Thử & Vận Hành Hệ Thống](#8-lệnh-kiểm-thử--vận-hành-hệ-thống)
+9. [Quy Chuẩn Kỹ Thuật & Cam Kết Mã Nguồn](#9-quy-chuẩn-kỹ-thuật--cam-kết-mã-nguồn)
+10. [Tác Giả & Giấy Phép](#10-tác-giả--giấy-phép)
+
+---
+
+## 1. Giới Thiệu Dự Án
+
+**VNstormgis** giải quyết bài toán phân tán thông tin khí tượng và độ trễ giải thích cảnh báo thiên tai bằng cách hợp nhất **dữ liệu quan trắc thời gian thực**, **phân tích không gian PostGIS** và **AI Agent hai chế độ (Chủ động & Bị động)** trên một giao diện bản đồ số duy nhất theo ngôn ngữ thiết kế **San Rita Field Guide**:
+
+- **Dữ liệu chuẩn hóa trắc địa:** Giám sát **39 điểm quan trắc** theo chuẩn **WGS84 (`EPSG:4326`)** và **GeoJSON RFC 7946**. Danh mục gồm 34 điểm đại diện đơn vị hành chính cấp tỉnh và 5 điểm hải đảo, bao gồm **Hoàng Sa (`HSA`)** và **Trường Sa (`TSA`)**. [Nghị quyết 202/2025/QH15](https://vanban.chinhphu.vn/?classid=1&docid=213930&orggroupid=1&pageid=27160), [Nghị quyết 30/2026/QH16 về thành lập thành phố Đồng Nai](https://chinhphu.vn/?docid=218009&pageid=27160).
+- **AI không bịa số liệu (Zero-Trust Grounded AI):** Mọi bản tin cảnh báo và câu trả lời hội thoại đều bị ràng buộc chặt chẽ vào khối dữ liệu thực đo `[FACTUAL_SYSTEM_DATA]`, đi qua tầng kiểm chứng ngữ pháp đóng đối chiếu số học chính xác (`BigDecimal`) và tự động chuyển sang mẫu tiếng Việt tất định (`is_fallback=true`) khi thiếu khóa API hoặc mô hình ngoại lệ.
+- **Sẵn sàng vận hành thực tế (`v1.0.0`):** Đóng gói Multi-Stage Docker non-root, Nginx 1.26 Reverse Proxy gắn đủ 5 HTTP Security Headers chuẩn OWASP, chịu tải kiểm chứng **500 CCU**, kèm quy trình sao lưu/phục hồi thảm họa PostGIS (`RTO < 5 phút`).
+
+---
+
+## 2. Tính Năng Trọng Tâm
+
+### 2.1. Bản Đồ Số WebGIS Đa Lớp Thời Gian Thực
+- **Lớp trạm quan trắc & ranh giới chủ quyền:** Hiển thị 39 điểm quan trắc, ranh giới đất liền, vùng biển Việt Nam và hai quần đảo Hoàng Sa, Trường Sa; hỗ trợ lọc nhanh theo vùng miền (*Bắc Bộ, Trung Bộ, Tây Nguyên, Nam Bộ, Biển Đảo*).
+- **Lớp lượng mưa (`RainfallLayer`):** Phân tầng màu sắc cường độ mưa (`rain_1h`, `rain_3h`) bám sát thang quy chuẩn khí tượng kèm Popup chi tiết nhiệt độ, độ ẩm, áp suất, gió.
+- **Lớp trường gió (`WindLayer`):** Biểu diễn vector hướng gió (`FROM + 180°`) và sức gió theo thang **Beaufort SVG**.
+- **Lớp theo dõi xoáy thuận nhiệt đới (`ActiveStormLayer` & `StormTrackLayer`):** Đồng bộ bão đang hoạt động từ **GDACS**, phân cấp cảnh báo (`Red` / `Orange` / `Green`), vẽ đường đi lịch sử nét liền, dự báo nét đứt, vùng ảnh hưởng `Polygon` và chế độ **`STORM_OPS`** mở rộng khung nhìn khi theo dõi bão ngoài khơi xa.
+
+### 2.2. Tiện Ích Địa Không Gian Cá Nhân Hóa & Trực Quan Hóa Lịch Sử
+- **Định vị *"Vị trí của tôi"* (`GPS + PostGIS Spatial Context`):** Định vị trình duyệt (hoặc nhập tọa độ tùy chỉnh), thực thi truy vấn láng giềng gần nhất **KNN GiST (`<->`)** và khoảng cách cầu **`ST_DistanceSphere`** để trả về trạm đo gần nhất, số liệu thời tiết tại chỗ, khoảng cách tới tâm bão active và các cảnh báo trong bán kính `100 km`.
+- **Tìm kiếm nhanh Tỉnh/Trạm (`Ctrl+K` / `Cmd+K`):** Tra cứu tức thì theo mã trạm hoặc tên địa phương tiếng Việt có dấu / không dấu (`da nang`, `truong sa`, `HAN`).
+- **Biểu đồ diễn biến thời tiết `24h / 72h / 7 ngày`:** Đồ thị SVG thuần chuẩn San Rita hiển thị chuỗi thời gian lượng mưa, tốc độ gió, gió giật và nhiệt độ mà không làm phình dung lượng gói tải Frontend (`dist = 664 KB`).
+
+### 2.3. AI Agent Chủ Động & Bị Động Có Đối Chứng Dữ Liệu (`Grounded AI`)
+- **Cảnh báo chủ động (`Proactive AI Warning Engine`):** Sau mỗi chu kỳ đồng bộ thời tiết, hệ thống tự động đối chiếu bộ ngưỡng quản trị (`rain_1h`, `rain_3h`, `wind_speed`, `wind_gust`, `storm_dist`), ghi nhận vào hàng đợi giao dịch **PostgreSQL Inbox** (`PENDING → READY → COMPLETED`) có khóa thuê bao `lease_until` / `claim_token` chống xung đột đa tiến trình, kiểm chứng đầu ra Gemini và xuất bản kèm `factual_snapshot` bất biến.
+- **Trợ lý hội thoại ẩn danh (`Passive AI Weather Copilot`):** Quản lý phiên không thu thập dữ liệu cá nhân (`X-Session-Token` lưu băm `SHA-256`), phân loại ý định tất định `chat-intent-v1` (mưa lớn nhất, gió mạnh nhất, thời tiết trạm, bão active, giải thích cảnh báo), co gọn ngữ cảnh bậc thang `5 → 3 → 1` và bảo vệ ngân sách suy luận bằng **Bucket4j + Redis** (`10 câu/phút/phiên`, `30 câu/phút/IP`, `Fail-Closed` khi Redis gián đoạn).
+
+### 2.4. Đăng Ký Nhận Cảnh Báo Thiên Tai Qua Email
+- Cho phép người dân đăng ký giám sát theo **Tỉnh / Trạm đo (`STATION`)** hoặc **Tọa độ GPS (`COORDINATE`)** kèm bán kính quét không gian **`ST_DWithin`** (`5–500 km`) và mức độ tối thiểu (`INFO` → `CRITICAL`).
+- Bảo mật xác thực 2 bước bằng **mã OTP 6 chữ số** (băm `SHA-256`) hoặc **liên kết 1-click**, hỗ trợ hủy đăng ký **1-click**, chống gửi trùng lũy đẳng ở pha `AFTER_COMMIT` và tích hợp sẵn cả **SMTP thực tế** lẫn hộp thư thử nghiệm cục bộ **Mailpit (`:8025`)**.
+
+---
+
+## 3. Kiến Trúc Hệ Thống & Công Nghệ
+
+Hệ thống tuân thủ kiến trúc **Modular Monolith** trên nền Java 21 Virtual Threads, phân tách chặt chẽ 8 phân hệ miền (`common`, `location`, `weather`, `storm`, `automation`, `alert`, `chat`, `subscription`) giao tiếp qua Port/Adapter và sự kiện nội bộ.
+
+```mermaid
+flowchart TB
+    subgraph Actors["Người Dùng & Quản Trị"]
+        PublicUser["Người dùng công cộng<br/>(WebGIS · GPS · Chat · Email)"]
+        Admin["Quản trị viên<br/>(X-Admin-Api-Key)"]
+    end
+
+    subgraph Edge["Tầng Giao Diện & Cổng Phân Phối"]
+        SPA["React 18.3 SPA · TypeScript 5.4 · Vite 5<br/>Leaflet 1.9 · Tailwind CSS · San Rita UI"]
+        Nginx["Nginx 1.26 Reverse Proxy<br/>Gzip · 4 JS Chunks · 5 OWASP Headers"]
+    end
+
+    subgraph Backend["Spring Boot 3.3.4 Modular Monolith (Java 21 LTS)"]
+        API["REST Controllers (/api/v1)<br/>RFC 7946 GeoJSON · RFC 7807 Problem Details"]
+        Domain["8 Domain Modules<br/>location · weather · storm · automation<br/>alert · chat · subscription · common"]
+        Guard["AI Grounding & Security<br/>[FACTUAL_SYSTEM_DATA] · Closed-Grammar Validator<br/>Bucket4j Rate Limiter · Admin/Internal Filters"]
+    end
+
+    subgraph Data["Tầng Lưu Trữ & Dịch Vụ Nền"]
+        PostGIS[("PostgreSQL 16 + PostGIS 3.4<br/>13 bảng · Flyway V1–V10 · GiST Index")]
+        Redis[("Redis 7.2 Alpine (256MB)<br/>3 vùng Cache GeoJSON · Bucket4j CAS")]
+        Mail[("SMTP / Mailpit (:1025 / :8025)<br/>OTP · 1-Click Verify · Alert Mail")]
+    end
+
+    subgraph External["Nguồn Dữ Liệu & Mô Hình Ngoài"]
+        OWM["OpenWeatherMap API<br/>(Chu kỳ 15 phút)"]
+        GDACS["GDACS Cyclone Feed<br/>(Chu kỳ 30 phút)"]
+        Gemini["Google Gemini API<br/>(Opt-in Grounded LLM)"]
+    end
+
+    PublicUser --> SPA
+    Admin -->|X-Admin-Api-Key| Nginx
+    SPA --> Nginx --> API --> Domain
+    Domain --> Guard
+    Domain --> PostGIS
+    Domain --> Redis
+    Domain --> Mail
+    Domain -->|RestClient| OWM
+    Domain -->|RestClient| GDACS
+    Guard -->|WebClient <= 5s| Gemini
+```
+
+### Ngăn Xếp Công Nghệ Chi Tiết
+
+| Tầng | Công nghệ & Phiên bản | Vai trò trong hệ thống |
+| :--- | :--- | :--- |
+| **Backend Core** | Java 21 LTS, Spring Boot `3.3.4`, Hibernate Spatial `6.5.3`, JTS `1.19.0`, Flyway `10.15.2` | Xử lý nghiệp vụ, hình học không gian, quản lý tiến hóa CSDL (`V1`–`V10`), OpenAPI 3 (`SpringDoc 2.5`) |
+| **Spatial DB** | PostgreSQL `16` + PostGIS `3.4` | Lưu trữ tọa độ WGS84 `EPSG:4326`, truy vấn `ST_DWithin`, `ST_DistanceSphere`, KNN `<->`, PostgreSQL Inbox |
+| **Cache & Limiter** | Redis `7.2` Alpine, Lettuce, Bucket4j `8.10.1` | Bộ đệm GeoJSON 3 vùng TTL (`Fail-Open`) và giới hạn tần suất hỏi đáp AI (`Fail-Closed` CAS) |
+| **Frontend WebGIS** | React `18.3`, TypeScript `5.4`, Vite `5.3`, Tailwind CSS `3.4`, Leaflet `1.9.4` (`react-leaflet`) | Bản đồ tương tác đa lớp, đồ thị lịch sử SVG, giao diện San Rita (`dist = 664 KB`) |
+| **AI & Email** | Google Gemini API (`WebClient`), Spring Mail + Mailpit `v1.21` | Sinh giải thích cảnh báo / hội thoại có Grounding & thông báo cảnh báo qua Email |
+| **QA & DevOps** | JUnit 5, Testcontainers `1.20.4`, WireMock `3.9.1`, Spotless, Docker Multi-Stage, Nginx `1.26`, GitHub Actions | Kiểm thử tích hợp CSDL thật, giả lập lỗi dịch vụ ngoài, quét bảo mật, đóng gói OCI Images & DR |
+
+---
+
+## 4. Cấu Trúc Kho Mã Nguồn (Monorepo)
 
 ```text
 VNstormgis/
-├── VNstormgis-Backend/        # Spring Boot API và Flyway migrations
-├── VNstormgis-Frontend/       # React, Vite và Leaflet
-├── VNstormgis-Deployment/     # Docker Compose và mẫu biến môi trường
-├── scripts/                  # Script kiểm định tích hợp
-├── docs/                     # Tài liệu kiến trúc và Sprint
-├── RUN_LOCAL.md              # Hướng dẫn chạy end to end
+├── VNstormgis-Backend/              # Spring Boot 3.3 Modular Monolith, Flyway V1–V10 & Testcontainers suite
+├── VNstormgis-Frontend/             # React 18 + TypeScript + Vite + Leaflet SPA (San Rita Design System)
+├── VNstormgis-Deployment/           # Hạ tầng triển khai & Vận hành
+│   ├── docker/                      # Multi-stage Dockerfiles cho Backend (non-root uid=100) & Frontend (Nginx)
+│   ├── env/                         # Mẫu biến môi trường (.env.example, .env.prod.example)
+│   ├── nginx/                       # Cấu hình Nginx Reverse Proxy, Gzip & 5 OWASP Security Headers
+│   ├── scripts/                     # Kịch bản backup-db.sh, restore-db.sh, health-check.sh
+│   ├── docker-compose.yml           # Compose phát triển local & chế độ fullstack
+│   └── docker-compose.prod.yml      # Compose triển khai Production cô lập mạng nội bộ
+├── .github/
+│   ├── scripts/                     # Pipeline kiểm định E2E/SIT/Go-Live, Load Test 500 CCU & Security Audit
+│   └── workflows/                   # GitHub Actions CI/CD (Backend CI, Frontend CI, Nightly E2E, Release CD)
+├── scripts/                         # Kịch bản kiểm định đường ống tích hợp cơ sở (W2–W4)
+├── RUN_LOCAL.md                     # Hướng dẫn cài đặt và chạy End-to-End trên máy cá nhân
+├── OPERATIONS.md                    # Sổ tay triển khai Production, cấu hình SMTP, Backup/DR & Rollback
 └── README.md
 ```
 
 ---
 
-## 3. Hướng Dẫn Chạy Local End to End
+## 5. Hướng Dẫn Khởi Chạy Nhanh (Quick Start)
 
-Xem [RUN_LOCAL.md](RUN_LOCAL.md) để cài môi trường, khởi động PostGIS/Redis,
-backend và frontend, đồng bộ dữ liệu thực, kiểm tra API/UI và dừng ứng dụng.
-Các lệnh trong hướng dẫn dùng cấu trúc thư mục `VNstormgis-*` hiện tại; repo
-không có `package.json` ở thư mục gốc.
+> Xem hướng dẫn chi tiết từng bước và xử lý sự cố tại **[RUN_LOCAL.md](RUN_LOCAL.md)**.  
+> Xem quy trình triển khai máy chủ Production, cấu hình Gmail SMTP và phục hồi thảm họa tại **[OPERATIONS.md](OPERATIONS.md)**.
 
----
+### Cách 1: Chạy trọn bộ bằng 1 lệnh Docker Compose (`fullstack`)
 
-## 4. Quy Chế Phân Nhánh & Cam Kết Mã Nguồn (Git Workflow)
-
-### 4.1. Sơ Đồ Nhánh (Branching Model)
-
-- **`main`**: Nhánh mã nguồn phát hành chính thức (Production). Cấm push trực tiếp, bắt buộc PR có duyệt từ Tech Lead.
-- **`staging`**: Nhánh tích hợp liên tục (Continuous Integration). Mọi nhánh tính năng đều tạo ra và hợp nhất vào đây.
-- **`feature/*`**, **`bugfix/*`**, **`chore/*`**: Nhánh làm việc cho từng task riêng lẻ.
-
-### 4.2. Quy Chuẩn Commit (Conventional Commits v1.0.0)
-
-Mọi commit bắt buộc tuân theo định dạng:
-
-```text
-<loại-commit>(<phạm-vi>): <mô-tả-ngắn-gọn> [Mã-Task]
-```
-
-**Ví dụ hợp lệ:**
-
-- `feat(location): implement Spatial JTS Entity and GeoJSON DTO [W1-08]`
-- `chore(repo): configure spotless gradle plugin and husky pre-commit [W1-01]`
-- `fix(map): resolve missing leaflet marker shadow icon in vite bundler [W1-11]`
-
-Các loại commit được hỗ trợ: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `revert`.  
-Hệ thống sử dụng **Husky + Commitlint** để tự động kiểm tra định dạng trước khi commit được chấp nhận.
-
----
-
-## 5. Lệnh Quản Trị Hệ Thống Thường Dùng (Useful Commands)
-
-- Chạy toàn bộ ứng dụng: theo [RUN_LOCAL.md](RUN_LOCAL.md).
-- Kiểm tra backend: `(cd VNstormgis-Backend && ./gradlew spotlessCheck test)`.
-- Kiểm tra frontend: `(cd VNstormgis-Frontend && npm run type-check && npm run lint && npm run build)`.
-- Kiểm định tích hợp sau khi có dữ liệu thực: `bash scripts/verify-week3-pipeline.sh`.
-
----
-
-## 6. Quản Trị Dự Án & Cẩm Nang Thực Thi (Governance & Engineering Harness)
-
-Dự án áp dụng chặt chẽ mô hình **Harness Engineering** để phân tách rõ ràng giữa hướng dẫn phát triển, cẩm nang vận hành cho AI Agent và bảng theo dõi tiến độ:
-
-- **[RUN_LOCAL.md](RUN_LOCAL.md):** Các bước chạy và tự kiểm tra toàn bộ ứng dụng trên máy cá nhân.
-- **`AGENTS.md`, `PROGRESS.md`:** Hướng dẫn cho coding agent và nhật ký tiến độ trong workspace nội bộ (nếu có).
-
----
-
-## 7. Tài Liệu Dự Án (Documentation Reference)
-
-- [Kế hoạch chi tiết Tuần 1](docs/week1/README.md)
-- [Kiến trúc hệ thống (System Architecture)](<docs/The plans of project/5. System Architecture.md>)
-- [Đặc tả RESTful API](<docs/The plans of project/2. API docs.md>)
-- [Thiết kế CSDL không gian ERD](<docs/The plans of project/1. ERD.md>)
-- [Hạ tầng triển khai & CI/CD](<docs/The plans of project/7. Deployment Infrastructure.md>)
-- [Lộ trình tổng thể Master Timeline](<docs/The plans of project/8. Master Timeline.md>)
-
----
-
-## 8. Alert Threshold API (W4-01)
-
-Set `ADMIN_API_KEY` in the backend process environment before starting Spring Boot:
+Yêu cầu duy nhất: **Docker Desktop** đang hoạt động.
 
 ```bash
-export ADMIN_API_KEY="$(openssl rand -hex 32)"
+# 1. Tạo file cấu hình cục bộ từ mẫu (có thể điền thêm OPENWEATHERMAP_API_KEY / GEMINI_API_KEY)
+cp VNstormgis-Deployment/env/.env.example VNstormgis-Deployment/env/.env.local
+
+# 2. Khởi chạy đồng bộ PostGIS + Redis + Mailpit + Backend + Nginx Frontend
+docker compose --profile fullstack \
+  --env-file VNstormgis-Deployment/env/.env.local \
+  -f VNstormgis-Deployment/docker-compose.yml up -d --build
+```
+
+- **Ứng dụng WebGIS:** `http://localhost` (cổng `80`)
+- **Hộp thư thử nghiệm Mailpit (nhận OTP & Email cảnh báo):** `http://localhost:8025`
+- **Tài liệu OpenAPI / Swagger UI (chế độ dev):** `http://localhost:8080/swagger-ui.html`
+
+### Cách 2: Chạy chế độ Phát triển (3 cửa sổ Terminal — Hot Reload)
+
+Yêu cầu: **Docker**, **JDK 21**, **Node.js 20+**.
+
+```bash
+# Terminal 1 — Khởi động PostGIS (5432), Redis (6379) và Mailpit (1025/8025)
+cp -n VNstormgis-Deployment/env/.env.example VNstormgis-Deployment/env/.env.local
+docker compose --env-file VNstormgis-Deployment/env/.env.local \
+  -f VNstormgis-Deployment/docker-compose.yml up -d
+
+# Terminal 2 — Khởi động Spring Boot Backend (:8080)
 cd VNstormgis-Backend
 ./gradlew bootRun --args='--spring.profiles.active=dev'
+
+# Terminal 3 — Khởi động Vite React Frontend (:5173)
+cd VNstormgis-Frontend
+npm ci && npm run dev
 ```
 
-Public reads: `GET /api/v1/alert-thresholds` (optional `parameter` and `is_enabled`
-filters) and `GET /api/v1/alert-thresholds/{id}`. Writes require the
-`X-Admin-Api-Key` header with the configured key: `POST` creates (`201` with
-`Location`), `PUT /{id}` replaces all business fields (`200`),
-`PATCH /{id}/toggle` flips `is_enabled` once per call without a request body
-(`200`), and `DELETE /{id}` removes the threshold (`204`). Existing alerts remain
-with `threshold_id=null`. An unset or blank key rejects every write (`401`).
+Truy cập giao diện phát triển tại **`http://localhost:5173`**. Khi `GEMINI_ENABLED=false` (mặc định), cả **Cảnh báo tự động** và **Trợ lý AI** vẫn hoạt động trọn vẹn thông qua bộ tổng hợp tiếng Việt tất định từ dữ liệu thực trong PostGIS.
 
-The JSON fields are `name`, `parameter`, `operator`, `threshold_value`,
-`severity_level`, `description`, and `is_enabled`. `is_enabled` defaults to `true`
-on creation and is required for replacement with `PUT`. Parameters are `rain_1h`,
-`rain_3h`, `wind_speed`, `wind_gust`, and `storm_dist` (distance in km). Operators
-are `>=`, `>`, `<=`, `<`, and `=`; severity levels are `INFO`, `WARNING`, `DANGER`,
-and `CRITICAL`. Values must be finite and positive. Responses include the database
-trigger's `updated_at`. Errors use RFC 7807 with `ALT_*` codes. The routes and admin
-header are documented in [Swagger UI](http://localhost:8080/swagger-ui/index.html).
+---
 
-## 9. Threshold evaluation (W4-02)
+## 6. Danh Mục RESTful API (`/api/v1`)
 
-Every weather sync that commits at least one record runs
-`ThresholdEvaluationScheduler` through the shared `WeatherSyncService` path,
-including partial failures. Both the existing cron and internal sync endpoint
-use this path. Evaluation reads enabled thresholds afresh and queries PostGIS
-directly, selecting the latest observation per active station by
-`recorded_at DESC, id DESC`. The nearest active storm is chosen using
-`ST_DistanceSphere / 1000.0` in km, with storm ID breaking distance ties.
+Toàn bộ API tuân thủ chuẩn **GeoJSON RFC 7946** (`[lng, lat]`) cho dữ liệu bản đồ và **RFC 7807 Problem Details** (`status`, `title`, `detail`, `instance`, `errorCode`, `timestamp`) cho mọi phản hồi lỗi.
 
-Each affected station publishes one immutable `ThresholdViolatedEvent` containing
-all its threshold violations and source facts. Weather windows use observation
-time; storm windows use the centre's database `updated_at`, both normalized to
-UTC. Keys follow `v1:<locationId>:<thresholdId>:<UTC window>[:<stormId>]` and remain
-stable when the same source snapshot is evaluated again. Consumers must persist
-all violation keys to implement durable idempotency in W4-03.
+| Phân hệ | Phương thức & Đường dẫn chính | Quyền hạn | Chức năng cốt lõi |
+| :--- | :--- | :--- | :--- |
+| **1. Locations** | `GET /api/v1/locations`<br/>`GET /api/v1/locations/{id}` · `/code/{code}`<br/>`GET /api/v1/locations/nearby`<br/>`GET /api/v1/locations/at-point` | Public | Danh sách 39 trạm đang hoạt động (JSON/GeoJSON, Redis TTL `24h`), tìm trạm lân cận `ST_DWithin` và phân tích không gian tại tọa độ GPS người dùng (`KNN <->`, bão gần nhất, cảnh báo `100 km`) |
+| **2. Weather** | `GET /api/v1/weather/current`<br/>`GET /api/v1/weather/locations/{id}/history`<br/>`GET /api/v1/weather/summary` | Public | Quan trắc mới nhất toàn mạng lưới (GeoJSON, Redis TTL `15m`), chuỗi lịch sử theo trạm (`24h`–`7d`) và thống kê điểm cực đoan mưa/gió |
+| **3. Storms** | `GET /api/v1/storms`<br/>`GET /api/v1/storms/{id}`<br/>`GET /api/v1/storms/{id}/track` | Public | Danh sách xoáy thuận nhiệt đới active (Redis TTL `30m`), thông tin chi tiết và quỹ đạo lịch sử/dự báo kèm vùng ảnh hưởng `Polygon` |
+| **4. Thresholds** | `GET /api/v1/alert-thresholds` · `/{id}`<br/>`POST` · `PUT /{id}` · `PATCH /{id}/toggle` · `DELETE /{id}` | Public (GET)<br/>`X-Admin-Api-Key` | Tra cứu và quản trị bộ quy chuẩn ngưỡng cảnh báo (`rain_1h`, `rain_3h`, `wind_speed`, `wind_gust`, `storm_dist`) |
+| **5. Alerts** | `GET /api/v1/alerts/active`<br/>`GET /api/v1/alerts/{id}` | Public | Lớp phủ GeoJSON các cảnh báo đang hoạt động và chi tiết bản tin giải thích AI / Fallback kèm `factual_snapshot` bất biến |
+| **6. AI Chat** | `POST /api/v1/chat/sessions`<br/>`GET /api/v1/chat/sessions/{id}/messages`<br/>`POST /api/v1/chat/sessions/{id}/messages` | Public +<br/>`X-Session-Token` | Khởi tạo phiên hội thoại ẩn danh, tải lịch sử theo con trỏ (`cursor`) và hỏi đáp ngôn ngữ tự nhiên có Grounding & Rate Limit (`10/phút/phiên`) |
+| **7. Subscriptions** | `POST /api/v1/subscriptions`<br/>`POST /api/v1/subscriptions/{id}/verify` · `/verify-token`<br/>`GET/POST /api/v1/subscriptions/verify` · `/unsubscribe`<br/>`POST /api/v1/subscriptions/{id}/test-notification` | Public (OTP / Token) | Đăng ký nhận cảnh báo qua Email theo trạm hoặc tọa độ GPS, xác thực OTP 6 chữ số / liên kết 1-click, hủy 1-click và gửi email kiểm tra |
+| **8. Internal & Ops** | `POST /api/v1/internal/sync/weather`<br/>`POST /api/v1/internal/sync/storms`<br/>`GET /actuator/health` | `X-Internal-Secret`<br/>Public/Ops | Kích hoạt đồng bộ tức thời OpenWeatherMap / GDACS và kiểm tra sức khỏe Liveness/Readiness |
 
-Evaluation writes `AI_MONITOR` audit rows (`RUNNING` → `SUCCESS`/`FAILED`), counts
-stations scanned, and prevents overlapping evaluations within one process.
-Evaluation failures preserve the completed weather sync result. No independent
-cron or evaluation endpoint is added. This task publishes in-process events;
-alert persistence, retries and Gemini generation belong to later tasks.
+---
 
-Run its focused suite with Docker available, from `VNstormgis-Backend`:
+## 7. Chỉ Số Kiểm Định Chất Lượng, Chịu Tải & Bảo Mật
+
+Tất cả các chỉ số dưới đây được trích xuất từ kết quả thực chạy tự động tại cổng nghiệm thu phát hành **`v1.0.0`**:
+
+| Hạng mục Kiểm định | Chỉ tiêu Thiết kế | Kết quả Đo Thực tế | Trạng thái |
+| :--- | :--- | :--- | :---: |
+| **Kiểm thử tự động Backend** | JUnit 5 + MockMvc + WireMock + Testcontainers | **889 bài test PASS** (`0` lỗi) | ĐẠT |
+| **Độ phủ mã nguồn (JaCoCo)** | Line Coverage toàn Backend `>= 80%` | **`91.45%`** toàn Backend (`94.99%` module `chat`) | VƯỢT MỨC |
+| **Chịu tải 500 CCU (`4.520 req`)** | `P95 <= 100 ms`, `Avg < 50 ms`, `0% 5xx` | `weather_current P95 = 6.471 ms` · `Avg = 2.331 ms` · `1,278 req/s` · `0% 5xx` | VƯỢT MỨC |
+| **Hiệu quả Redis Cache** | Giảm tải truy vấn lặp xuống PostGIS | Giảm **`> 99.5%`** truy vấn DB; tự động `Fail-Open` `HTTP 200` khi Redis sập | ĐẠT |
+| **Tối ưu gói tải Frontend** | Production `dist/ <= 1,536 KB` | **`664 KB`** (chia tách 4 JS chunks, `0` ESLint warnings) | VƯỢT MỨC |
+| **Kiểm toán Bảo mật & Container** | OWASP Headers, Non-root, `0` rò rỉ khóa | Đủ **5 OWASP Headers**, Backend `uid=100`, **`0` secrets**, **`0` High/Critical CVEs** | ĐẠT |
+| **Phục hồi Thảm họa PostGIS (DR)** | `RTO < 5 phút`, bảo toàn `SRID=4326` | Đợt đo trước migration V11 với danh mục 68 trạm hoàn tất trong **`< 10 giây`** bằng `pg_dump -Fc`, `SHA-256` và `pg_restore` | VƯỢT MỨC |
+
+---
+
+## 8. Lệnh Kiểm Thử & Vận Hành Hệ Thống
+
+Chạy từ thư mục gốc của dự án (yêu cầu Docker đang bật cho Testcontainers):
 
 ```bash
-./gradlew spotlessCheck test --tests '*ThresholdEval*' --tests '*WeatherSyncServiceTest'
+# 1. Cổng chất lượng toàn diện (Định dạng mã nguồn + Unit/Integration Test + Type-check/Lint/Build)
+(cd VNstormgis-Backend && ./gradlew spotlessCheck test) && \
+  (cd VNstormgis-Frontend && npm run type-check && npm run lint && npm run build)
+
+# 2. Cổng kiểm định Go-Live tổng thể (Quality Gate + Security Audit + Prod Config + DR Drill)
+bash .github/scripts/verify-week7-golive.sh
+
+# 3. Chạy kiểm thử chịu tải 500 người dùng đồng thời (khi stack đang chạy)
+node .github/scripts/run-load-test-500ccu.mjs
+
+# 4. Sao lưu nén CSDL không gian PostGIS & Kiểm tra sức khỏe toàn hệ thống
+bash VNstormgis-Deployment/scripts/backup-db.sh
+bash VNstormgis-Deployment/scripts/health-check.sh
 ```
 
-## 10. Alerts persistence and read APIs (W4-03)
+---
 
-`ThresholdViolationAlertListener` consumes `ThresholdViolatedEvent` synchronously
-and persists a PostgreSQL inbox job (`alert_generation_jobs`) together with all
-unclaimed station violation keys (`alert_violation_keys`) in one transaction,
-serialized per station via `pg_advisory_xact_lock`. Partially overlapping events
-claim only newly observed keys without inheriting severity or trigger reasons from
-previously claimed violations.
+## 9. Quy Chuẩn Kỹ Thuật & Cam Kết Mã Nguồn
 
-Jobs progress through `PENDING → READY → COMPLETED`. W4-05 records verified AI or
-deterministic fallback content (`is_fallback`) into `READY` within a separate
-transaction, and `AlertPersistenceService` publishes the alert row (`alerts`) with
-its immutable `factual_snapshot` JSONB, `Point(lng, lat)` SRID 4326 geometry, and
-key links in a short transaction. `AlertPublicationRetryScheduler` recovers due
-`READY` jobs on startup and on a configurable schedule using `FOR UPDATE SKIP LOCKED`
-and bounded exponential backoff (`weathergis.alert.retry`: `enabled=true`,
-`fixed-delay-ms=30000`, `initial-delay-ms=5000`, `base-backoff-ms=5000`,
-`max-backoff-ms=300000`, `batch-size=50`).
+1. **Thứ tự tọa độ địa lý (`WGS84 EPSG:4326`):**
+   - PostGIS SQL, JTS Topology Suite và GeoJSON RFC 7946 bắt buộc dùng **`[kinh_độ (lng), vĩ_độ (lat)]`**.
+   - Thư viện hiển thị Leaflet ở tầng giao diện dùng **`[vĩ_độ (lat), kinh_độ (lng)]`**.
+   - Mọi cột hình học (`GEOMETRY`) trong CSDL đều phải được đánh chỉ mục không gian **GiST**.
+2. **Bảo vệ tính trung thực số liệu AI (Grounded AI):**
+   - Không bao giờ suy diễn hoặc bịa đặt thông số khí tượng. Đầu ra của LLM bắt buộc được kiểm chứng với khối `[FACTUAL_SYSTEM_DATA]` trước khi lưu trữ hoặc phản hồi cho người dùng.
+3. **Quy chuẩn nhánh & Commit (Conventional Commits):**
+   - Nhánh phát triển tách từ `main`/`staging` theo dạng `feat/*`, `fix/*`, `chore/*`.
+   - Định dạng thông điệp commit (tối đa 120 ký tự): `<type>(<scope>): <description> [W<week>-<id>]` (ví dụ: `feat(subscription): add spatial email alert subscription with otp [W7-02]`).
+4. **An toàn khóa bí mật:**
+   - Tuyệt đối không đưa các tệp `.env`, `.env.local`, `.env.prod` lên Git; chỉ lưu trữ các tệp mẫu `*.env.example`.
 
-Public read endpoints (no admin key or Gemini key required):
+---
 
-- `GET /api/v1/alerts/active` — raw GeoJSON `FeatureCollection` ordered by
-  `triggered_at DESC, id ASC` (`status='active'` only; explicit `"geometry": null`
-  for legacy unlocated rows).
-- `GET /api/v1/alerts/{id}` — `ApiResponse<AlertDetailResponse>` across `active`,
-  `resolved`, and `dismissed`, returning current nullable relations (`location`,
-  `threshold`, `storm`) alongside the immutable `factual_snapshot`. Invalid UUIDs
-  return `400 ALR_400_INVALID_ID` and missing alerts return `404 ALR_404_NOT_FOUND`
-  (RFC 7807).
+## 10. Tác Giả & Giấy Phép
 
-Run the focused W4-03 suite from `VNstormgis-Backend`:
+- **Thực hiện:** Đào Lê Long Vũ — Trường Đại học Công nghệ, Đại học Quốc gia Hà Nội (UET - VNU).
+- **Giảng viên hướng dẫn:** ThS. Ngô Xuân Trường.
+- **Giấy phép:** Phân phối theo giấy phép [MIT License](LICENSE).
 
-```bash
-./gradlew spotlessCheck test --tests 'vn.weathergis.alert.*'
-```
+---
 
-### Grounded Gemini alert drafts (W4-04)
-
-The backend provides an opt-in internal Gemini client for committed `PENDING` alert
-jobs. It sends only the stored factual snapshot inside a versioned
-`[FACTUAL_SYSTEM_DATA]` prompt and returns an **unverified draft** or a typed
-failure. It does not publish alerts or start a worker; W4-05 must verify the
-facts or use a deterministic fallback before publication.
-
-Set `GEMINI_ENABLED=true`, `GEMINI_API_KEY`, and a verified `GEMINI_MODEL` to
-enable the client. Defaults are a 3-second connect timeout, a 5-second total
-request deadline, 1,024 output tokens, and a 64 KiB response limit under
-`weathergis.ai.gemini`. No live request is made at startup. Run the offline
-client tests with `./gradlew test --tests 'vn.weathergis.alert.ai.*'` from
-`VNstormgis-Backend/`.
-
-_© 2026 UET — WebGIS for Weather of Vietnam Team._
+*© 2026 UET — VNstormgis: Vietnam Weather & Storm Monitoring WebGIS with Grounded AI Warning Agent.*

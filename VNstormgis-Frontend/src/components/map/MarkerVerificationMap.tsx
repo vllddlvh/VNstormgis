@@ -83,11 +83,11 @@ const MOCK_STATIONS: StationMarkerData[] = [
     lastUpdated: "17:10",
   },
   {
-    id: "loc-bdh",
-    code: "BDH",
-    name: "Trạm Khí Tượng Quy Nhơn",
-    region: "Nam Trung Bộ",
-    coordinates: [13.783, 109.2197],
+    id: "loc-gli",
+    code: "GLI",
+    name: "Trạm Khí Tượng Gia Lai",
+    region: "Tây Nguyên",
+    coordinates: [13.9833, 108.0005],
     severity: "SEVERE",
     isActive: true,
     temperatureC: 24.1,
@@ -305,37 +305,37 @@ export const MarkerVerificationMap: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between p-3 border-b border-[#2d3329] bg-[#1a2117] text-xs font-mono">
         <div className="flex items-center space-x-2">
           <span className="text-[#84907f] uppercase font-bold tracking-wider">
-            [Kiểm Định W1-11]
+            [BẢN ĐỒ MẪU]
           </span>
           <span className="text-[#e2ffcc] font-bold">
-            Leaflet 1.9 & Custom Weather Markers Engine
+            Minh họa các cấp độ cảnh báo trạm đo &amp; đường đi của bão
           </span>
         </div>
 
         {/* Nút lọc cấp độ cảnh báo */}
-        <div className="flex items-center space-x-1.5 mt-2 sm:mt-0">
-          <span className="text-[#84907f] mr-1">Bộ lọc:</span>
+        <div className="flex flex-wrap items-center gap-1.5 mt-2 sm:mt-0">
+          <span className="text-[#84907f] mr-1">Lọc theo mức độ:</span>
           {(
             [
-              "ALL",
-              "SAFE",
-              "ADVISORY",
-              "WARNING",
-              "SEVERE",
-              "EXTREME",
-              "CATASTROPHIC",
+              { key: "ALL", label: "Tất cả" },
+              { key: "SAFE", label: "An toàn" },
+              { key: "ADVISORY", label: "Theo dõi" },
+              { key: "WARNING", label: "Cảnh báo" },
+              { key: "SEVERE", label: "Nguy hiểm" },
+              { key: "EXTREME", label: "Rất nguy hiểm" },
+              { key: "CATASTROPHIC", label: "Thảm họa" },
             ] as const
-          ).map((level) => (
+          ).map((item) => (
             <button
-              key={level}
-              onClick={() => setFilterSeverity(level)}
+              key={item.key}
+              onClick={() => setFilterSeverity(item.key)}
               className={`px-2 py-0.5 border text-[10px] uppercase transition-colors ${
-                filterSeverity === level
+                filterSeverity === item.key
                   ? "bg-[#e2ffcc] text-[#161b13] border-[#e2ffcc] font-bold"
                   : "bg-[#161b13] text-[#dde2e4] border-[#2d3329] hover:border-[#84907f]"
               }`}
             >
-              {level}
+              {item.label}
             </button>
           ))}
         </div>
@@ -360,22 +360,18 @@ export const MarkerVerificationMap: React.FC = () => {
             maxZoom={TILE_PROVIDERS[DEFAULT_TILE_ID].maxZoom}
           />
 
-          {/* Mốc 1: Leaflet Default Marker Đã Khắc Phục Lỗi (Tọa độ Đà Nẵng - Tâm Bản Đồ) */}
+          {/* Mốc 1: Điểm Trung Tâm Bản Đồ Việt Nam (Đà Nẵng) */}
           <Marker position={VIETNAM_DEFAULT_CENTER}>
             <Popup>
               <div className="p-1 font-mono text-xs">
                 <div className="text-[#e2ffcc] font-bold uppercase border-b border-[#2d3329] pb-1">
-                  Leaflet Default Marker (Fixed)
+                  Điểm Trung Tâm Bản Đồ (Đà Nẵng)
                 </div>
                 <p className="text-[#dde2e4] mt-1.5">
-                  Biểu tượng giọt nước mặc định đã được sửa lỗi Vite Bundler
-                  404.
+                  Vị trí trung tâm mặc định khi mở toàn cảnh bản đồ Việt Nam.
                 </p>
                 <div className="text-[10px] text-[#84907f] mt-1">
                   Tọa độ: {formatCoordinate(VIETNAM_DEFAULT_CENTER)}
-                </div>
-                <div className="mt-2 inline-block px-1.5 py-0.5 bg-[#e2ffcc]/10 border border-[#e2ffcc] text-[#e2ffcc] text-[9px] uppercase">
-                  RSK-W1-03 Resolved
                 </div>
               </div>
             </Popup>
@@ -389,7 +385,7 @@ export const MarkerVerificationMap: React.FC = () => {
             <Popup>
               <div className="p-1 font-mono text-xs">
                 <div className="text-red-400 font-bold uppercase border-b border-[#2d3329] pb-1">
-                  Tâm Bão Cấp 14 (Mẫu Kiểm Định)
+                  Tâm Bão Cấp 14 (Dữ liệu minh họa)
                 </div>
                 <p className="text-[#dde2e4] mt-1.5">
                   Vị trí: Vùng biển Bắc Quần đảo Hoàng Sa.
@@ -416,7 +412,7 @@ export const MarkerVerificationMap: React.FC = () => {
                   <div className="p-1 font-mono text-xs min-w-[200px]">
                     <div className="flex items-center justify-between border-b border-[#2d3329] pb-1">
                       <span className="font-bold text-[#e2ffcc] uppercase">
-                        [{fixture.id} // {fixture.category.toUpperCase()}]
+                        Bão mẫu: {fixture.label}
                       </span>
                       <span
                         className="px-1 text-[9px] font-bold border"
@@ -429,8 +425,7 @@ export const MarkerVerificationMap: React.FC = () => {
                       </span>
                     </div>
                     <div className="mt-1.5 text-[10px] text-[#84907f]">
-                      Mẫu kiểm định cấp GDACS W3-05 — không phải dữ liệu tác
-                      chiến.
+                      Dữ liệu minh họa mức cảnh báo bão — xem dữ liệu thực tế tại tab &ldquo;Bản đồ giám sát&rdquo;.
                     </div>
                     <div className="mt-1 text-[10px] text-[#dde2e4]">
                       {formatCoordinate(fixture.position, 4)}
@@ -482,7 +477,7 @@ export const MarkerVerificationMap: React.FC = () => {
                             SEVERITY_CONFIG[station.severity].borderHex,
                         }}
                       >
-                        {station.severity}
+                        {SEVERITY_CONFIG[station.severity].name}
                       </span>
                     </div>
 
@@ -509,7 +504,7 @@ export const MarkerVerificationMap: React.FC = () => {
 
                       <div>Khoảng cách:</div>
                       <div className="text-right text-[#84907f]">
-                        {distanceToCenter} km từ ĐN
+                        {distanceToCenter} km từ Đà Nẵng
                       </div>
                     </div>
 
@@ -529,7 +524,7 @@ export const MarkerVerificationMap: React.FC = () => {
       <div className="p-3 border-t border-[#2d3329] bg-[#1a2117] flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-[#84907f] uppercase">
-            Bảng màu cấp độ rủi ro:
+            Thang màu mức độ rủi ro tại trạm:
           </span>
           {(
             [
@@ -549,34 +544,33 @@ export const MarkerVerificationMap: React.FC = () => {
                   borderColor: SEVERITY_CONFIG[sev].borderHex,
                 }}
               ></span>
-              <span className="text-[#dde2e4] text-[10px]">{sev}</span>
+              <span className="text-[#dde2e4] text-[10px]">{SEVERITY_CONFIG[sev].name}</span>
             </div>
           ))}
         </div>
 
         <div className="text-[#84907f] text-[10px]">
-          Hiển thị {filteredStations.length}/{MOCK_STATIONS.length} trạm kiểm
-          định
+          Đang hiển thị {filteredStations.length}/{MOCK_STATIONS.length} trạm mẫu
         </div>
       </div>
 
-      {/* Chú giải W3-06: quỹ đạo bão */}
+      {/* Chú giải quỹ đạo bão */}
       <div className="px-3 py-2 border-t border-[#2d3329] bg-[#161b13] flex flex-wrap items-center gap-4 text-[10px] font-mono text-[#84907f]">
-        <span className="uppercase">Quỹ đạo W3-06:</span>
+        <span className="uppercase">Chú thích đường đi của bão:</span>
         <div className="flex items-center space-x-1">
           <span className="w-6 h-0.5 bg-[#dde2e4]" />
-          <span className="text-[#dde2e4]">Lịch sử (liền)</span>
+          <span className="text-[#dde2e4]">Đường đã qua (nét liền)</span>
         </div>
         <div className="flex items-center space-x-1">
           <span className="w-6 h-0.5 bg-[#f59e0b]" />
-          <span className="text-[#f59e0b]">Dự báo (đứt nét)</span>
+          <span className="text-[#f59e0b]">Dự báo hướng đi (nét đứt)</span>
         </div>
         <div className="flex items-center space-x-1">
           <span className="w-3 h-3 border border-[#dc2626] bg-[#dc2626]/15" />
-          <span className="text-[#dc2626]">Vùng nguy hiểm</span>
+          <span className="text-[#dc2626]">Vùng có nguy cơ ảnh hưởng</span>
         </div>
         <span className="text-[#84907f]">
-          Zoom ≥ 8 hiện nhãn mốc thường trực (hover luôn có tooltip)
+          Phóng to từ mức 8 trở lên để hiện nhãn thời gian tại từng điểm (hoặc di chuột vào điểm để xem)
         </span>
       </div>
     </div>

@@ -34,6 +34,11 @@ import vn.weathergis.common.exception.GlobalExceptionHandler;
 import vn.weathergis.common.exception.InvalidParameterException;
 import vn.weathergis.common.exception.ResourceNotFoundException;
 import vn.weathergis.location.dto.LocationResponse;
+import vn.weathergis.location.dto.SpatialPointContextResponse;
+import vn.weathergis.location.dto.SpatialPointContextResponse.CurrentWeatherSnapshot;
+import vn.weathergis.location.dto.SpatialPointContextResponse.NearbyAlertSummary;
+import vn.weathergis.location.dto.SpatialPointContextResponse.NearestActiveStorm;
+import vn.weathergis.location.dto.SpatialPointContextResponse.NearestStation;
 import vn.weathergis.location.service.LocationService;
 
 @WebMvcTest(LocationController.class)
@@ -215,5 +220,76 @@ class LocationControllerTest {
                                 .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:5173"));
+    }
+
+    @Test
+    @DisplayName("TC-08: Phân tích không gian tại tọa độ người dùng (/at-point) thành công")
+    void testGetSpatialPointContextSuccess() throws Exception {
+        UUID stationId = UUID.randomUUID();
+        UUID alertId = UUID.randomUUID();
+        OffsetDateTime now = OffsetDateTime.parse("2026-11-18T00:00:00Z");
+        SpatialPointContextResponse response =
+                new SpatialPointContextResponse(
+                        108.21,
+                        16.06,
+                        100.0,
+                        true,
+                        new NearestStation(
+                                stationId,
+                                "DNG",
+                                "Đà Nẵng",
+                                "Nam Trung Bộ",
+                                108.2022,
+                                16.0544,
+                                1.1),
+                        new CurrentWeatherSnapshot(
+                                now, 26.5, 28.0, 88.0, 1004.0, 12.4, 18.2, 75.0, 32.5, 68.0, "Rain",
+                                "mưa to"),
+                        new NearestActiveStorm(
+                                "TC1001", "YAGI", "Red", 155.0, 955.0, 110.5, 16.8, 258.4, now),
+                        List.of(
+                                new NearbyAlertSummary(
+                                        alertId,
+                                        "Cảnh báo mưa lớn tại Đà Nẵng",
+                                        "DANGER",
+                                        "DNG",
+                                        "Đà Nẵng",
+                                        1.1,
+                                        now)));
+
+        when(locationService.getSpatialPointContext(108.21, 16.06, 100.0)).thenReturn(response);
+
+        mockMvc.perform(
+                        get("/api/v1/locations/at-point")
+                                .param("lng", "108.21")
+                                .param("lat", "16.06")
+                                .param("radiusKm", "100.0")
+                                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.withinVietnamBounds").value(true))
+                .andExpect(jsonPath("$.data.nearestStation.code").value("DNG"))
+                .andExpect(jsonPath("$.data.nearestStation.distanceKm").value(1.1))
+                .andExpect(jsonPath("$.data.currentWeather.rain1h").value(32.5))
+                .andExpect(jsonPath("$.data.nearestStorm.name").value("YAGI"))
+                .andExpect(jsonPath("$.data.nearbyAlerts[0].severityLevel").value("DANGER"));
+    }
+
+    @Test
+    @DisplayName("TC-09: /at-point trả về 400 RFC 7807 khi vĩ độ vượt ngưỡng [-90, 90]")
+    void testGetSpatialPointContextInvalidLatitude() throws Exception {
+        when(locationService.getSpatialPointContext(108.21, 95.0, 100.0))
+                .thenThrow(
+                        new InvalidParameterException(
+                                "Vĩ độ (latitude) phải nằm trong khoảng [-90, 90]"));
+
+        mockMvc.perform(
+                        get("/api/v1/locations/at-point")
+                                .param("lng", "108.21")
+                                .param("lat", "95.0")
+                                .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.errorCode").value("COM_400_INVALID_PARAM"));
     }
 }

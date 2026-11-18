@@ -62,9 +62,9 @@ export interface LayerControlDrawerProps {
   /** Callback điều chỉnh độ trong suốt */
   onOpacityChange: (layerKey: string, value: number) => void;
   /** Số lượng trạm quan trắc hiện có sau khi lọc */
-  stationCount?: number;
+  stationCount: number;
   /** Tổng số lượng trạm quan trắc trong hệ thống */
-  totalStationCount?: number;
+  totalStationCount: number;
   /** Số tâm bão active đã nạp; undefined = nhánh storm đang nạp (W3-05). */
   stormCount?: number;
   /** Trạng thái nhánh nạp storm — phân nhánh nhãn số bão, thay vì suy từ stormCount (W3-05 D-8). */
@@ -90,8 +90,8 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   onToggleLayer,
   layerOpacity,
   onOpacityChange,
-  stationCount = 68,
-  totalStationCount = 68,
+  stationCount,
+  totalStationCount,
   stormCount,
   stormState = "idle",
   stormLastSyncedAt = null,
@@ -115,15 +115,15 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
   const activeLayerCount =
     Object.values(layerVisibility).filter(Boolean).length;
 
-  // Nhãn số bão phân nhánh theo trạng thái thật — lỗi đồng bộ không được giả thành "0 BÃO ACTIVE" (W3-05 D-8).
+  // Nhãn số bão phân nhánh theo trạng thái thật — lỗi đồng bộ không được giả thành "HIỆN KHÔNG CÓ BÃO" (W3-05 D-8).
   const stormCountLabel =
     stormState === "error"
-      ? "LỖI ĐỒNG BỘ — GIỮ DỮ LIỆU CUỐI"
+      ? "LỖI ĐỒNG BỘ — ĐANG GIỮ DỮ LIỆU CŨ"
       : stormCount === undefined
-        ? "ĐANG NẠP BÃO…"
+        ? "ĐANG TẢI DỮ LIỆU BÃO…"
         : stormCount === 0
-          ? "0 BÃO ACTIVE"
-          : `${stormCount} BÃO ACTIVE — TÂM & QUỸ ĐẠO`;
+          ? "HIỆN KHÔNG CÓ BÃO"
+          : `${stormCount} CƠN BÃO ĐANG HOẠT ĐỘNG`;
 
   // Kích hoạt toggle bằng bàn phím (Enter/Space) theo NFR-USA-002
   const handleToggleKeyDown = (
@@ -147,7 +147,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
           id="btn-open-layers"
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-2 px-3 py-2 bg-[#161b13] border border-[#2d3329] hover:border-[#e2ffcc] text-[#dde2e4] hover:text-[#e2ffcc] transition-colors shadow-flat"
-          title="Mở bảng điều khiển lớp bản đồ"
+          title="Mở bảng tùy chọn hiển thị bản đồ"
         >
           <Layers className="w-4 h-4 text-[#e2ffcc]" />
           <span className="text-xs uppercase font-bold tracking-wider">
@@ -166,7 +166,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#e2ffcc]" />
               <span className="text-xs uppercase font-bold tracking-wider text-[#e2ffcc]">
-                ĐIỀU KHIỂN LỚP (LAYERS)
+                LỚP HIỂN THỊ BẢN ĐỒ
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                 id="btn-close-layers"
                 onClick={() => setIsOpen(false)}
                 className="p-1 border border-[#2d3329] hover:border-[#e2ffcc] text-[#84907f] hover:text-[#e2ffcc] transition-colors"
-                title="Thu gọn bảng điều khiển"
+                title="Thu gọn bảng tùy chọn"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
               </button>
@@ -190,55 +190,57 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             {/* 1. NGUỒN BẢN ĐỒ NỀN (BASE TILES) */}
             <div className="space-y-1.5">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
-                <span>[01 // BẢN ĐỒ NỀN BASEMAP]</span>
-                <span className="text-[9px] text-[#e2ffcc]">OSM / ARCGIS</span>
+                <span>1. KIỂU NỀN BẢN ĐỒ</span>
+                <span className="text-[9px] text-[#e2ffcc]">3 CHẾ ĐỘ</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 <button
                   id="btn-tile-osm-de"
                   onClick={() => onTileChange("osm-de")}
+                  title="Bản đồ OpenStreetMap tiêu chuẩn (mặc định)"
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
                     activeTileId === "osm-de"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  OSM GERMANY
+                  TIÊU CHUẨN
                 </button>
                 <button
                   id="btn-tile-osm-fr"
                   onClick={() => onTileChange("osm-fr")}
+                  title="Bản đồ OpenStreetMap dự phòng"
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
                     activeTileId === "osm-fr"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  OSM FRANCE
+                  BẢN DỰ PHÒNG
                 </button>
                 <button
                   id="btn-tile-arcgis-dark"
                   onClick={() => onTileChange("arcgis-dark")}
+                  title="Bản đồ nền tối giúp dễ quan sát mưa và bão"
                   className={`py-1.5 px-1 text-[9px] uppercase font-bold border transition-colors ${
                     activeTileId === "arcgis-dark"
                       ? "border-[#e2ffcc] bg-[#1a2117] text-[#e2ffcc]"
                       : "border-[#2d3329] bg-[#161b13] text-[#84907f] hover:text-[#dde2e4]"
                   }`}
                 >
-                  ARCGIS DARK
+                  NỀN TỐI
                 </button>
               </div>
               <p className="text-[8px] leading-snug text-[#84907f]">
-                CARTO cần API key nên đã thay bằng OSM/ArcGIS keyless.
-                OSM Germany là mặc định.
+                Chọn &ldquo;Tiêu chuẩn&rdquo; để xem rõ địa danh hoặc &ldquo;Nền tối&rdquo; để nổi bật vùng mưa, gió và đường đi của bão.
               </p>
             </div>
 
             {/* 1b. LỚP THAM CHIẾU LÃNH THỔ — toggle + legend khớp style render thật */}
             <div className="space-y-2 pt-2 border-t border-[#2d3329]">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
-                <span>[01B // THAM CHIẾU LÃNH THỔ]</span>
-                <span className="text-[9px] text-[#e2ffcc]">WGS84</span>
+                <span>2. RANH GIỚI LÃNH THỔ</span>
+                <span className="text-[9px] text-[#e2ffcc]">VIỆT NAM</span>
               </div>
 
               <div
@@ -264,10 +266,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      VIỀN LÃNH THỔ VIỆT NAM
+                      RANH GIỚI VIỆT NAM &amp; BIỂN ĐẢO
                     </div>
                     <div className="text-[9px] text-[#84907f]">
-                      ĐẤT LIỀN · BIỂN ĐÔNG · HOÀNG SA · TRƯỜNG SA
+                      Đất liền, Biển Đông, Hoàng Sa &amp; Trường Sa
                     </div>
                   </div>
                 </div>
@@ -295,7 +297,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                         strokeWidth={TERRITORY_LAND_STYLE.weight}
                       />
                     </svg>
-                    ĐẤT LIỀN &amp; HẢI ĐẢO
+                    Đường biên giới đất liền &amp; hải đảo
                   </div>
                   <div className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]">
                     <svg width="26" height="6" className="shrink-0">
@@ -309,7 +311,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                         strokeDasharray={TERRITORY_MARITIME_DASH}
                       />
                     </svg>
-                    VÙNG BIỂN EEZ
+                    Ranh giới vùng biển Việt Nam
                   </div>
                   <div className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]">
                     <svg width="14" height="14" className="shrink-0">
@@ -323,10 +325,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                         strokeDasharray={TERRITORY_ARCHIPELAGO_DASH}
                       />
                     </svg>
-                    VÙNG THEO DÕI HOÀNG SA / TRƯỜNG SA
+                    Vùng theo dõi Quần đảo Hoàng Sa &amp; Trường Sa
                   </div>
                   <div className="text-[8px] text-[#84907f] leading-snug">
-                    NGUỒN: NATURAL EARTH · MARINE REGIONS (VLIZ)
+                    Nguồn bản đồ: Natural Earth &amp; Marine Regions
                   </div>
                 </div>
               )}
@@ -335,7 +337,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             {/* 2. CÁC LỚP DỮ LIỆU THỜI TIẾT (WEATHER LAYERS) */}
             <div className="space-y-2">
               <div className="text-[10px] uppercase font-bold text-[#84907f]">
-                [02 // CÁC LỚP CHUYÊN ĐỀ KHÔNG GIAN]
+                3. CÁC LỚP DỮ LIỆU THỜI TIẾT
               </div>
 
               {/* Lớp Lượng Mưa (SR-MAP-002) — nguồn dữ liệu W2-08 */}
@@ -358,10 +360,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      LƯỢNG MƯA QUAN TRẮC
+                      LƯỢNG MƯA TẠI TRẠM
                     </div>
                     <div className="text-[9px] text-[#84907f]">
-                      BONG BÓNG PHÂN CẤP 0 → &gt;50 MM
+                      Vòng tròn màu theo lượng mưa (0 đến &gt;50 mm)
                     </div>
                   </div>
                 </div>
@@ -392,12 +394,12 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      TRẠM QUAN TRẮC KTTV
+                      TRẠM ĐO THỜI TIẾT
                     </div>
                     <div className="text-[9px] text-[#84907f]">
                       {stationCount === totalStationCount
-                        ? `${stationCount} ĐIỂM TRẠM TOÀN QUỐC`
-                        : `HIỂN THỊ ${stationCount}/${totalStationCount} TRẠM`}
+                        ? `${stationCount} trạm đo trên toàn quốc`
+                        : `Đang hiện ${stationCount}/${totalStationCount} trạm`}
                     </div>
                   </div>
                 </div>
@@ -470,10 +472,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      RADAR PHẢN HỒI MƯA
+                      VÙNG MƯA LỚN (RADAR)
                     </div>
                     <div className="text-[9px] text-[#84907f]">
-                      ĐỘ PHẢN HỒI REFLECTIVITY (dBZ)
+                      Vùng phản hồi mưa lớn diện rộng
                     </div>
                   </div>
                 </div>
@@ -504,10 +506,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      VECTOR GIÓ BỀ MẶT
+                      HƯỚNG GIÓ &amp; SỨC GIÓ
                     </div>
                     <div className="text-[9px] text-[#84907f]">
-                      HƯỚNG &amp; CƯỜNG ĐỘ DÒNG GIÓ
+                      Mũi tên chỉ chiều gió thổi &amp; cấp gió
                     </div>
                   </div>
                 </div>
@@ -538,10 +540,10 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   <div>
                     <div className="text-xs font-bold leading-tight">
-                      MÂY VỆ TINH HỒNG NGOẠI
+                      LỚP MÂY VỆ TINH
                     </div>
                     <div className="text-[9px] text-[#84907f]">
-                      ẢNH VỆ TINH HIMAWARI-9
+                      Độ che phủ mây trên khu vực Biển Đông
                     </div>
                   </div>
                 </div>
@@ -561,7 +563,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   className="space-y-1.5 pt-2 border-t border-[#2d3329]"
                 >
                   <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
-                    <span>[02B // CHÚ GIẢI LỚP BÃO]</span>
+                    <span>CHÚ THÍCH KÝ HIỆU BÃO</span>
                     <span className="text-[9px] text-[#e2ffcc]">GDACS</span>
                   </div>
 
@@ -603,7 +605,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                           strokeWidth="2"
                         />
                       </svg>
-                      QUỸ ĐẠO LỊCH SỬ (LIỀN NÉT)
+                      Đường bão đã đi qua (nét liền)
                     </div>
                     <div
                       className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
@@ -620,7 +622,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                           strokeDasharray={TRACK_FORECAST_DASH_ARRAY}
                         />
                       </svg>
-                      DỰ BÁO DI CHUYỂN (ĐỨT ĐOẠN)
+                      Dự báo hướng bão đi (nét đứt)
                     </div>
                     <div
                       className="flex items-center gap-1.5 text-[9px] text-[#dde2e4]"
@@ -635,24 +637,24 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                           opacity: TRACK_IMPACT_FILL_OPACITY + 0.15,
                         }}
                       />
-                      VÙNG ẢNH HƯỞNG NGUY HIỂM
+                      Vùng có nguy cơ ảnh hưởng bão
                     </div>
                     <div className="text-[8px] text-[#84907f] leading-snug">
-                      — VÙNG NGUY HIỂM CHỈ HIỆN KHI GDACS CUNG CẤP POLYGON THẬT
-                      <br />— MỐC QUỸ ĐẠO: HOVER MỌI ZOOM · NHÃN CHỈ TỪ ZOOM ≥{" "}
-                      {TRACK_TOOLTIP_ZOOM_THRESHOLD}
+                      • Vùng ảnh hưởng chỉ hiện khi có dữ liệu cảnh báo thực tế.
+                      <br />• Di chuột vào từng điểm trên đường đi để xem giờ và sức gió (phóng to từ mức{" "}
+                      {TRACK_TOOLTIP_ZOOM_THRESHOLD} để luôn hiện nhãn).
                     </div>
                   </div>
 
-                  {/* Hàng 5 — phù hiệu NGOÀI HỘP THEO DÕI: bão ngoài STORM_WATCH_BBOX vẫn hiển thị, không bị ẩn */}
+                  {/* Hàng 5 — phù hiệu XA BỜ: bão ngoài STORM_WATCH_BBOX vẫn hiển thị, không bị ẩn */}
                   <div
                     className="flex items-center gap-1.5 text-[9px] text-[#84907f]"
                     data-testid="legend-outside-box"
                   >
                     <span className="px-1 border border-[#84907f] text-[8px] uppercase font-bold shrink-0">
-                      NGOÀI HỘP
+                      XA BỜ
                     </span>
-                    BÃO NGOÀI VÙNG THEO DÕI VẪN HIỂN THỊ
+                    Bão ở xa ngoài Biển Đông vẫn được hiển thị
                   </div>
                 </div>
               )}
@@ -661,9 +663,9 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             {/* 3. BỘ LỌC VÙNG MIỀN (REGION FILTER) */}
             <div className="space-y-1.5 pt-2 border-t border-[#2d3329]">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center justify-between">
-                <span>[03 // BỘ LỌC VÙNG MIỀN]</span>
+                <span>4. LỌC TRẠM THEO VÙNG</span>
                 <span className="text-[9px] text-[#e2ffcc]">
-                  {selectedRegion}
+                  {selectedRegion === "ALL" ? "TẤT CẢ" : selectedRegion}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-1">
@@ -710,13 +712,13 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             <div className="space-y-2 pt-2 border-t border-[#2d3329]">
               <div className="text-[10px] uppercase font-bold text-[#84907f] flex items-center gap-1.5">
                 <Sliders className="w-3 h-3 text-[#e2ffcc]" />
-                <span>[04 // ĐỘ TRONG SUỐT LỚP PHỦ]</span>
+                <span>5. ĐỘ ĐẬM NHẠT LỚP PHỦ</span>
               </div>
 
               <div className="space-y-2">
                 <div className="space-y-1">
                   <div className="flex justify-between text-[9px] text-[#84907f]">
-                    <span>RADAR MƯA:</span>
+                    <span>VÙNG MƯA RADAR:</span>
                     <span className="text-[#dde2e4]">
                       {Math.round((layerOpacity.radar || 0.65) * 100)}%
                     </span>
@@ -736,7 +738,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-[9px] text-[#84907f]">
-                    <span>MÂY VỆ TINH:</span>
+                    <span>LỚP MÂY VỆ TINH:</span>
                     <span className="text-[#dde2e4]">
                       {Math.round((layerOpacity.clouds || 0.5) * 100)}%
                     </span>
@@ -759,7 +761,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
             {/* 5. TRẠNG THÁI ĐỒNG BỘ DỮ LIỆU (TELEMETRY SYNC STATUS) */}
             <div className="space-y-1.5 pt-2 border-t border-[#2d3329]">
               <div className="text-[10px] uppercase font-bold text-[#84907f]">
-                [05 // TRẠNG THÁI ĐỒNG BỘ]
+                6. TÌNH TRẠNG CẬP NHẬT DỮ LIỆU
               </div>
 
               {/* Telemetry Loading Bar — indeterminate, mỏng 2px, không bo góc, không bóng */}
@@ -785,15 +787,15 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                   />
                   {isSyncing ? (
                     <span className="text-[#e2ffcc]">
-                      ĐANG ĐỒNG BỘ DỮ LIỆU...
+                      Đang tải dữ liệu mới...
                     </span>
                   ) : lastSyncedAt ? (
                     <span className="text-[#84907f]">
-                      KÊNH DỮ LIỆU HOẠT ĐỘNG
+                      Đang cập nhật tự động
                     </span>
                   ) : (
                     <span className="text-[#dc2626]">
-                      CHƯA ĐỒNG BỘ / MẤT KẾT NỐI
+                      Chưa có dữ liệu / Mất kết nối
                     </span>
                   )}
                 </span>
@@ -805,7 +807,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
               <div className="grid grid-cols-2 gap-1">
                 <div className="p-1 border border-[#2d3329] bg-[#161b13]">
                   <span className="text-[8px] text-[#84907f] block uppercase">
-                    THỜI TIẾT OWM · 15 PHÚT
+                    THỜI TIẾT · MỖI 15 PHÚT
                   </span>
                   <span
                     className="text-[10px] text-[#dde2e4] font-bold"
@@ -823,7 +825,7 @@ export const LayerControlDrawer: React.FC<LayerControlDrawerProps> = ({
                 </div>
                 <div className="p-1 border border-[#2d3329] bg-[#161b13]">
                   <span className="text-[8px] text-[#84907f] block uppercase">
-                    BÃO GDACS · 30 PHÚT
+                    TIN BÃO · MỖI 30 PHÚT
                   </span>
                   <span
                     className="text-[10px] text-[#dde2e4] font-bold"

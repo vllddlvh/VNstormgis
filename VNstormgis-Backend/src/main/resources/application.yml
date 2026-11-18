@@ -39,6 +39,22 @@ spring:
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:1s}
       timeout: ${REDIS_TIMEOUT:500ms}
 
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+          connectiontimeout: ${MAIL_SMTP_CONNECT_TIMEOUT_MS:5000}
+          timeout: ${MAIL_SMTP_READ_TIMEOUT_MS:5000}
+          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT_MS:5000}
+
 server:
   port: 8080
   shutdown: graceful
@@ -74,8 +90,20 @@ weathergis:
       max-output-tokens: ${CHAT_REPLY_MAX_OUTPUT_TOKENS:1024}
       reply-max-chars: ${CHAT_REPLY_MAX_CHARS:4000}
       snapshot-cut-top-n: ${CHAT_REPLY_SNAPSHOT_CUT_TOP_N:5}
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@weathergis.vn}
+    from-name: ${MAIL_FROM_NAME:VNstormgis Cảnh Báo Khí Tượng}
+    public-web-url: ${PUBLIC_WEB_URL:http://localhost:5173}
+    public-api-url: ${PUBLIC_API_URL:http://localhost:8080}
+    otp-ttl-minutes: ${MAIL_OTP_TTL_MINUTES:15}
+    rate-limit-max-sends: ${MAIL_RATE_LIMIT_MAX_SENDS:5}
+    rate-limit-window-minutes: ${MAIL_RATE_LIMIT_WINDOW_MINUTES:10}
 
 management:
+  health:
+    mail:
+      enabled: ${MAIL_HEALTH_ENABLED:false}
   endpoints:
     web:
       exposure:

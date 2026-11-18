@@ -41,9 +41,9 @@ export interface StormTrackLayerProps {
 /** Nội dung tooltip mốc — 9 khóa rút gọn, null → "--" (SYS-RULE-004 / quyết định #9). */
 const trackPointTooltip = (label: string, point: StormTrackPointDatum) => (
   <span className="font-mono">
-    [{label} // {formatSyncTime(point.forecastTime)}]
+    {label} — {formatSyncTime(point.forecastTime)}
     <br />
-    GIÓ: {formatNullableMs(point.windSpeed)} · GIẬT:{" "}
+    SỨC GIÓ: {formatNullableMs(point.windSpeed)} · GIÓ GIẬT:{" "}
     {formatNullableMs(point.windGust)}
     <br />
     ÁP SUẤT: {formatPressure(point.pressure)} · NGUỒN: GDACS
@@ -102,7 +102,7 @@ const StormTrack: React.FC<{
             offset={[0, -4]}
           >
             <span className="font-mono">
-              [QUỸ ĐẠO LỊCH SỬ · {historyCount} MỐC]
+              Đường bão đã đi qua ({historyCount} điểm ghi nhận)
             </span>
           </Tooltip>
         </Polyline>
@@ -126,7 +126,7 @@ const StormTrack: React.FC<{
             offset={[0, -4]}
           >
             <span className="font-mono">
-              [DỰ BÁO DI CHUYỂN · {forecastCount} MỐC]
+              Dự báo hướng bão di chuyển ({forecastCount} điểm dự báo)
             </span>
           </Tooltip>
         </Polyline>
@@ -146,9 +146,9 @@ const StormTrack: React.FC<{
         >
           <Tooltip className="san-rita-tooltip" sticky>
             <span className="font-mono">
-              [VÙNG ẢNH HƯỞNG NGUY HIỂM]
+              Vùng có nguy cơ chịu ảnh hưởng bão
               <br />
-              BÁN KÍNH:{" "}
+              BÁN KÍNH ẢNH HƯỞNG:{" "}
               {track.impactRadiusKm === null
                 ? "--"
                 : `${Math.round(track.impactRadiusKm)} km`}{" "}
@@ -163,7 +163,7 @@ const StormTrack: React.FC<{
           (đổi prop permanent sau mount KHÔNG tự rebind listener của Leaflet — Runbook 7.5). */}
       {track.points.map((point) => {
         const isForecast = point.trackType === "forecast";
-        const label = isForecast ? "MỐC DỰ BÁO" : "MỐC LỊCH SỬ";
+        const label = isForecast ? "ĐIỂM DỰ BÁO" : "ĐIỂM ĐÃ QUA";
         const color = isForecast ? TRACK_FORECAST_COLOR : TRACK_HISTORY_COLOR;
         return (
           <CircleMarker

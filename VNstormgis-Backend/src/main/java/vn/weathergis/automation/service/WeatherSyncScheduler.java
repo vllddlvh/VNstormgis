@@ -8,8 +8,9 @@ import org.springframework.stereotype.Component;
 import vn.weathergis.common.exception.SyncInProgressException;
 
 /**
- * Worker tự động nạp thời tiết 68 trạm mỗi 15 phút. Vô hiệu hóa khi weathergis.sync.enabled=false
- * (môi trường test/Testcontainers) để tránh cron bắn cước OWM trong suite kiểm thử.
+ * Worker tự động nạp thời tiết cho các trạm đang hoạt động mỗi 15 phút. Vô hiệu hóa khi
+ * weathergis.sync.enabled=false (môi trường test/Testcontainers) để tránh cron bắn cước OWM trong
+ * suite kiểm thử.
  */
 @Component
 @ConditionalOnProperty(

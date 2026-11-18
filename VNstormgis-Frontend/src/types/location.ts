@@ -44,3 +44,57 @@ export interface GeoJsonFeatureCollection<TProps = Record<string, unknown>> {
   type: "FeatureCollection";
   features: GeoJsonFeature<TProps>[];
 }
+
+/**
+ * Kết quả phân tích tình huống không gian PostGIS tại một tọa độ bất kỳ
+ * (GET /api/v1/locations/at-point — phục vụ "Vị trí hiện tại của tôi").
+ */
+export interface SpatialPointContext {
+  longitude: number;
+  latitude: number;
+  radiusKm: number;
+  withinVietnamBounds: boolean;
+  nearestStation: {
+    id: string;
+    code: string;
+    name: string;
+    region: string;
+    longitude: number;
+    latitude: number;
+    distanceKm: number;
+  } | null;
+  currentWeather: {
+    recordedAt: string;
+    temperature?: number;
+    feelsLike?: number;
+    humidity?: number;
+    pressure?: number;
+    windSpeed?: number;
+    windGust?: number;
+    windDirection?: number;
+    rain1h?: number;
+    rain3h?: number;
+    weatherCondition?: string;
+    weatherDescription?: string;
+  } | null;
+  nearestStorm: {
+    id: string;
+    name: string;
+    category: string;
+    maxWindSpeedKmh?: number;
+    minPressure?: number;
+    longitude: number;
+    latitude: number;
+    distanceKm: number;
+    updatedAt: string;
+  } | null;
+  nearbyAlerts: Array<{
+    id: string;
+    title: string;
+    severityLevel: string;
+    locationCode?: string;
+    locationName?: string;
+    distanceKm: number;
+    triggeredAt: string;
+  }>;
+}

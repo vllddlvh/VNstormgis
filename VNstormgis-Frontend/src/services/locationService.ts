@@ -1,6 +1,10 @@
 import { apiClient } from "./apiClient";
 import { ApiResponse } from "@/types/api";
-import { LocationItem, GeoJsonFeatureCollection } from "@/types/location";
+import {
+  LocationItem,
+  GeoJsonFeatureCollection,
+  SpatialPointContext,
+} from "@/types/location";
 
 export const locationService = {
   /**
@@ -28,6 +32,23 @@ export const locationService = {
     const response = await apiClient.get<ApiResponse<LocationItem[]>>("/v1/locations/nearby", {
       params: { lng, lat, radiusKm },
     });
+    return response.data.data;
+  },
+
+  /**
+   * Phân tích tình huống địa không gian PostGIS tại tọa độ bất kỳ (Vị trí hiện tại GPS).
+   */
+  async getSpatialPointContext(
+    lng: number,
+    lat: number,
+    radiusKm = 100,
+  ): Promise<SpatialPointContext> {
+    const response = await apiClient.get<ApiResponse<SpatialPointContext>>(
+      "/v1/locations/at-point",
+      {
+        params: { lng, lat, radiusKm },
+      },
+    );
     return response.data.data;
   },
 

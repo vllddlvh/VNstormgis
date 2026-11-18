@@ -135,26 +135,26 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
         loading: false,
         error: null,
         text:
-          `Quỹ đạo ${stormDetail.totalTrackPoints} mốc · hình thành ${formatSyncTime(stormDetail.startDate)}` +
+          `Tổng cộng ${stormDetail.totalTrackPoints} điểm ghi nhận quỹ đạo · Hình thành lúc ${formatSyncTime(stormDetail.startDate)}` +
           (stormDetail.endDate
-            ? ` · tan ${formatSyncTime(stormDetail.endDate)}`
+            ? ` · Tan lúc ${formatSyncTime(stormDetail.endDate)}`
             : ""),
       });
     } catch {
       // 404/400/500 đều là RFC 7807 — interceptor đã log; UI báo lỗi trung thực, không bịa số.
       setDetail({
         loading: false,
-        error: "KHÔNG LOAD ĐƯỢC CHI TIẾT (kiểm tra console / RFC 7807)",
+        error: "Không tải được thông tin chi tiết của cơn bão. Vui lòng thử lại sau.",
       });
     }
   };
 
   return (
     <div className="p-3 bg-[#161b13] text-[#dde2e4] space-y-2 select-none min-w-[280px]">
-      {/* Header [MÃ BÃO // TÊN BÃO] + badge cấp */}
+      {/* Header [TÊN BÃO (MÃ BÃO)] + badge cấp */}
       <div className="flex items-start justify-between gap-2 border-b border-[#2d3329] pb-1.5">
         <div className="font-bold text-[#e2ffcc] text-xs uppercase leading-tight">
-          [{storm.id} // {storm.properties.name}]
+          {storm.properties.name} (Mã: {storm.id})
         </div>
         <span
           className="text-[9px] px-1.5 py-0.5 border shrink-0 font-bold uppercase"
@@ -172,7 +172,7 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
       <div className="grid grid-cols-2 gap-1.5 text-[10px]">
         <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
           <span className="text-[8px] text-[#84907f] block uppercase">
-            SỨC GIÓ MAX
+            SỨC GIÓ MẠNH NHẤT
           </span>
           <span className="font-bold text-[#ea580c]">
             {formatKmh(storm.properties.max_wind_speed_kmh)}
@@ -183,18 +183,18 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
         </div>
         <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
           <span className="text-[8px] text-[#84907f] block uppercase">
-            ÁP SUẤT TÂM
+            ÁP SUẤT VÙNG TÂM
           </span>
           <span className="font-bold text-[#dde2e4]">
             {formatPressure(storm.properties.min_pressure)}
           </span>
           <span className="text-[8px] text-[#84907f] block">
-            GDACS {storm.properties.category}
+            Mức cảnh báo: {risk.label}
           </span>
         </div>
         <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
           <span className="text-[8px] text-[#84907f] block uppercase">
-            BẬC GIÓ (BEAUFORT)
+            CẤP GIÓ (THANG BEAUFORT)
           </span>
           <span className="font-bold" style={{ color: band.color }}>
             {band.label}
@@ -202,28 +202,30 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
         </div>
         <div className="p-1.5 border border-[#2d3329] bg-[#1a2117]">
           <span className="text-[8px] text-[#84907f] block uppercase">
-            TRẠNG THÁI
+            TÌNH TRẠNG
           </span>
           <span className="font-bold text-[#dde2e4] uppercase">
-            {storm.properties.status}
+            {storm.properties.status === "active"
+              ? "ĐANG HOẠT ĐỘNG"
+              : "ĐÃ SUY YẾU / TAN"}
           </span>
           {storm.properties.year && (
             <span className="text-[8px] text-[#84907f] block">
-              MÙA {storm.properties.year}
+              NĂM {storm.properties.year}
             </span>
           )}
         </div>
       </div>
 
       {!inWatchBox && (
-        <div className="text-[9px] text-[#f59e0b] border border-[#f59e0b] bg-[#1a2117] p-1.5 uppercase">
-          Tâm bão NGOÀI hộp theo dõi Biển Đông ({STORM_WATCH_BBOX_LABEL}) — vẫn
-          giữ hiển thị (quyết định #4)
+        <div className="text-[9px] text-[#f59e0b] border border-[#f59e0b] bg-[#1a2117] p-1.5">
+          Tâm bão hiện ở ngoài khu vực Biển Đông ({STORM_WATCH_BBOX_LABEL}), vẫn
+          được hiển thị để theo dõi từ xa.
         </div>
       )}
 
       <div className="pt-1 border-t border-[#2d3329] flex justify-between text-[9px] text-[#84907f]">
-        <span>TỌA ĐỘ WGS84:</span>
+        <span>TỌA ĐỘ TÂM BÃO:</span>
         <span className="text-[#e2ffcc]">
           {formatCoordinate(storm.latLng, 4)}
         </span>
@@ -250,7 +252,7 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
           }}
           className="py-1 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[9px] uppercase font-bold"
         >
-          🎯 TÂM BÃO
+          🎯 VỀ TÂM BÃO
         </button>
         <button
           id={`storm-detail-${storm.id}`}
@@ -261,7 +263,7 @@ const StormPopupContent: React.FC<StormPopupContentProps> = ({
           disabled={detail.loading}
           className="py-1 border border-[#2d3329] hover:border-[#e2ffcc] bg-[#1a2117] text-[9px] text-[#e2ffcc] uppercase font-bold disabled:opacity-50"
         >
-          {detail.loading ? "ĐANG LOAD…" : "📡 CHI TIẾT"}
+          {detail.loading ? "ĐANG TẢI…" : "📡 THÔNG TIN THÊM"}
         </button>
       </div>
       {(detail.text || detail.error) && (

@@ -79,7 +79,7 @@ public class RuleBasedIntentClassifier implements IntentClassifier {
             return result(ChatIntent.OUT_OF_SCOPE, "R9_OUT_OF_SCOPE", null, null, null, null);
         }
         String match = matchForm(normalized);
-        List<LocationEntity> stations = locationRepository.findAll();
+        List<LocationEntity> stations = locationRepository.findByIsActiveTrue();
         List<StormEntity> storms = stormRepository.findAll();
 
         StationMatch stationMatch = matchStation(match, stations);

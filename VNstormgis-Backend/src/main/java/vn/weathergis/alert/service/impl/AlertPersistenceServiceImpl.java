@@ -22,6 +22,8 @@ import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,6 +43,7 @@ import vn.weathergis.alert.dto.AlertFactualSnapshot.RepresentativeThresholdSnaps
 import vn.weathergis.alert.dto.AlertFactualSnapshot.ViolationSnapshot;
 import vn.weathergis.alert.dto.AlertGenerationJobView;
 import vn.weathergis.alert.dto.VerifiedAlertSubmission;
+import vn.weathergis.alert.event.AlertPublishedEvent;
 import vn.weathergis.alert.exception.AlertJobConflictException;
 import vn.weathergis.alert.exception.InvalidFactualSnapshotException;
 import vn.weathergis.alert.repository.AlertGenerationJobRepository;
@@ -98,6 +101,7 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
     private final Clock clock;
     private final TransactionTemplate requiredTx;
     private final TransactionTemplate requiresNewTx;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AlertPersistenceServiceImpl(
             AlertRepository alertRepository,
@@ -110,6 +114,33 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
             AlertRetryProperties retryProperties,
             Clock clock,
             PlatformTransactionManager transactionManager) {
+        this(
+                alertRepository,
+                jobRepository,
+                keyRepository,
+                thresholdRepository,
+                locationRepository,
+                stormRepository,
+                objectMapper,
+                retryProperties,
+                clock,
+                transactionManager,
+                event -> {});
+    }
+
+    @Autowired
+    public AlertPersistenceServiceImpl(
+            AlertRepository alertRepository,
+            AlertGenerationJobRepository jobRepository,
+            AlertViolationKeyRepository keyRepository,
+            AlertThresholdRepository thresholdRepository,
+            LocationRepository locationRepository,
+            StormRepository stormRepository,
+            ObjectMapper objectMapper,
+            AlertRetryProperties retryProperties,
+            Clock clock,
+            PlatformTransactionManager transactionManager,
+            ApplicationEventPublisher eventPublisher) {
         this.alertRepository = alertRepository;
         this.jobRepository = jobRepository;
         this.keyRepository = keyRepository;
@@ -124,6 +155,7 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
         this.requiredTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         this.requiresNewTx = new TransactionTemplate(transactionManager);
         this.requiresNewTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.eventPublisher = eventPublisher != null ? eventPublisher : event -> {};
     }
 
     @Override
@@ -443,6 +475,21 @@ public class AlertPersistenceServiceImpl implements AlertPersistenceService {
         job.setNextAttemptAt(null);
         job.setLastError(null);
         jobRepository.saveAndFlush(job);
+
+        eventPublisher.publishEvent(
+                new AlertPublishedEvent(
+                        savedAlert.getId(),
+                        locationId,
+                        stormId,
+                        savedAlert.getTitle(),
+                        savedAlert.getSeverityLevel(),
+                        savedAlert.getTriggerReason(),
+                        savedAlert.getAiExplanation(),
+                        Boolean.TRUE.equals(savedAlert.getIsFallback()),
+                        longitude,
+                        latitude,
+                        savedAlert.getTriggeredAt(),
+                        snapshot));
 
         return savedAlert.getId();
     }

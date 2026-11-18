@@ -109,10 +109,8 @@ class LocationRepositoryIT extends AbstractPostGisIntegrationTest {
                 prevDistance = distanceKm;
             }
 
-            // Danh sách trạm lân cận phải bao gồm các tỉnh đồng bằng Bắc Bộ (Hải Phòng, Hải Dương,
-            // Nam Định)
             List<String> codes = nearby.stream().map(row -> (String) row[1]).toList();
-            assertThat(codes).contains("HPH", "HDG", "NDH", "NBH", "BNH");
+            assertThat(codes).contains("HPH", "NBH", "BNH").doesNotContain("HDG", "NDH");
         }
     }
 
@@ -136,8 +134,7 @@ class LocationRepositoryIT extends AbstractPostGisIntegrationTest {
 
             List<String> codes = stations.stream().map(LocationEntity::getCode).toList();
 
-            // Phải chứa các trạm thuộc dải Đà Nẵng, Huế, Quảng Nam, Quảng Trị, Quảng Ngãi
-            assertThat(codes).contains("DNG", "HUE", "QNM", "QTI", "QNG");
+            assertThat(codes).contains("DNG", "HUE", "QTI", "QNG").doesNotContain("QNM");
 
             // Tuyệt đối không chứa trạm phía Bắc (HAN) hay phía Nam (SGN, CMU)
             assertThat(codes).doesNotContain("HAN", "SGN", "CMU");
@@ -156,7 +153,8 @@ class LocationRepositoryIT extends AbstractPostGisIntegrationTest {
     class RegionalAndSearchTests {
 
         @Test
-        @DisplayName("TC-IT-05: Lọc trạm theo vùng Bắc Bộ và kiểm tra tổng số 68 trạm active")
+        @DisplayName(
+                "TC-IT-05: Lọc trạm Bắc Bộ và xác thực danh mục 34 đơn vị cấp tỉnh, 5 điểm hải đảo")
         void testFindByRegionAndActive() {
             List<LocationEntity> northStations =
                     locationRepository.findByRegionAndIsActiveTrue("Bắc Bộ");
@@ -168,8 +166,17 @@ class LocationRepositoryIT extends AbstractPostGisIntegrationTest {
                                             && Boolean.TRUE.equals(st.getIsActive()));
 
             List<LocationEntity> allActive = locationRepository.findByIsActiveTrue();
-            // Flyway V3 nạp đầy đủ 68 trạm quan trắc/tỉnh thành WGS84 Việt Nam
-            assertThat(allActive).hasSize(68);
+            assertThat(allActive)
+                    .extracting(LocationEntity::getCode)
+                    .containsExactlyInAnyOrder(
+                            "HAN", "CBG", "TQG", "DBN", "LCU", "SLA", "LCI", "TNN", "LSN", "QNH",
+                            "BNH", "PTO", "HPH", "HYN", "NBH", "THA", "NAN", "HTH", "QTI", "HUE",
+                            "DNG", "QNG", "GLI", "KHA", "DLK", "LDG", "DNI", "SGN", "TNH", "DTP",
+                            "VLG", "AGG", "VCA", "CMU", "BLV", "HSA", "TSA", "CDO", "PQU");
+            assertThat(allActive)
+                    .filteredOn(st -> "HUE".equals(st.getCode()) || "DNI".equals(st.getCode()))
+                    .extracting(LocationEntity::getName)
+                    .containsExactlyInAnyOrder("Huế", "TP. Đồng Nai");
         }
 
         @Test
@@ -179,9 +186,12 @@ class LocationRepositoryIT extends AbstractPostGisIntegrationTest {
                     locationRepository.searchLocations("Bắc Bộ", true, "Hà");
             List<String> codes = haStations.stream().map(LocationEntity::getCode).toList();
 
-            // Chứa Hà Nội (HAN), Hà Nam (HNM), Hà Giang (HGG)
-            assertThat(codes).contains("HAN", "HNM", "HGG");
-            assertThat(codes).doesNotContain("SGN", "DNG", "HBH");
+            assertThat(codes).contains("HAN").doesNotContain("HNM", "HGG", "SGN", "DNG", "HBH");
+
+            assertThat(locationRepository.searchLocations("Bắc Bộ", false, "Hà"))
+                    .extracting(LocationEntity::getCode)
+                    .contains("HNM", "HGG")
+                    .doesNotContain("HAN");
         }
     }
 }

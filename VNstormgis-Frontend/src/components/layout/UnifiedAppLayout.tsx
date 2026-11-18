@@ -31,12 +31,23 @@ import {
   AiChatDrawer,
   type ChatRequest,
 } from "@/components/dashboard/AiChatDrawer";
+import { StationSearchModal } from "@/components/dashboard/StationSearchModal";
+import { StationHistoryModal } from "@/components/dashboard/StationHistoryModal";
+import {
+  MyLocationCard,
+  type UserGpsPosition,
+} from "@/components/dashboard/MyLocationCard";
+import {
+  EmailSubscriptionModal,
+  type SubscriptionPrefill,
+} from "@/components/dashboard/EmailSubscriptionModal";
 import {
   CoordinateTuple,
   LayerVisibilityState,
   WeatherSeverityLevel,
   StationMarkerData,
 } from "@/types/map";
+import { SpatialPointContext } from "@/types/location";
 import { RainSeverityLevel } from "@/types/weather";
 import { StatusType } from "@/components/common/StatusBadge";
 import {
@@ -44,10 +55,13 @@ import {
   VIETNAM_DEFAULT_CENTER,
   VIETNAM_DEFAULT_ZOOM,
   VIETNAM_MAX_BOUNDS,
+  calculateHaversineDistance,
+  isWithinVietnamBounds,
 } from "@/lib/geoUtils";
 import { locationService } from "@/services/locationService";
 import { weatherService } from "@/services/weatherService";
 import { stormService } from "@/services/stormService";
+import { subscriptionService } from "@/services/subscriptionService";
 import {
   StormCenter,
   StormTrackData,
@@ -199,6 +213,26 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
   const [selectedStationId, setSelectedStationId] = useState<string | null>(
     null,
   );
+
+  // 6. Các hộp thoại & tiện ích mở rộng (Tìm kiếm nhanh, Lịch sử 24h, Vị trí của tôi, Đăng ký Email)
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [historyStation, setHistoryStation] =
+    useState<StationMarkerData | null>(null);
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false);
+  const [subscriptionPrefill, setSubscriptionPrefill] =
+    useState<SubscriptionPrefill | null>(null);
+  const [deepLinkBanner, setDeepLinkBanner] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  const [isMyLocationOpen, setIsMyLocationOpen] = useState(false);
+  const [isLocatingMe, setIsLocatingMe] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [userGpsPosition, setUserGpsPosition] =
+    useState<UserGpsPosition | null>(null);
+  const [mySpatialContext, setMySpatialContext] =
+    useState<SpatialPointContext | null>(null);
 
   // Lọc danh sách trạm theo Vùng Miền lựa chọn
   const filteredStations = useMemo(() => {
@@ -380,6 +414,234 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
     setRightDrawer("chat");
   }, []);
 
+  const handleOpenStationHistory = useCallback((station: StationMarkerData) => {
+    setHistoryStation(station);
+  }, []);
+
+  const handleOpenSubscribeStation = useCallback(
+    (station: StationMarkerData) => {
+      setSubscriptionPrefill({
+        scopeType: "STATION",
+        locationCode: station.code,
+        label: `${station.name} (${station.code})`,
+      });
+      setIsSubscriptionOpen(true);
+    },
+    [],
+  );
+
+  const handleOpenSubscribeHere = useCallback(
+    (lat: number, lng: number, label: string) => {
+      setSubscriptionPrefill({
+        scopeType: "COORDINATE",
+        latitude: lat,
+        longitude: lng,
+        label,
+      });
+      setIsSubscriptionOpen(true);
+    },
+    [],
+  );
+
+  const buildFallbackSpatialContext = useCallback(
+    (lat: number, lng: number): SpatialPointContext => {
+      let nearest: StationMarkerData | null = null;
+      let minDist = Number.POSITIVE_INFINITY;
+      for (const st of stations) {
+        const d = calculateHaversineDistance([lat, lng], st.coordinates);
+        if (d < minDist) {
+          minDist = d;
+          nearest = st;
+        }
+      }
+      return {
+        longitude: lng,
+        latitude: lat,
+        radiusKm: 100,
+        withinVietnamBounds: isWithinVietnamBounds(lat, lng),
+        nearestStation: nearest
+          ? {
+              id: nearest.id,
+              code: nearest.code,
+              name: nearest.name,
+              region: nearest.region,
+              longitude: nearest.coordinates[1],
+              latitude: nearest.coordinates[0],
+              distanceKm: Math.round(minDist * 10) / 10,
+            }
+          : null,
+        currentWeather: nearest?.weather
+          ? {
+              recordedAt: nearest.weather.recorded_at,
+              temperature: nearest.weather.temperature ?? undefined,
+              feelsLike: nearest.weather.feels_like ?? undefined,
+              humidity: nearest.weather.humidity ?? undefined,
+              pressure: nearest.weather.pressure ?? undefined,
+              windSpeed: nearest.weather.wind_speed ?? undefined,
+              windGust: nearest.weather.wind_gust ?? undefined,
+              windDirection: nearest.weather.wind_direction ?? undefined,
+              rain1h: nearest.weather.rain_1h ?? undefined,
+              rain3h: nearest.weather.rain_3h ?? undefined,
+              weatherCondition: nearest.weather.weather_condition ?? undefined,
+              weatherDescription:
+                nearest.weather.weather_description ?? undefined,
+            }
+          : null,
+        nearestStorm: null,
+        nearbyAlerts: [],
+      };
+    },
+    [stations],
+  );
+
+  const resolveAndFlyToUserCoords = useCallback(
+    async (
+      lat: number,
+      lng: number,
+      accuracyMeters: number | null,
+      source: "gps" | "manual",
+    ) => {
+      setUserGpsPosition({ latitude: lat, longitude: lng, accuracyMeters, source });
+      setGpsError(null);
+      if (mapRef.current) {
+        if (!isWithinVietnamBounds(lat, lng)) {
+          mapRef.current.setMaxBounds(undefined);
+        }
+        mapRef.current.flyTo([lat, lng], 11, { duration: 1.5 });
+      }
+      try {
+        const ctx = await locationService.getSpatialPointContext(lng, lat, 100);
+        setMySpatialContext(ctx);
+      } catch {
+        setMySpatialContext(buildFallbackSpatialContext(lat, lng));
+      }
+    },
+    [buildFallbackSpatialContext],
+  );
+
+  const handleLocateMe = useCallback(() => {
+    setIsMyLocationOpen(true);
+    if (!("geolocation" in navigator)) {
+      setGpsError(
+        "Trình duyệt hiện tại không hỗ trợ định vị GPS. Bạn có thể nhập tọa độ thủ công bên dưới.",
+      );
+      return;
+    }
+    setIsLocatingMe(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocatingMe(false);
+        void resolveAndFlyToUserCoords(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          pos.coords.accuracy ?? null,
+          "gps",
+        );
+      },
+      (err) => {
+        setIsLocatingMe(false);
+        const msg =
+          err.code === 1
+            ? "Quyền truy cập vị trí bị từ chối. Hãy cấp quyền Location trên trình duyệt hoặc nhập tọa độ thủ công."
+            : "Không lấy được tín hiệu GPS từ thiết bị. Bạn có thể nhập tọa độ thủ công bên dưới.";
+        setGpsError(msg);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, [resolveAndFlyToUserCoords]);
+
+  const handleApplyManualCoords = useCallback(
+    (lat: number, lng: number) => {
+      void resolveAndFlyToUserCoords(lat, lng, null, "manual");
+    },
+    [resolveAndFlyToUserCoords],
+  );
+
+  const handleFlyToMyLocation = useCallback(() => {
+    if (!userGpsPosition || !mapRef.current) return;
+    if (!isWithinVietnamBounds(userGpsPosition.latitude, userGpsPosition.longitude)) {
+      mapRef.current.setMaxBounds(undefined);
+    }
+    mapRef.current.flyTo(
+      [userGpsPosition.latitude, userGpsPosition.longitude],
+      11,
+      { duration: 1.4 },
+    );
+  }, [userGpsPosition]);
+
+  const handleAskAiHere = useCallback(
+    (ctx: SpatialPointContext | null, pos: UserGpsPosition) => {
+      const stationHint = ctx?.nearestStation
+        ? `trạm [${ctx.nearestStation.code}] ${ctx.nearestStation.name}`
+        : `tọa độ ${pos.latitude.toFixed(4)}°N, ${pos.longitude.toFixed(4)}°E`;
+      setChatRequest({
+        question: `Kiểm tra thời tiết, bão và cảnh báo tại ${stationHint}`,
+      });
+      setRightDrawer("chat");
+    },
+    [],
+  );
+
+  // Phím tắt toàn cục Ctrl+K / Cmd+K mở nhanh tìm kiếm tỉnh/trạm
+  useEffect(() => {
+    const onGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
+
+  // Xử lý liên kết 1-click từ Email (?sub_action=verify|unsubscribe&token=...) chỉ khi có query param
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const subAction = params.get("sub_action");
+    const token = params.get("token");
+    if (!subAction || !token) return;
+
+    const cleanUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+    setIsSubscriptionOpen(true);
+
+    if (subAction === "verify") {
+      subscriptionService
+        .verifyByToken(token)
+        .then((res) => {
+          subscriptionService.saveVerifiedSubscription(res.data);
+          setDeepLinkBanner({
+            type: "success",
+            message: `Đã kích hoạt nhận cảnh báo Email cho khu vực ${res.data.label}!`,
+          });
+        })
+        .catch(() => {
+          setDeepLinkBanner({
+            type: "error",
+            message:
+              "Liên kết xác thực không hợp lệ hoặc đã hết hạn. Vui lòng đăng ký lại.",
+          });
+        });
+    } else if (subAction === "unsubscribe") {
+      subscriptionService
+        .unsubscribeByToken(token)
+        .then((res) => {
+          subscriptionService.removeSavedSubscription(token);
+          setDeepLinkBanner({
+            type: "success",
+            message: `Đã hủy đăng ký nhận cảnh báo Email cho khu vực ${res.data.label}.`,
+          });
+        })
+        .catch(() => {
+          setDeepLinkBanner({
+            type: "error",
+            message: "Liên kết hủy đăng ký không hợp lệ hoặc đã được xử lý trước đó.",
+          });
+        });
+    }
+  }, []);
+
   const handleAskAiAboutAlert = useCallback((alert: AlertFeature) => {
     const name = alert.properties.location_name;
     setChatRequest({
@@ -511,6 +773,13 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
         onTabChange={handleTabChange}
         isFullscreen={isFullscreen}
         onToggleFullscreen={handleToggleFullscreen}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onLocateMe={handleLocateMe}
+        isLocatingMe={isLocatingMe}
+        onOpenSubscribe={() => {
+          setSubscriptionPrefill(null);
+          setIsSubscriptionOpen(true);
+        }}
       />
 
       {/* 2. KHU VỰC THÂN TRUNG TÂM */}
@@ -529,8 +798,9 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             >
               <AlertTriangle className="w-4 h-4 text-[#dc2626] shrink-0" />
               <span>
-                <strong className="uppercase">[LỖI HỆ THỐNG]:</strong> Mất kết
-                nối tới máy chủ Spring Boot. Hãy kiểm tra container Docker!
+                <strong className="uppercase">[MẤT KẾT NỐI MÁY CHỦ]:</strong>{" "}
+                Đang hiển thị dữ liệu mẫu tạm thời. Hãy kiểm tra lại dịch vụ máy
+                chủ dữ liệu!
               </span>
               <button
                 id="btn-retry-connection"
@@ -546,14 +816,14 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             </div>
           )}
 
-          {/* Thanh Tiến Trình Quét Radar Dữ Liệu Thời Gian Thực (Scanline) */}
+          {/* Thanh Tiến Trình Đang Tải Dữ Liệu Thời Gian Thực */}
           {isRefreshing && (
             <div
               id="scanline-indicator"
               className="absolute top-3 left-4 z-[1050] bg-[#161b13] border border-[#e2ffcc] px-2.5 py-1 text-[10px] text-[#e2ffcc] flex items-center gap-2 shadow-flat font-mono animate-pulse"
             >
               <span className="w-2 h-2 bg-[#e2ffcc] animate-ping inline-block" />
-              <span>[ĐANG QUÉT DỮ LIỆU RADAR TRẮC ĐỊA...]</span>
+              <span>Đang tải dữ liệu thời tiết mới nhất...</span>
             </div>
           )}
 
@@ -568,6 +838,22 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             onStationSelect={handleStationSelect}
             onFlyToStation={handleFlyToStation}
             onAskAi={handleAskAi}
+            onViewHistory={handleOpenStationHistory}
+            onSubscribeStation={handleOpenSubscribeStation}
+            userLocation={
+              userGpsPosition
+                ? {
+                    coordinates: [
+                      userGpsPosition.latitude,
+                      userGpsPosition.longitude,
+                    ],
+                    accuracyMeters: userGpsPosition.accuracyMeters,
+                    label: mySpatialContext?.nearestStation
+                      ? `Vị trí của tôi (gần ${mySpatialContext.nearestStation.name})`
+                      : "Vị trí hiện tại của tôi",
+                  }
+                : null
+            }
             activeTileId={activeTileId}
             layerVisibility={layerVisibility}
             layerOpacity={layerOpacity}
@@ -648,8 +934,25 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
             onResetCenter={handleResetCenter}
+            onLocateMe={handleLocateMe}
+            isLocatingMe={isLocatingMe}
             isFullscreen={isFullscreen}
             onToggleFullscreen={handleToggleFullscreen}
+          />
+
+          {/* Thẻ Phân Tích Vị Trí Hiện Tại Của Tôi (GPS + PostGIS) */}
+          <MyLocationCard
+            isOpen={isMyLocationOpen}
+            isLocating={isLocatingMe}
+            gpsError={gpsError}
+            position={userGpsPosition}
+            spatialContext={mySpatialContext}
+            onClose={() => setIsMyLocationOpen(false)}
+            onLocateGps={handleLocateMe}
+            onApplyManualCoords={handleApplyManualCoords}
+            onFlyToMyLocation={handleFlyToMyLocation}
+            onSubscribeHere={handleOpenSubscribeHere}
+            onAskAiHere={handleAskAiHere}
           />
 
           {/* Thanh Cuộn Bản Tin Cảnh Báo Nổi (Floating Alert Ticker, Bottom Left-Center, z-1000) */}
@@ -681,6 +984,38 @@ export const UnifiedAppLayout: React.FC<UnifiedAppLayoutProps> = ({
       <DisclaimerFooter
         cursorCoords={cursorCoords}
         activeTileId={activeTileId}
+      />
+
+      {/* 4. HỘP THOẠI TÌM KIẾM NHANH TỈNH/TRẠM (Ctrl+K) */}
+      <StationSearchModal
+        isOpen={isSearchOpen}
+        stations={stations}
+        onClose={() => setIsSearchOpen(false)}
+        onSelectStation={(station) => {
+          if (activeTab !== "operations") {
+            setActiveTab("operations");
+          }
+          handleStationSelect(station);
+        }}
+        onOpenHistory={handleOpenStationHistory}
+        onOpenSubscribe={handleOpenSubscribeStation}
+      />
+
+      {/* 5. BIỂU ĐỒ DIỄN BIẾN THỜI TIẾT LỊCH SỬ 24H / 72H / 7 NGÀY */}
+      <StationHistoryModal
+        station={historyStation}
+        onClose={() => setHistoryStation(null)}
+        onSubscribeStation={handleOpenSubscribeStation}
+      />
+
+      {/* 6. HỘP THOẠI ĐĂNG KÝ & QUẢN LÝ NHẬN CẢNH BÁO QUA EMAIL */}
+      <EmailSubscriptionModal
+        isOpen={isSubscriptionOpen}
+        stations={stations}
+        prefill={subscriptionPrefill}
+        deepLinkBanner={deepLinkBanner}
+        onClearDeepLinkBanner={() => setDeepLinkBanner(null)}
+        onClose={() => setIsSubscriptionOpen(false)}
       />
     </div>
   );

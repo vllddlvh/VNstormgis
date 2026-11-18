@@ -55,6 +55,24 @@ services:
       retries: 3
 
   # =======================================================
+  # 2B. LOCAL SMTP & EMAIL WEB INBOX: Mailpit (Port 1025 / 8025)
+  # =======================================================
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: weathergis-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAIL_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    networks:
+      - weathergis-internal-net
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+
+  # =======================================================
   # 3. BACKEND CORE: Spring Boot Modular Monolith (Java 21)
   # =======================================================
   backend:
@@ -86,6 +104,16 @@ services:
       INTERNAL_SYNC_SECRET: ${INTERNAL_SYNC_SECRET:-change_me_local_dev_secret}
       ADMIN_API_KEY: ${ADMIN_API_KEY:-change_me_admin_api_key}
       CHAT_RATELIMIT_TRUSTED_PROXIES: ${CHAT_RATELIMIT_TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,127.0.0.1}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT_INTERNAL:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@weathergis.vn}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
     ports:
       - "${SERVER_PORT:-8080}:8080"
     networks:

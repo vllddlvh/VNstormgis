@@ -73,7 +73,7 @@ export const DEFAULT_TILE_ID = "osm-de";
 export const TILE_PROVIDERS: Record<string, TileLayerOption> = {
   "osm-de": {
     id: "osm-de",
-    name: "OpenStreetMap Germany",
+    name: "OpenStreetMap Tiêu Chuẩn",
     url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Tiles: OpenStreetMap Germany',
@@ -81,7 +81,7 @@ export const TILE_PROVIDERS: Record<string, TileLayerOption> = {
   },
   "osm-fr": {
     id: "osm-fr",
-    name: "OpenStreetMap France (Dự Phòng)",
+    name: "OpenStreetMap Dự Phòng",
     url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Tiles: OpenStreetMap France',
@@ -90,7 +90,7 @@ export const TILE_PROVIDERS: Record<string, TileLayerOption> = {
   },
   "arcgis-dark": {
     id: "arcgis-dark",
-    name: "ArcGIS Dark Gray (Ban Đêm)",
+    name: "Bản Đồ Nền Tối (ArcGIS)",
     url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
     attribution: "Tiles &copy; Esri — Esri, DeLorme, NAVTEQ",
     maxZoom: 18,
@@ -194,8 +194,8 @@ export function calculateHaversineDistance(
  */
 export function formatCoordinate(coords: CoordinateTuple, precision = 4): string {
   const [lat, lng] = coords;
-  const latDirection = lat >= 0 ? "N" : "S";
-  const lngDirection = lng >= 0 ? "E" : "W";
+  const latDirection = lat >= 0 ? "B" : "N";
+  const lngDirection = lng >= 0 ? "Đ" : "T";
 
   return `${Math.abs(lat).toFixed(precision)}°${latDirection}, ${Math.abs(lng).toFixed(precision)}°${lngDirection}`;
 }

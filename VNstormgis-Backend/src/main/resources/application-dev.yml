@@ -169,3 +169,9 @@ weathergis:
   # ----------------------------------------------------------------------------
   cache:
     enabled: ${REDIS_CACHE_ENABLED:true} # Công tắc tổng: tắt khi sự cố/kiểm thử — API chạy thẳng PostGIS
+
+  # ----------------------------------------------------------------------------
+  # 10. CẤU HÌNH EMAIL SUBSCRIPTION (SMTP / MAILPIT LOCAL DEV)
+  # ----------------------------------------------------------------------------
+  mail:
+    enabled: ${MAIL_ENABLED:true} # Mặc định kết nối Mailpit localhost:1025 (tự động fail-soft sang SIMULATED nếu tắt)
