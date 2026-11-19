@@ -8,8 +8,7 @@
 [![React](https://img.shields.io/badge/React%2018-TypeScript%205-61dafb.svg)](VNstormgis-Frontend/package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Vietnam Weather & Storm Monitoring WebGIS with Grounded AI Warning Agent (`v1.0.0`)**  
-> Nền tảng bản đồ số địa không gian thời gian thực phục vụ giám sát mưa lớn, gió giật, xoáy thuận nhiệt đới và cảnh báo thiên tai sớm trên toàn lãnh thổ & vùng biển Việt Nam — kết hợp cơ chế **AI Grounding chống ảo giác số liệu**.
+> Nền tảng bản đồ số thời gian thực phục vụ giám sát mưa lớn, gió giật, xoáy thuận nhiệt đới và cảnh báo thiên tai sớm trên toàn chủ quyền lãnh thổ Việt Nam - tích hợp AI agent cảnh báo sớm tới người đăng ký.
 
 ---
 
@@ -30,26 +29,20 @@
 
 ## 1. Giới Thiệu Dự Án
 
-**VNstormgis** giải quyết bài toán phân tán thông tin khí tượng và độ trễ giải thích cảnh báo thiên tai bằng cách hợp nhất **dữ liệu quan trắc thời gian thực**, **phân tích không gian PostGIS** và **AI Agent hai chế độ (Chủ động & Bị động)** trên một giao diện bản đồ số duy nhất theo ngôn ngữ thiết kế **San Rita Field Guide**:
-
-- **Dữ liệu chuẩn hóa trắc địa:** Giám sát **39 điểm quan trắc** theo chuẩn **WGS84 (`EPSG:4326`)** và **GeoJSON RFC 7946**. Danh mục gồm 34 điểm đại diện đơn vị hành chính cấp tỉnh và 5 điểm hải đảo, bao gồm **Hoàng Sa (`HSA`)** và **Trường Sa (`TSA`)**. [Nghị quyết 202/2025/QH15](https://vanban.chinhphu.vn/?classid=1&docid=213930&orggroupid=1&pageid=27160), [Nghị quyết 30/2026/QH16 về thành lập thành phố Đồng Nai](https://chinhphu.vn/?docid=218009&pageid=27160).
-- **AI không bịa số liệu (Zero-Trust Grounded AI):** Mọi bản tin cảnh báo và câu trả lời hội thoại đều bị ràng buộc chặt chẽ vào khối dữ liệu thực đo `[FACTUAL_SYSTEM_DATA]`, đi qua tầng kiểm chứng ngữ pháp đóng đối chiếu số học chính xác (`BigDecimal`) và tự động chuyển sang mẫu tiếng Việt tất định (`is_fallback=true`) khi thiếu khóa API hoặc mô hình ngoại lệ.
-- **Sẵn sàng vận hành thực tế (`v1.0.0`):** Đóng gói Multi-Stage Docker non-root, Nginx 1.26 Reverse Proxy gắn đủ 5 HTTP Security Headers chuẩn OWASP, chịu tải kiểm chứng **500 CCU**, kèm quy trình sao lưu/phục hồi thảm họa PostGIS (`RTO < 5 phút`).
-
----
+**VNstormgis** giải quyết bài toán phân tán thông tin khí tượng và độ trễ cảnh báo thiên tai bằng cách hợp nhất **dữ liệu quan trắc thời gian thực**, **phân tích không gian PostGIS** và **AI Agent** trên một giao diện bản đồ số duy nhất. 
 
 ## 2. Tính Năng Trọng Tâm
 
-### 2.1. Bản Đồ Số WebGIS Đa Lớp Thời Gian Thực
-- **Lớp trạm quan trắc & ranh giới chủ quyền:** Hiển thị 39 điểm quan trắc, ranh giới đất liền, vùng biển Việt Nam và hai quần đảo Hoàng Sa, Trường Sa; hỗ trợ lọc nhanh theo vùng miền (*Bắc Bộ, Trung Bộ, Tây Nguyên, Nam Bộ, Biển Đảo*).
-- **Lớp lượng mưa (`RainfallLayer`):** Phân tầng màu sắc cường độ mưa (`rain_1h`, `rain_3h`) bám sát thang quy chuẩn khí tượng kèm Popup chi tiết nhiệt độ, độ ẩm, áp suất, gió.
-- **Lớp trường gió (`WindLayer`):** Biểu diễn vector hướng gió (`FROM + 180°`) và sức gió theo thang **Beaufort SVG**.
-- **Lớp theo dõi xoáy thuận nhiệt đới (`ActiveStormLayer` & `StormTrackLayer`):** Đồng bộ bão đang hoạt động từ **GDACS**, phân cấp cảnh báo (`Red` / `Orange` / `Green`), vẽ đường đi lịch sử nét liền, dự báo nét đứt, vùng ảnh hưởng `Polygon` và chế độ **`STORM_OPS`** mở rộng khung nhìn khi theo dõi bão ngoài khơi xa.
+### 2.1. Bản Đồ Số Đa Lớp Thời Gian Thực
+- **Lớp trạm quan trắc và ranh giới chủ quyền:** Hiển thị 39 điểm quan trắc, ranh giới đất liền, vùng biển Việt Nam và hai quần đảo Hoàng Sa, Trường Sa; hỗ trợ lọc nhanh theo vùng miền (Bắc Bộ, Trung Bộ, Tây Nguyên, Nam Bộ, Biển Đảo).
+- **Lớp lượng mưa:** Phân tầng màu sắc cường độ mưa bám sát thang quy chuẩn khí tượng kèm chi tiết nhiệt độ, độ ẩm, áp suất, gió.
+- **Lớp trường gió:** Biểu diễn vector hướng gió và sức gió.
+- **Lớp theo dõi xoáy thuận nhiệt đới:** Đồng bộ theo dõi bão đang hoạt động từ nguồn uy tín, phân cấp cảnh báo, vẽ đường đi lịch sử nét liền, dự báo nét đứt, vùng ảnh hưởng và chế độ mở rộng khung nhìn khi theo dõi bão ngoài khơi xa.
 
-### 2.2. Tiện Ích Địa Không Gian Cá Nhân Hóa & Trực Quan Hóa Lịch Sử
-- **Định vị *"Vị trí của tôi"* (`GPS + PostGIS Spatial Context`):** Định vị trình duyệt (hoặc nhập tọa độ tùy chỉnh), thực thi truy vấn láng giềng gần nhất **KNN GiST (`<->`)** và khoảng cách cầu **`ST_DistanceSphere`** để trả về trạm đo gần nhất, số liệu thời tiết tại chỗ, khoảng cách tới tâm bão active và các cảnh báo trong bán kính `100 km`.
-- **Tìm kiếm nhanh Tỉnh/Trạm (`Ctrl+K` / `Cmd+K`):** Tra cứu tức thì theo mã trạm hoặc tên địa phương tiếng Việt có dấu / không dấu (`da nang`, `truong sa`, `HAN`).
-- **Biểu đồ diễn biến thời tiết `24h / 72h / 7 ngày`:** Đồ thị SVG thuần chuẩn San Rita hiển thị chuỗi thời gian lượng mưa, tốc độ gió, gió giật và nhiệt độ mà không làm phình dung lượng gói tải Frontend (`dist = 664 KB`).
+### 2.2. Tiện Ích Cá Nhân Hóa
+- **Định vị vị trí người dùng:** Định vị vị trí (hoặc nhập tọa độ tùy chỉnh) giúp thực thi truy vấn số liệu thời tiết tại chỗ, khoảng cách tới tâm bão active và các cảnh báo trong bán kính `100 km`.
+- **Tìm kiếm nhanh Tỉnh/Trạm:** Tra cứu tức thì theo mã trạm hoặc tên địa phương tiếng Việt.
+- **Biểu đồ diễn biến thời tiết `24h / 72h / 7 ngày`:** Đồ thị hiển thị thời gian lượng mưa, tốc độ gió, gió giật và nhiệt độ,...
 
 ### 2.3. AI Agent Chủ Động & Bị Động Có Đối Chứng Dữ Liệu (`Grounded AI`)
 - **Cảnh báo chủ động (`Proactive AI Warning Engine`):** Sau mỗi chu kỳ đồng bộ thời tiết, hệ thống tự động đối chiếu bộ ngưỡng quản trị (`rain_1h`, `rain_3h`, `wind_speed`, `wind_gust`, `storm_dist`), ghi nhận vào hàng đợi giao dịch **PostgreSQL Inbox** (`PENDING → READY → COMPLETED`) có khóa thuê bao `lease_until` / `claim_token` chống xung đột đa tiến trình, kiểm chứng đầu ra Gemini và xuất bản kèm `factual_snapshot` bất biến.
